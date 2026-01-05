@@ -3,7 +3,7 @@
    =========================================================== */
 
 header.supbar .supbar__logo {
-  height: 48px;      /* ajusta si quieres 44 / 50 */
+  height: 44px;      /* ajusta si quieres 44 / 50 */
   width: auto;
   display: block;
 }
@@ -118,3 +118,39 @@ body {
 :root{
   --color-principal: #004a8f;
 }
+
+/* ===========================================================
+   ESTÁNDAR GLOBAL HEADER
+   Barra azul fija + logo grande sin agrandar la barra
+   =========================================================== */
+
+/* Barra azul con alto fijo (sin padding inflador) */
+header.supbar {
+  height: 74px;
+  padding: 0 !important;
+  overflow: visible;
+}
+
+/* Mantener el grid original y centrar vertical en toda la franja */
+header.supbar .supbar__wrap {
+  height: 100%;
+  padding: 0 16px;
+  align-items: center;     /* centra vertical dentro del grid */
+  overflow: visible;
+}
+
+/* Asegurar centrado vertical en columnas izquierda/derecha */
+header.supbar .supbar__left,
+header.supbar .supbar__right {
+  height: 100%;
+  display: flex;
+  align-items: center;     /* centra logo y botón verticalmente */
+}
+
+header.supbar .supbar__logo {
+  height: 46px;
+  width: auto;
+  display: block;
+  transform: translateY(4px); /* AJUSTE VISUAL: prueba 3px a 6px */
+}
+

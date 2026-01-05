@@ -27,7 +27,7 @@ header.supbar {
 header.supbar .supbar__wrap {
   max-width: 940px;
   margin: 0 auto;
-  padding: 10px 16px;
+  padding: 0px 16px;
 
   display: grid;
   grid-template-columns: auto 1fr auto;
