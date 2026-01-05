@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Módulo Compromisos – APP Ventas</title>
+  
+  <script src="../env.js"></script>
+
+  <!-- Estilos institucionales -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+
+  <!-- Mantener el rango de semana en una línea -->
+  <style>
+    #labelRangoSemana {
+      white-space: nowrap !important;
+      display: inline-block !important;
+    }
+  </style>
+</head>
+
+<body>
+
+<section id="modulo-vendedores">
+  <div class="tarjeta-principal">
+
+    <!-- ENCABEZADO -->
+    <div class="modulo-header">
+      <h2>Gestión de Compromisos</h2>
+      <button class="btn-volver" id="btnVolver">← Volver</button>
+    </div>
+
+    <!-- FILTRO DE SEMANA -->
+    <div class="acciones-vendedores"  style="justify-content:flex-start;">   
+   <div class="filtros-vendedores" style="gap:8px; justify-content:flex-start;">
+        
+        <label style="font-size:0.9rem;">
+          Semana de compromiso:
+          <input type="date" id="inputFechaBaseSemana" style="padding:4px 6px;" />
+        </label>
+  
+		<!-- Etiqueta rango de semana -->
+        <span
+          id="labelRangoSemana"
+          style="font-size:0.9rem; font-weight:600; margin-left:20px;"
+        ></span>
+
+      </div>
+    </div>
+
+    <!-- TABLA PRINCIPAL -->
+    <table id="tablaCompromisos" class="tabla-vendedores">
+      <thead>
+        <tr>
+          <th class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr>
+          <td colspan="8" style="text-align:center;">Cargando…</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+
+  <!-- MODAL COMPROMISO SEMANAL -->
+  <dialog id="modalCompromiso" class="modal">
+    <div class="modal-contenido">
+      <h3>
+        Compromiso semanal –
+        <span id="tituloModalCompromisoNombre">Vendedor</span>
+      </h3>
+
+      <p id="tituloModalCompromisoSemana"
+         style="margin-top:4px; font-size:0.9rem; color:#555;">
+      </p>
+
+      <form id="formCompromiso">
+        <table class="tabla-modal" id="tablaModalTipos"></table>
+
+        <input type="hidden" id="idVendedorCompromiso" />
+        <input type="hidden" id="fechaInicioSemana" />
+        <input type="hidden" id="fechaFinSemana" />
+
+        <div class="modal-botones">
+          <button type="submit" class="btn-guardar">Guardar</button>
+          <button type="button" id="cancelarCompromiso" class="btn-cancelar">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+</section>
+
+<script type="module" src="../scripts/compromisos.js"></script>
+<script type="module" src="../scripts/ui_modales.js"></script>
+
+</body>
+</html>

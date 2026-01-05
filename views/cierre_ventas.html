@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cierre Mensual de Ventas – APP Ventas</title>
+
+  <script src="../env.js"></script>
+
+  <!-- Estilos institucionales -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+
+  <style>
+    /* Inputs compactos dentro de la grilla (mismo look & feel que ventas) */
+    #tablaCierre input.input-cierre {
+      width: 70px;
+      text-align: right;
+      padding: 4px 6px;
+    }
+    #tablaCierre .col-vendedor { white-space: nowrap; }
+    #tablaCierre .acciones { white-space: nowrap; }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===========================================================
+       CIERRE MENSUAL DE VENTAS (EMBEBIDO EN SUPERVISOR)
+       Formato basado en ventas.html (ancho/estructura/filtros a la izquierda)
+  ============================================================ -->
+  <section id="modulo-vendedores">
+    <div class="tarjeta-principal">
+
+      <!-- ENCABEZADO DEL MÓDULO -->
+      <div class="modulo-header">
+        <h2>Cierre Mensual de Ventas</h2>
+        <button class="btn-volver" id="btnVolver">← Volver</button>
+      </div>
+
+      <!-- BLOQUE SUPERIOR: MES / AÑO (SIN DÍA, ALINEADO IZQUIERDA) -->
+      <div class="acciones-vendedores">
+        <div class="filtros-vendedores" style="gap:8px; justify-content:flex-start;">
+
+          <label style="font-size:0.9rem;">
+            Mes:
+            <select id="selectMes" style="padding:4px 6px;">
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+          </label>
+
+          <label style="font-size:0.9rem;">
+            Año:
+            <select id="selectAnio" style="padding:4px 6px;"></select>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- TABLA CIERRE (1 fila por vendedor, sin agrupación) -->
+      <table id="tablaCierre" class="tabla-vendedores">
+        <thead>
+          <tr>
+            <th>Vendedor</th>
+            <th>Tope</th>
+            <th>Sobre</th>
+            <th>Bajo</th>
+            <th>Plan</th>
+            <th>Producto Voluntario</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" style="text-align:center;">Cargando…</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+  </section>
+
+  <!-- SCRIPTS -->
+  <script type="module" src="../scripts/cierre_ventas.js"></script>
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+</body>
+</html>

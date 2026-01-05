@@ -1,0 +1,11 @@
+APP VENTAS – RELEASE NOTES V1.0
+--------------------------------
+FECHA: 28 OCT 2025
+
+• Login rediseñado según referencia visual (logo centrado sobre formulario)
+• Acepta usuario o correo electrónico en login
+• Panel debug inferior visible en todas las pantallas
+• Rutas dinámicas con config.js (localStorage)
+• Estilos centralizados en CSS (institucional, panel-base, responsive)
+• Carpeta logs/ con registro automático de empaquetados
+• Documentación interna completa (README, VERSION, release_notes, portada)

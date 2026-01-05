@@ -1,0 +1,178 @@
+/* =========================================================
+   LOGIN / CAMBIAR PASSWORD – ESTILO BASE
+   (Pisa institucional.css para evitar .login-container flex)
+   ========================================================= */
+
+/* Reset mínimo */
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+
+body {
+  background-color: #f5f7fa;
+  color: #003366;
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* =========================================================
+   CONTENEDOR PRINCIPAL (CARD)
+   IMPORTANTE: institucional.css trae .login-container {display:flex}
+   Acá lo pisamos para que NO se rompa el layout.
+   ========================================================= */
+.login-container {
+  display: block;              /* ✅ pisa el display:flex de institucional */
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  padding: 28px 26px;
+  text-align: center;
+}
+
+.login-container img {
+  width: 110px;
+  margin-bottom: 14px;
+}
+
+.login-container h2 {
+  margin: 0 0 18px;
+  font-size: 22px;
+  color: #0056a1;
+}
+
+.login-container form {
+  width: 100%;
+  text-align: left;
+}
+
+.login-container label {
+  display: block;
+  margin: 10px 0 6px;
+  font-weight: 600;
+  color: #003f73;
+  font-size: 14px;
+}
+
+/* =========================================================
+   INPUTS
+   ========================================================= */
+.login-container input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* =========================================================
+   INPUT CON OJO (PRESS & HOLD)
+   ========================================================= */
+.input-wrap {
+  position: relative;
+  width: 100%;
+  margin-bottom: 15px; /* spacing externo */
+}
+
+.input-wrap input {
+  padding-right: 44px; /* reserva para el ojo */
+  margin-bottom: 0;    /* evita “desfase” visual */
+  box-sizing: border-box;
+}
+
+.btn-eye {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: #0056a1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-eye svg {
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+/* Estado: cerrado / abierto */
+.btn-eye .eye-open { display: none; }
+.btn-eye.is-open .eye-open { display: block; }
+.btn-eye.is-open .eye-closed { display: none; }
+
+/* =========================================================
+   BOTÓN INGRESAR (submit)
+   ========================================================= */
+.login-container form > button[type="submit"] {
+  width: 100%;
+  background: #0056a1;
+  color: white;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.login-container form > button[type="submit"]:hover {
+  background: #003f73;
+}
+
+/* =========================================================
+   BOTÓN SECUNDARIO: "Generar clave temporal"
+   (Debajo de Ingresar)
+   ========================================================= */
+.btn-link-sec.btn-clave-temporal {
+  width: 100%;
+  background: #f3f7ff;
+  color: #004a91;
+  border: 1px solid #c7d6e8;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-link-sec.btn-clave-temporal:hover {
+  background: #e9f1ff;
+}
+
+/* =========================================================
+   FOOTER SOLO DENTRO DEL CARD (no global)
+   ========================================================= */
+.login-container footer {
+  margin-top: 15px;
+  font-size: 12px;
+  color: #777;
+  text-align: center;
+}
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+@media (max-width: 480px) {
+  .login-container {
+    width: 92vw;
+    padding: 24px 18px;
+  }
+
+  .login-container h2 {
+    font-size: 20px;
+  }
+}

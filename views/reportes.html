@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reportes del Supervisor</title>
+  
+  <script src="../env.js"></script>
+
+  <link rel="stylesheet" href="../styles/institucional.css">
+  <link rel="stylesheet" href="../styles/panel-base.css">
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css">
+  <link rel="stylesheet" href="../styles/responsive.css">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <script src="../scripts/reportes.js" defer></script>
+</head>
+
+<body>
+  <header class="supbar">
+    <div class="supbar__wrap">
+      <div class="supbar__left">
+        <img src="../assets/logo_app_ventas.png" alt="Logo App Ventas" class="supbar__logo">
+      </div>
+      <h1 class="supbar__title">Reportes del Supervisor</h1>
+      <div class="supbar__right">
+        <button id="logoutBtn" class="btn btn--danger">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="supmain fade-in">
+    <section class="infocard sombra-suave">
+      <h2 class="infocard__title">Indicadores del Equipo</h2>
+      <p class="infocard__desc">
+        Visualiza los reportes consolidados de ventas, compromisos y desempeño por equipo o vendedor.
+      </p>
+    </section>
+
+    <section class="cards">
+      <div class="card sombra-suave">
+        <h3 class="card__title">Reporte de Ventas</h3>
+        <button id="btnReporteVentas" class="btn">Abrir</button>
+      </div>
+
+      <div class="card sombra-suave">
+        <h3 class="card__title">Reporte de Compromisos</h3>
+        <button id="btnReporteCompromisos" class="btn">Abrir</button>
+      </div>
+
+      <div class="card sombra-suave">
+        <h3 class="card__title">Reporte Consolidado</h3>
+        <button id="btnReporteGeneral" class="btn">Abrir</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" style="text-align:center; margin-top:40px;">
+    <p class="texto-secundario">© 2025 App Ventas | Reportes del Supervisor</p>
+  </footer>
+    <!-- Scripts institucionales -->
+  <script type="module" src="../scripts/utils.js"></script>
+
+  <!-- Bloques institucionales globales -->
+  <div id="overlayCarga" class="oculto">
+    <div class="spinner"></div>
+    <div id="mensajeCarga">Cargando...</div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Módulo Vendedores – APP Ventas</title>
+
+  <!-- ENV -->
+  <script src="../env.js"></script>
+
+  <!-- Logo -->
+  <link rel="icon" type="image/png" href="../assets/logo_app_ventas.png" />
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css" />
+
+  <!-- Ajuste visual de modales -->
+  <style>
+    dialog.modal {
+      border: none;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+    }
+    dialog.modal::backdrop {
+      background: rgba(0, 0, 0, 0.45);
+    }
+    dialog.modal .modal-contenido {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px 24px;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <section id="modulo-vendedores">
+    <div class="tarjeta-principal">
+      <div class="modulo-header">
+        <h2>Gestión de Vendedores</h2>
+        <button class="btn-volver" id="btnVolver">← Volver</button>
+      </div>
+
+      <div class="contenido-vendedores">
+        <div class="acciones-vendedores">
+          <button class="btn-nuevo" data-modal-abrir="modalNuevoVendedor">
+            + Nuevo Vendedor
+          </button>
+
+          <div class="filtros-vendedores">
+            <label>
+              <input type="checkbox" id="chkVigentes" checked />
+              Mostrar solo vigentes
+            </label>
+          </div>
+        </div>
+
+        <table id="tablaVendedores" class="tabla-vendedores">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>RUT</th>
+              <th>Equipo</th>
+              <th>Fecha Ingreso</th>
+              <th>Fecha Egreso</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="6">Cargando vendedores…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALERTA INSTITUCIONAL -->
+  <div id="alertaInstitucional" class="alerta-modal" style="display:none;">
+    <div class="alerta-contenido">
+      <h3 id="alertaTitulo">Sistema de Gestión de Ventas</h3>
+      <p id="alertaMensaje"></p>
+      <button id="btnCerrarAlerta">Aceptar</button>
+    </div>
+  </div>
+
+  <!-- =========================
+       SCRIPTS
+       ========================= -->
+
+  <!-- UI de modales -->
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+  <!-- Configuración / Supabase -->
+  <script type="module" src="../config.js"></script>
+
+  <!-- Módulo vendedores -->
+  <script type="module" src="../scripts/vendedores.js"></script>
+
+  <!-- Bootstrap -->
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      // limpiar alerta residual
+      const alerta = document.getElementById("alertaInstitucional");
+      if (alerta) {
+        alerta.style.display = "none";
+        alerta.style.opacity = "0";
+        setTimeout(() => {
+          alerta.removeAttribute("open");
+          alerta.classList.remove("visible");
+        }, 50);
+      }
+
+      // inicializar módulo vendedores
+      if (
+        window.AppVentas &&
+        window.AppVentas.features &&
+        window.AppVentas.features.vendedores &&
+        typeof window.AppVentas.features.vendedores.init === "function"
+      ) {
+        window.AppVentas.features.vendedores.init();
+      } else {
+        console.error("No se encontró AppVentas.features.vendedores.init");
+      }
+    });
+  </script>
+</body>
+</html>

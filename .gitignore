@@ -1,0 +1,20 @@
+# dependencias
+node_modules/
+
+# certificados / llaves (NO subir)
+*.pem
+*.key
+cert.pem
+key.pem
+
+# logs
+logs/
+*.log
+
+# cosas de windows
+.DS_Store
+Thumbs.db
+
+# secretos (si usas env local sensible)
+.env
+.env.*

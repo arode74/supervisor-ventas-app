@@ -1,0 +1,109 @@
+<script src="../env.js"></script>
+
+<div id="modulo-configuracion" class="modulo-configuracion">
+  <div class="modulo-panel">
+    <div class="modulo-header">
+      <h2>Configuración</h2>
+      <button id="btnVolver" class="btn-volver">Volver</button>
+    </div>
+
+    <div class="tarjeta-principal">
+      <div class="bloque-config__header">
+        <div>
+          <h3 class="bloque-config__titulo">Parámetros del Supervisor</h3>
+          <p class="bloque-config__sub">Selecciona un parámetro y administra su configuración</p>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <div class="config-lista">
+          <button class="config-item__btn" data-param="tipos_compromisos" type="button">
+            Tipos de compromiso
+          </button>
+
+          <button class="config-item__btn" data-param="ingreso_ventas" type="button" disabled>
+            Ingreso de ventas <span class="tag-prox">Próximamente</span>
+          </button>
+        </div>
+
+        <div class="config-detalle">
+          <div id="accionesParametro" class="config-acciones-right" style="display:none;"></div>
+          <div id="tooltipParametro" class="config-tooltip" style="display:none;"></div>
+          <div id="mensajeEstado" class="mensaje-estado"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===========================================================
+     MODAL: Tipos de compromisos (edición por fila)
+     =========================================================== -->
+<dialog id="modalTiposCompromisos" class="modal">
+  <div class="modal-contenido">
+    <h3>Tipos de compromisos</h3>
+
+    <div style="margin-top:10px;">
+      <table class="tabla-compacta" style="width:100%; border-collapse:collapse;">
+        <colgroup>
+          <col style="width:22%;">
+          <col style="width:44%;">
+          <col style="width:12%;">
+          <col style="width:22%;">
+        </colgroup>
+        <thead>
+          <tr>
+            <th style="text-align:left;">Nombre</th>
+            <th style="text-align:left;">Descripción</th>
+            <th style="text-align:center;">Activo</th>
+            <th style="text-align:left;">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyTiposCompromisos"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-botones">
+      <button class="btn btn--secondary" data-modal-cerrar="modalTiposCompromisos">Cerrar</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ===========================================================
+     MODAL: Nuevo tipo
+     =========================================================== -->
+<dialog id="modalNuevoTipo" class="modal">
+  <div class="modal-contenido">
+    <h3>Nuevo tipo de compromiso</h3>
+
+    <label for="nuevoTipoNombre">Nombre</label>
+    <input id="nuevoTipoNombre" type="text" />
+
+    <label for="nuevoTipoDescripcion">Descripción</label>
+    <textarea id="nuevoTipoDescripcion" rows="3" style="width:100%;"></textarea>
+
+    <div class="modal-checkline">
+      <span class="modal-checkline__label">Activo</span>
+      <input id="nuevoTipoActivo" type="checkbox" checked />
+    </div>
+
+    <div class="modal-botones">
+      <button id="btnGuardarNuevoTipo" class="btn btn--primary" type="button">Guardar</button>
+      <button class="btn btn--secondary" type="button" data-modal-cerrar="modalNuevoTipo">Cancelar</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ===========================================================
+     MODAL: Aviso
+     =========================================================== -->
+<dialog id="modalAviso" class="modal">
+  <div class="modal-contenido">
+    <h3 id="avisoTitulo">Aviso</h3>
+    <p id="avisoTexto" style="margin-top:10px;">...</p>
+
+    <div class="modal-botones">
+      <button class="btn btn--primary" id="btnCerrarAviso" type="button">Cerrar</button>
+    </div>
+  </div>
+</dialog>
