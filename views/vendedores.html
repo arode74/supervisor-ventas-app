@@ -5,39 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Módulo Vendedores – APP Ventas</title>
 
-  <!-- ENV -->
   <script src="../env.js"></script>
-
-  <!-- Logo -->
   <link rel="icon" type="image/png" href="../assets/logo_app_ventas.png" />
 
-  <!-- Estilos -->
   <link rel="stylesheet" href="../styles/institucional.css" />
   <link rel="stylesheet" href="../styles/panel-base.css" />
   <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
 
-  <!-- Font Awesome -->
   <link rel="stylesheet" href="../assets/fontawesome/css/all.min.css" />
-
-  <!-- Ajuste visual de modales -->
-  <style>
-    dialog.modal {
-      border: none;
-      padding: 0;
-      margin: 0;
-      background: transparent;
-    }
-    dialog.modal::backdrop {
-      background: rgba(0, 0, 0, 0.45);
-    }
-    dialog.modal .modal-contenido {
-      background: #fff;
-      border-radius: 10px;
-      padding: 20px 24px;
-      max-width: 520px;
-      margin: 0 auto;
-    }
-  </style>
 </head>
 
 <body>
@@ -50,9 +25,7 @@
 
       <div class="contenido-vendedores">
         <div class="acciones-vendedores">
-          <button class="btn-nuevo" data-modal-abrir="modalNuevoVendedor">
-            + Nuevo Vendedor
-          </button>
+          <button class="btn-nuevo" data-modal-abrir="modalNuevoVendedor">+ Nuevo Vendedor</button>
 
           <div class="filtros-vendedores">
             <label>
@@ -81,6 +54,160 @@
     </div>
   </section>
 
+  <!-- =========================
+       MODALES (requeridos por vendedores.js)
+       ========================= -->
+
+  <!-- NUEVO VENDEDOR -->
+  <dialog id="modalNuevoVendedor" class="modal">
+    <div class="modal-contenido">
+      <div class="modal-encabezado">
+        <h3>Nuevo Vendedor</h3>
+      </div>
+
+      <form id="formNuevoVendedor" method="dialog">
+        <div class="form-grid">
+          <label>
+            Nombre
+            <input id="nombreVendedor" type="text" autocomplete="off" required />
+          </label>
+
+          <label>
+            RUT
+            <input id="rutVendedor" type="text" autocomplete="off" required />
+          </label>
+
+          <label>
+            Fecha ingreso
+            <input id="fechaIngreso" type="date" required />
+          </label>
+
+          <label>
+            Equipo
+            <select id="selectEquipoModal" required>
+              <option value="">Cargando…</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="acciones-modal">
+          <!-- Cierra sin exigir required -->
+          <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
+          <button type="button" id="btnGuardarVendedor" class="btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- EDITAR VENDEDOR (CORREGIDO: sin X, permite editar Nombre + Fecha ingreso, Cancelar cierra sin validar) -->
+  <dialog id="modalEditarVendedor" class="modal">
+    <div class="modal-contenido">
+      <div class="modal-encabezado">
+        <h3>Editar Vendedor</h3>
+      </div>
+
+      <form id="formEditarVendedor" method="dialog">
+        <div class="form-grid">
+          <label>
+            Nombre
+            <input id="editNombreVendedor" type="text" autocomplete="off" required />
+          </label>
+
+          <label>
+            RUT
+            <input id="editRutVendedor" type="text" autocomplete="off" readonly />
+          </label>
+
+          <label>
+            Fecha ingreso
+            <input id="editFechaIngreso" type="date" required />
+          </label>
+
+          <label>
+            Equipo
+            <select id="editEquipoSelect" required>
+              <option value="">Cargando…</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- Campo requerido por vendedores.js (se usa internamente). Lo dejamos oculto. -->
+        <input id="editFechaEgreso" type="date" style="display:none;" />
+
+        <!-- Reversar baja (vendedores.js lo muestra/oculta según tenga fecha_egreso) -->
+        <div id="filaRevertirBaja" style="display:none; margin-top:10px;">
+          <label style="display:flex; gap:10px; align-items:center;">
+            <input type="checkbox" id="editRevertirBaja" />
+            Reversar baja
+          </label>
+        </div>
+
+        <div class="acciones-modal">
+          <!-- Igual que Nuevo Vendedor -->
+          <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
+          <button type="button" id="btnGuardarEdicion" class="btn-primario">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- BAJA VENDEDOR (incluye fechaBajaVendedor requerida por vendedores.js) -->
+  <dialog id="modalBajaVendedor" class="modal">
+    <div class="modal-contenido">
+      <div class="modal-encabezado">
+        <h3>Dar de baja</h3>
+      </div>
+
+      <form method="dialog">
+        <p id="textoBajaVendedor"></p>
+
+        <div class="form-grid" style="margin-top:10px;">
+          <label>
+            Fecha egreso
+            <input id="fechaBajaVendedor" type="date" required />
+          </label>
+          <div></div>
+        </div>
+
+        <div class="acciones-modal">
+          <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
+          <button type="button" id="btnConfirmarBajaVendedor" class="btn-primario">Confirmar baja</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- ADVERTENCIA: ventas posteriores / cambio fecha -->
+  <dialog id="modalAdvertenciaCambioFecha" class="modal">
+    <div class="modal-contenido">
+      <div class="modal-encabezado">
+        <h3>Atención</h3>
+      </div>
+
+      <form method="dialog">
+        <p>Existen ventas posteriores a la fecha de egreso. Revisa el detalle antes de continuar.</p>
+
+        <div>
+          <h4 style="margin:12px 0 8px;">Ventas que requieren ajuste</h4>
+          <ul id="listaVentasCambioFecha"></ul>
+        </div>
+
+        <div id="bloqueVentasPosteriores" style="display:none;">
+          <h4 style="margin:12px 0 8px;">Ventas posteriores</h4>
+          <ul id="listaVentasPosteriores"></ul>
+        </div>
+
+        <div class="acciones-modal">
+          <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
+          <button type="button" id="btnConfirmarCambioFecha" class="btn-primario">Continuar</button>
+        </div>
+
+        <!-- Mantengo ids por compatibilidad con vendedores.js (si los usa por id) -->
+        <button id="btnCancelarCambioFecha" type="button" style="display:none;"></button>
+      </form>
+    </div>
+  </dialog>
+
   <!-- ALERTA INSTITUCIONAL -->
   <div id="alertaInstitucional" class="alerta-modal" style="display:none;">
     <div class="alerta-contenido">
@@ -93,20 +220,12 @@
   <!-- =========================
        SCRIPTS
        ========================= -->
-
-  <!-- UI de modales -->
   <script type="module" src="../scripts/ui_modales.js"></script>
-
-  <!-- Configuración / Supabase -->
   <script type="module" src="../config.js"></script>
-
-  <!-- Módulo vendedores -->
   <script type="module" src="../scripts/vendedores.js"></script>
 
-  <!-- Bootstrap -->
   <script>
     window.addEventListener("DOMContentLoaded", () => {
-      // limpiar alerta residual
       const alerta = document.getElementById("alertaInstitucional");
       if (alerta) {
         alerta.style.display = "none";
@@ -117,7 +236,6 @@
         }, 50);
       }
 
-      // inicializar módulo vendedores
       if (
         window.AppVentas &&
         window.AppVentas.features &&
