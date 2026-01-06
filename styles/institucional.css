@@ -154,3 +154,24 @@ header.supbar .supbar__logo {
   transform: translateY(4px); /* AJUSTE VISUAL: prueba 3px a 6px */
 }
 
+/* ====== CANDADO ALTURA SUPBAR (NO NEGOCIABLE) ====== */
+header.supbar{
+  height: 74px !important;
+  min-height: 74px !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+header.supbar .supbar__wrap{
+  height: 74px !important;     /* o 100%, pero 74px es “a prueba de balas” */
+  padding: 0 16px !important;  /* consistente */
+  box-sizing: border-box;
+  align-items: center;
+}
+
+header.supbar .supbar__left,
+header.supbar .supbar__right{
+  height: 74px !important;
+  display: flex;
+  align-items: center;
+}
