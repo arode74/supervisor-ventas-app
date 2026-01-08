@@ -534,7 +534,11 @@ function reconstruirTheadObligatorios() {
   html += '<th>Acciones</th>';
   html += '</tr>';
   thead.innerHTML = html;
+  // Columnas ordenables: cursor
+  thead.querySelectorAll('th.th-sortable[data-col]').forEach((th) => { th.style.cursor = 'pointer'; });
+  if (ordenColumna) actualizarFlechas(ordenColumna, ordenAsc);
 }
+
 
 // =========================
 function renderTabla() {
@@ -643,12 +647,29 @@ function actualizarFlechas(columnaOrdenada, asc) {
 }
 
 function inicializarOrdenamiento() {
-  const ths = document.querySelectorAll("#tablaCompromisos thead th");
-  ths.forEach((th) => {
+  // Delegación: 1 listener, sobrevive a reconstrucción dinámica del THEAD.
+  const tabla = document.getElementById("tablaCompromisos");
+  const thead = tabla?.querySelector("thead");
+  if (!tabla || !thead) return;
+
+  if (window.__compromisosSortInit) return;
+  window.__compromisosSortInit = true;
+
+  const aplicarCursor = () => {
+    thead.querySelectorAll("th.th-sortable[data-col]").forEach((th) => {
+      th.style.cursor = "pointer";
+    });
+  };
+  aplicarCursor();
+
+  thead.addEventListener("click", (ev) => {
+    const th = ev.target?.closest?.("th.th-sortable[data-col]");
+    if (!th) return;
     const col = th.dataset.col;
     if (!col) return;
-    th.style.cursor = "pointer";
-    th.addEventListener("click", () => ordenarTabla(col));
+
+    ordenarTabla(col);
+    aplicarCursor(); // por si el thead se reconstruyó
   });
 }
 

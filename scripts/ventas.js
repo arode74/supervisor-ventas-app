@@ -637,11 +637,12 @@ async function cargarVentas() {
 // MODAL NUEVA / EDITAR VENTA
 // ================================
 function resetCantidadesModal() {
-  if (inputTope) inputTope.value = "0";
-  if (inputSobre) inputSobre.value = "0";
-  if (inputBajo) inputBajo.value = "0";
-  if (inputPlan) inputPlan.value = "0";
-  if (inputProductoVol) inputProductoVol.value = "0";
+  // UX: inputs vacíos por defecto (evita el "10" por cursor delante de 0)
+  if (inputTope) inputTope.value = "";
+  if (inputSobre) inputSobre.value = "";
+  if (inputBajo) inputBajo.value = "";
+  if (inputPlan) inputPlan.value = "";
+  if (inputProductoVol) inputProductoVol.value = "";
 }
 
 function setTituloModal(modo, nombreVendedor) {
@@ -727,13 +728,13 @@ async function cargarVentasDiaEnModal(idVendedor, fecha) {
       }
     });
 
-    if (inputTope) inputTope.value = String(totTope);
-    if (inputSobre) inputSobre.value = String(totSobre);
-    if (inputBajo) inputBajo.value = String(totBajo);
-    if (inputPlan) inputPlan.value = String(totPlan);
+    if (inputTope) inputTope.value = totTope === 0 ? "" : String(totTope);
+    if (inputSobre) inputSobre.value = totSobre === 0 ? "" : String(totSobre);
+    if (inputBajo) inputBajo.value = totBajo === 0 ? "" : String(totBajo);
+    if (inputPlan) inputPlan.value = totPlan === 0 ? "" : String(totPlan);
     if (inputProductoVol) {
       const n = Number(totPV || 0);
-      inputProductoVol.value = n.toLocaleString("de-DE");
+      inputProductoVol.value = n === 0 ? "" : n.toLocaleString("de-DE");
     }
   } catch (err) {
     console.error("Error general cargando ventas del día para edición:", err);
@@ -805,6 +806,12 @@ if (inputProductoVol) {
   inputProductoVol.addEventListener("input", () => {
     let raw = inputProductoVol.value.replace(/\D/g, "");
 
+    // Permitir vacío (no forzar "0" mientras escribe)
+    if (raw === "") {
+      inputProductoVol.value = "";
+      return;
+    }
+
     if (raw.length > 9) raw = raw.slice(0, 9);
 
     let num = Number(raw || "0");
@@ -815,7 +822,12 @@ if (inputProductoVol) {
 
   inputProductoVol.addEventListener("blur", () => {
     let raw = inputProductoVol.value.replace(/\D/g, "");
-    if (raw === "") raw = "0";
+
+    // Si queda vacío, lo dejamos vacío (0 se interpreta al guardar)
+    if (raw === "") {
+      inputProductoVol.value = "";
+      return;
+    }
 
     let num = Number(raw || "0");
     if (num > 999999999) num = 999999999;

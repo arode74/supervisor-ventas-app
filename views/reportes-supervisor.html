@@ -1,0 +1,40 @@
+<!-- views/reportes-supervisor.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reportes – APP Ventas</title>
+
+  <script src="../env.js"></script>
+
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+</head>
+
+<body>
+  <!-- Mantengo este id para heredar tu ajuste protegido de ancho/márgenes -->
+  <section id="modulo-vendedores">
+    <div class="tarjeta-principal">
+
+      <div class="modulo-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="margin:0;">Reportes</h2>
+        <!-- NO usar id="btnVolver" para no chocar con el delegado del supervisor -->
+        <button id="btnVolverReportes" class="btn" type="button">← Volver</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button id="btnReporteCompromisoVentas" class="btn" type="button">Compromiso Ventas</button>
+        <button class="btn" type="button" disabled>Nuevo Reporte</button>
+      </div>
+
+      <!-- Aquí se carga anidado el reporte seleccionado -->
+      <section id="contenedor-reporte-anidado" style="display:none; margin-top:16px;"></section>
+
+    </div>
+  </section>
+
+  <script type="module" src="../scripts/reportes-supervisor.js"></script>
+</body>
+</html>

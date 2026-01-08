@@ -232,12 +232,18 @@ async function initSupervisor() {
   // ✅ Cierre mensual ventas (anidado igual que los demás)
   // Si aún no existe cierre_ventas.js, déjalo como null y igual carga la vista.
   btnCierreVentas?.addEventListener("click", () =>
-    abrirModulo("./cierre_ventas.html", null)
+    abrirModulo("./cierre_ventas.html", "../scripts/cierre_ventas.js")
     // Si tienes JS del módulo, cambia a:
     // abrirModulo("./cierre_ventas.html", "../scripts/cierre_ventas.js")
   );
 
-  btnReportes?.addEventListener("click", () => alert("Reportes: pendiente"));
+  btnReportes?.addEventListener("click", () =>
+    abrirModulo(
+    "./reportes-supervisor.html",
+    "../scripts/reportes-supervisor.js"
+    )
+  );
+
   btnSuplencias?.addEventListener("click", () => alert("Suplencias: pendiente"));
   btnConfiguracion?.addEventListener("click", () =>
     abrirModulo("./parametros-supervisor.html", "../scripts/parametros-supervisor.js")

@@ -1,0 +1,53 @@
+<!-- views/compromiso-ventas.html -->
+<!-- FRAGMENTO ANIDADO: NO incluir <html><head>... -->
+
+<div id="modulo-compromiso-ventas">
+
+  <div class="modulo-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <h2 style="margin:0;">Reporte Compromiso–Ventas</h2>
+
+    <!-- NO usar id="btnVolver" para no chocar con el delegado del supervisor -->
+    <button id="btnVolverReporteCV" class="btn" type="button">← Volver</button>
+  </div>
+
+  <!-- Semana + Excel (icono) -->
+  <div style="margin-top:14px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <label for="selectSemana" style="font-weight:600;">Semana:</label>
+
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <input id="selectSemana" type="week" />
+        <span id="labelRango" style="opacity:.85;"></span>
+      </div>
+    </div>
+
+    <!-- Excel SOLO icono, sin botón azul -->
+    <button
+      id="btnExcel"
+      type="button"
+      title="Descargar Excel"
+      aria-label="Descargar Excel"
+      style="
+        width:34px; height:34px;
+        padding:0;
+        border:none;
+        background:transparent;
+        box-shadow:none;
+        display:flex; align-items:center; justify-content:center;
+        cursor:pointer;
+      "
+    >
+      <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#1f7a3f" d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5z"/>
+        <path fill="#2aa65a" d="M14 2v5h5z"/>
+        <path fill="#ffffff" d="M9.2 16.9 7.4 13.9l1.8-3h1.6l-2.1 3.1 2.1 2.9H9.2zm5.6 0-1.6-2.2-1.6 2.2h-1.6l2.4-3.1-2.3-2.9h1.7l1.4 2 1.4-2h1.7l-2.3 2.9 2.4 3.1h-1.6z"/>
+      </svg>
+    </button>
+  </div>
+
+  <div id="estadoCarga" style="margin-top:10px; min-height:22px;"></div>
+
+  <!-- Render anidado -->
+  <div id="contenedorReporte" style="margin-top:14px;"></div>
+
+</div>
