@@ -7,8 +7,45 @@
   const panel = document.getElementById("panelReportes");
   const btnVolver = document.getElementById("btnVolverReportes");
 
+
+  async function obtenerUsuarioSesion() {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return data?.user || null;
+    } catch (e) {
+      console.warn("⚠️ No se pudo obtener usuario de sesión:", e);
+      return null;
+    }
+  }
+
+  async function obtenerPerfilActualRBAC(userId) {
+    try {
+      const { data, error } = await supabase.rpc("get_perfil_actual", { p_user_id: userId });
+      if (error) throw error;
+      return data || null;
+    } catch (e) {
+      console.warn("⚠️ No se pudo obtener perfil actual (RBAC):", e);
+      return null;
+    }
+  }
+
   async function cargarReportes() {
     try {
+      const user = await obtenerUsuarioSesion();
+      if (!user?.id) {
+        panel.innerHTML = `<p style="color:#c00">Sesión inválida. Vuelve a iniciar sesión.</p>`;
+        return;
+      }
+
+      const perfilActual = (await obtenerPerfilActualRBAC(user.id)) || "";
+      const p = String(perfilActual).toLowerCase();
+      if (p && p !== "supervisor" && p !== "admin") {
+        panel.innerHTML = `<p style="color:#c00">Sin permisos para ver reportes.</p>`;
+        return;
+      }
+
+
       const { data, error } = await supabase.from("ventas").select("monto");
       if (error) throw error;
 

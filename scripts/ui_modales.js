@@ -7,6 +7,17 @@ import { supabase } from "../config.js";
 console.log("🟢 ui_modales.js cargado");
 
 /* ===========================================================
+   SUPERVISOR — FUENTE ÚNICA (RBAC)
+   - No usar localStorage/sessionStorage para identidad
+   =========================================================== */
+async function getSupervisorId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) return null;
+  return data.user.id;
+}
+
+
+/* ===========================================================
    ABRIR MODAL
    =========================================================== */
 function abrirModal(idModal) {
@@ -33,7 +44,7 @@ function cerrarModal(idModal) {
 /* ===========================================================
    MANEJADOR GLOBAL DE CLICKS
    =========================================================== */
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const btnAbrir = e.target.closest("[data-modal-abrir]");
   const btnCerrar = e.target.closest("[data-modal-cerrar]");
 
@@ -44,17 +55,15 @@ document.addEventListener("click", (e) => {
 
     // Caso especial: modal nuevo vendedor
     if (idModal === "modalNuevoVendedor") {
-      const idSupervisorActivo =
-        localStorage.getItem("idSupervisorActivo") ||
-        sessionStorage.getItem("idSupervisorActivo");
+      const idSupervisor = await getSupervisorId();
 
       const select = document.getElementById("selectEquipoModal");
-      if (!select || !idSupervisorActivo) return;
+      if (!select || !idSupervisor) return;
 
       supabase
         .from("vista_equipo_supervisor_dia")
         .select("id_equipo, nombre_equipo")
-        .eq("id_supervisor", idSupervisorActivo)
+        .eq("id_supervisor", idSupervisor)
         .eq("vigente", true)
         .then(({ data, error }) => {
           if (error) {

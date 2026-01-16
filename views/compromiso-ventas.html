@@ -5,23 +5,19 @@
 
   <div class="modulo-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
     <h2 style="margin:0;">Reporte Compromiso–Ventas</h2>
-
-    <!-- NO usar id="btnVolver" para no chocar con el delegado del supervisor -->
     <button id="btnVolverReporteCV" class="btn" type="button">← Volver</button>
   </div>
 
-  <!-- Semana + Excel (icono) -->
   <div style="margin-top:14px; display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap;">
     <div style="display:flex; flex-direction:column; gap:6px;">
-      <label for="selectSemana" style="font-weight:600;">Semana:</label>
+      <label for="selectDia" style="font-weight:600;">Día:</label>
 
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <input id="selectSemana" type="week" />
-        <span id="labelRango" style="opacity:.85;"></span>
+        <input id="selectDia" type="date" />
+        <span id="labelSemana" style="opacity:.85;"></span>
       </div>
     </div>
 
-    <!-- Excel SOLO icono, sin botón azul -->
     <button
       id="btnExcel"
       type="button"
@@ -46,8 +42,6 @@
   </div>
 
   <div id="estadoCarga" style="margin-top:10px; min-height:22px;"></div>
-
-  <!-- Render anidado -->
   <div id="contenedorReporte" style="margin-top:14px;"></div>
 
 </div>

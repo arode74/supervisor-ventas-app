@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Compromisos — Móvil</title>
+
+  <link rel="stylesheet" href="../styles/institucional.css"/>
+  <link rel="stylesheet" href="../styles/panel-base.css"/>
+  <link rel="stylesheet" href="../styles/mobile-afp.css"/>
+
+  <!-- Supabase + ENV (misma fuente que PC) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../env.js"></script>
+
+  <!-- Shared -->
+  <script src="../scripts/mobile_shared.js"></script>
+
+  <script defer src="../scripts/compromisos.mobile.js"></script>
+</head>
+
+<body class="appventas-body">
+  <header class="m-topbar">
+    <div class="m-topbar__left">
+      <div class="m-topbar__icon">✓</div>
+      <div class="m-topbar__title">Compromisos</div>
+    </div>
+    <button class="m-iconbtn" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+  </header>
+
+  <main class="m-page">
+    <!-- Volver (idéntico al de Ventas: link textual) -->
+    <a class="m-back" href="../views/supervisor.mobile.html" id="btn-volver">
+      <span class="m-back__chev">‹</span> <span>Volver</span>
+    </a>
+
+    <!-- Buscar arriba de fecha (igual que Ventas) -->
+    <div class="m-field">
+      <div class="m-field__icon">🔎</div>
+      <input id="txt-buscar" type="search" placeholder="Buscar vendedor..." autocomplete="off"/>
+    </div>
+
+    <!-- Fecha (día dentro de la semana) -->
+    <div class="m-field">
+      <div class="m-field__icon">📅</div>
+      <input id="dt-dia" type="date"/>
+    </div>
+
+    <!-- Semana debajo de fecha -->
+    <div class="m-weekline" id="lbl-semana">Semana: —</div>
+
+    <div class="m-list" id="lista-vendedores"></div>
+  </main>
+</body>
+</html>

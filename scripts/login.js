@@ -13,6 +13,8 @@ const supabasePromise = import("../config.js");
    - Si se ingresa usuario (ej: "arode"), resuelve email vía RPC (NO REST, NO profiles direct)
    - Si profiles.must_change_password = true => redirige a /views/cambiar-password.html
    - Anti-loop: navegación una sola vez
+   - ✅ Móvil: redirige a /views/mobile.html (solo Ventas + Compromisos, full-screen)
+   - ✅ Rol vigente: se obtiene desde RBAC vía RPC get_perfil_actual (NO profiles.role)
    ============================================================================ */
 
 let __navLock = false;
@@ -27,20 +29,53 @@ function esEmail(valor) {
 }
 
 async function obtenerPerfil(supabase, userId) {
-  const { data, error } = await supabase
+  // profiles.role fue eliminado: el perfil/rol vigente se obtiene desde RBAC (user_roles.id_perfil -> perfiles)
+  const { data: prof, error: profErr } = await supabase
     .from("profiles")
-    .select("id, role, activo, must_change_password")
+    .select("id, activo, must_change_password")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw error;
-  return data ?? null;
+  if (profErr) throw profErr;
+  if (!prof) return null;
+
+  const { data: perfil_actual, error: rolErr } = await supabase.rpc(
+    "get_perfil_actual",
+    { p_user_id: userId }
+  );
+
+  if (rolErr) throw rolErr;
+
+  return { ...prof, perfil_actual: perfil_actual ?? null };
 }
 
-function redirectPorRol(role) {
-  const r = (role || "").toLowerCase();
-  if (r === "admin") navegarUnaVez("./views/admin.html");
-  else if (r === "supervisor") navegarUnaVez("./views/supervisor.html");
+function esMobile() {
+  return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+}
+
+/**
+ * Reglas de redirección:
+ * - Si es móvil y NO es admin => supervisor.mobile.html (Ventas + Compromisos full-screen)
+ * - Si es admin => admin.html (siempre)
+ * - Si es desktop => por perfil_actual normal
+ */
+function redirectPostLogin(perfil_actual) {
+  const r = (perfil_actual || "").toLowerCase();
+
+  // Admin siempre a su panel (no tiene sentido “versión móvil” limitada)
+  if (r === "admin") {
+    navegarUnaVez("./views/admin.html");
+    return;
+  }
+
+  // Móvil: canal único (Ventas + Compromisos)
+  if (esMobile()) {
+    navegarUnaVez("./views/supervisor.mobile.html");
+    return;
+  }
+
+  // Desktop: comportamiento actual
+  if (r === "supervisor") navegarUnaVez("./views/supervisor.html");
   else if (r === "vendedor") navegarUnaVez("./views/vendedor.html");
   else navegarUnaVez("./views/supervisor.html");
 }
@@ -103,7 +138,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         navegarUnaVez("./views/cambiar-password.html");
         return;
       } else {
-        redirectPorRol(perfil.role);
+        redirectPostLogin(perfil.perfil_actual);
         return;
       }
     }
@@ -177,6 +212,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     ocultarOverlay();
-    redirectPorRol(perfil.role);
+    redirectPostLogin(perfil.perfil_actual);
   });
 });

@@ -1,7 +1,5 @@
 APP VENTAS – V1.0
 Fecha: 28 de octubre de 2025
-Modo: Producción
+Modo: Pruebas operativas con debug visible
 Estructura: Completa (HTML, JS, CSS, Docs, Logs)
 Autor: Alejandro Rode Calvo
-Commit: 747da3c
-Entorno: PROD

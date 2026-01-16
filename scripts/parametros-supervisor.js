@@ -4,10 +4,21 @@ console.log("🟢 parametros-supervisor.js cargado");
 
 const $ = (id) => document.getElementById(id);
 
-function getSupervisorIdActivo() {
-  return window.idSupervisorActivo || localStorage.getItem("idSupervisorActivo") || null;
+/* ===========================================================
+   AUTH
+   =========================================================== */
+async function getSupervisorId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("auth.getUser error:", error.message, error.details, error.hint);
+    return null;
+  }
+  return data?.user?.id ?? null;
 }
 
+/* ===========================================================
+   HELPERS
+   =========================================================== */
 function escapeHtml(str) {
   return String(str ?? "")
     .replaceAll("&", "&amp;")
@@ -30,10 +41,8 @@ function cerrar(idModal) {
 }
 
 /* ===========================================================
-   AVISO MODAL (reemplaza mensajes persistentes en pantalla)
-   Requiere: dialog#modalAviso con #avisoTitulo #avisoTexto y #btnCerrarAviso
+   MODAL AVISO / MENSAJES
    =========================================================== */
-
 function mostrarAviso(texto, titulo = "Resultado") {
   const t = $("avisoTitulo");
   const p = $("avisoTexto");
@@ -42,28 +51,42 @@ function mostrarAviso(texto, titulo = "Resultado") {
   abrir("modalAviso");
 }
 
-// Mantiene errores inline (útil), y avisos informativos como modal.
 function setMensaje(msg, tipo = "info") {
+  // Si tienes un banner en la página
   const el = $("mensajeEstado");
-
   if (tipo === "error") {
     if (el) {
       el.textContent = msg || "";
       el.style.color = "#b00020";
+      return;
     }
+    mostrarAviso(msg, "Error");
     return;
   }
 
-  // info/warn/success → modal
-  if (el) el.textContent = ""; // evita que quede pegado
+  if (el) el.textContent = "";
   if (msg) mostrarAviso(msg, "Resultado");
 }
 
 /* ===========================================================
    ESTADO UI
    =========================================================== */
-
 let parametroActivo = null;
+
+function setHint(texto) {
+  const el = $("cfgHint");
+  if (el) el.textContent = texto || "";
+}
+
+function activarParametro(param) {
+  parametroActivo = param;
+
+  if (!param) setHint("Selecciona un parámetro para habilitar acciones.");
+  else if (param === "tipos_compromisos") setHint("Administra tipos de compromisos (Editar / Guardar / Cancelar).");
+  else setHint("Parámetro no disponible.");
+
+  renderAccionesDerecha();
+}
 
 function renderAccionesDerecha() {
   const box = $("accionesParametro");
@@ -75,19 +98,12 @@ function renderAccionesDerecha() {
     return;
   }
 
-  box.style.display = "flex";
-
   if (parametroActivo === "tipos_compromisos") {
+    box.style.display = "flex";
+    box.style.gap = "12px";
     box.innerHTML = `
-      <button class="btn btn--primary" id="btnVerEditarTipos" type="button">Ver / Editar</button>
-      <button class="btn btn--secondary" id="btnNuevoTipo" type="button">+ Nuevo Tipo</button>
-    `;
-    return;
-  }
-
-  if (parametroActivo === "ingreso_ventas") {
-    box.innerHTML = `
-      <button class="btn btn--primary" type="button" disabled>Ver / Editar</button>
+      <button class="btn btn--primary" id="btnEditarTipos" type="button">Modificar</button>
+      <button class="btn btn--secondary" id="btnCrearTipo" type="button">Crear</button>
     `;
     return;
   }
@@ -96,345 +112,392 @@ function renderAccionesDerecha() {
   box.innerHTML = "";
 }
 
-function setTooltip(texto, mostrar) {
-  const tip = $("tooltipParametro");
-  if (!tip) return;
-
-  if (!mostrar || !texto) {
-    tip.style.display = "none";
-    tip.textContent = "";
-    return;
-  }
-
-  tip.textContent = texto;
-  tip.style.display = "block";
+/* ===========================================================
+   ICONOS (SVG)
+   =========================================================== */
+function iconEditar() {
+  return `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M12 20h9" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  `;
+}
+function iconGuardar() {
+  return `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"
+        stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+      <path d="M17 21v-8H7v8" stroke="currentColor" stroke-width="2" stroke-linejoin="round"></path>
+      <path d="M7 3v5h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  `;
+}
+function iconCancelar() {
+  return `
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      <path d="M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    </svg>
+  `;
 }
 
 /* ===========================================================
-   TIPOS COMPROMISOS — SOLO DEL SUPERVISOR (supervisor_id)
-   Columnas reales: id, supervisor_id, nombre, descripcion, activo, ...
+   MODALES: Tipos compromisos
    =========================================================== */
+function abrirModalTiposCompromisos() {
+  abrir("modalTiposCompromisos");
+  cargarTiposCompromisos().catch((err) => {
+    console.error("Error cargando tipos_compromisos:", err);
+    const tbody = $("tbodyTiposCompromisos");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#c00; text-align:center;">Error cargando datos</td></tr>`;
+  });
+}
 
+function abrirModalCrearTipo() {
+  if ($("nuevoTipoNombre")) $("nuevoTipoNombre").value = "";
+  if ($("nuevoTipoDescripcion")) $("nuevoTipoDescripcion").value = "";
+  if ($("nuevoTipoActivo")) $("nuevoTipoActivo").checked = true;
+  if ($("nuevoTipoVisibleParaTodos")) $("nuevoTipoVisibleParaTodos").checked = false;
+  if ($("nuevoTipoEsObligatorio")) $("nuevoTipoEsObligatorio").checked = false;
+  if ($("nuevoTipoOrden")) $("nuevoTipoOrden").value = "";
+  abrir("modalNuevoTipo");
+}
+
+/* ===========================================================
+   TIPOS COMPROMISOS: DATA + RENDER
+   =========================================================== */
 async function cargarTiposCompromisos() {
   const tbody = $("tbodyTiposCompromisos");
   if (!tbody) return;
 
-  const supervisorId = getSupervisorIdActivo();
+  const supervisorId = await getSupervisorId();
   if (!supervisorId) {
-    tbody.innerHTML = `<tr><td colspan="4">Sin supervisor activo</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6">Sin sesión activa</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = `<tr><td colspan="4">Cargando...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6">Cargando...</td></tr>`;
 
+  // OJO: PK real = id (NO id_tipo)
   const { data, error } = await supabase
     .from("tipos_compromisos")
-    .select("id, supervisor_id, nombre, descripcion, activo")
+    .select("id, supervisor_id, nombre, descripcion, activo, visible_para_todos, es_obligatorio, orden")
     .eq("supervisor_id", supervisorId)
+    .order("orden", { ascending: true, nullsFirst: false })
     .order("nombre", { ascending: true });
 
   if (error) {
-    console.error("❌ Error cargando tipos_compromisos:", error);
-    tbody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`;
+    console.error("PostgREST error:", error);
+    console.error("message:", error.message);
+    console.error("details:", error.details);
+    console.error("hint:", error.hint);
+    tbody.innerHTML = `<tr><td colspan="6" style="color:#c00; text-align:center;">${escapeHtml(error.message)}</td></tr>`;
     return;
   }
 
   if (!data?.length) {
-    tbody.innerHTML = `<tr><td colspan="4">Sin registros para este supervisor</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; opacity:.7;">Sin registros</td></tr>`;
     return;
   }
 
+  // Render mínimo + estable
   tbody.innerHTML = data
-    .map((t) => {
-      const nombre = escapeHtml(t.nombre);
-      const desc = escapeHtml(t.descripcion ?? "");
-      const activo = !!t.activo;
+  .map((t) => {
+    const desc = t.descripcion ?? "";
 
-      return `
-        <tr class="tc-row"
-            data-id="${t.id}"
-            data-desc-orig="${desc}"
-            data-activo-orig="${activo ? "1" : "0"}"
-            data-editing="0"
-            data-dirty="0">
-          <td>${nombre}</td>
+    return `
+      <tr class="tc-row"
+          data-id="${t.id}"
+          data-desc-orig="${escapeHtml(desc)}"
+          data-activo-orig="${t.activo ? "1" : "0"}"
+          data-visible-orig="${t.visible_para_todos ? "1" : "0"}"
+          data-editing="0">
 
-          <td>
-            <textarea class="tc-desc" rows="2" disabled style="width:100%; resize:vertical;">${desc}</textarea>
-          </td>
+        <!-- 1) Nombre -->
+        <td class="tc-nombre">${escapeHtml(t.nombre)}</td>
 
-          <td style="text-align:center;">
-            <input class="tc-activo" type="checkbox" ${activo ? "checked" : ""} disabled />
-          </td>
+        <!-- 2) Descripción -->
+        <td>
+          <textarea class="tc-desc" disabled rows="2">${escapeHtml(desc)}</textarea>
+        </td>
 
-          <td>
-            <button class="btn btn--secondary tc-btn-editar" type="button" title="Editar">✏️</button>
-            <button class="btn btn--primary tc-btn-guardar" type="button" title="Guardar" disabled>💾</button>
-            <button class="btn btn--secondary tc-btn-cancelar" type="button" title="Cancelar" disabled>✖</button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
-}
+        <!-- 3) Activo -->
+        <td style="text-align:center">
+          <input type="checkbox" class="tc-activo" ${t.activo ? "checked" : ""} disabled>
+        </td>
 
-function setRowEditing(tr, editing) {
-  tr.dataset.editing = editing ? "1" : "0";
+        <!-- 4) Visible para todos -->
+        <td style="text-align:center">
+          <input type="checkbox" class="tc-visible" ${t.visible_para_todos ? "checked" : ""} disabled>
+        </td>
 
-  const desc = tr.querySelector(".tc-desc");
-  const activo = tr.querySelector(".tc-activo");
-  const btnGuardar = tr.querySelector(".tc-btn-guardar");
-  const btnCancelar = tr.querySelector(".tc-btn-cancelar");
+        <!-- 5) Acciones (SOLO ICONOS) -->
+        <td class="tc-actions" style="text-align:center; white-space:nowrap;">
+          <!-- MODO NORMAL: solo Editar -->
+          <button class="btn btn--secondary btn-icon tc-btn-editar" type="button" title="Editar" aria-label="Editar">
+            ${iconEditar()}
+          </button>
 
-  if (desc) desc.disabled = !editing;
-  if (activo) activo.disabled = !editing;
+          <!-- MODO EDICIÓN: solo Guardar + Cancelar -->
+          <button class="btn btn--primary btn-icon tc-btn-guardar" type="button" title="Guardar" aria-label="Guardar"
+                  disabled style="display:none;">
+            ${iconGuardar()}
+          </button>
 
-  if (btnCancelar) btnCancelar.disabled = !editing;
-
-  const dirty = tr.dataset.dirty === "1";
-  if (btnGuardar) btnGuardar.disabled = !(editing && dirty);
-}
-
-function setRowDirty(tr, dirty) {
-  tr.dataset.dirty = dirty ? "1" : "0";
-  const editing = tr.dataset.editing === "1";
-  const btnGuardar = tr.querySelector(".tc-btn-guardar");
-  if (btnGuardar) btnGuardar.disabled = !(editing && dirty);
+          <button class="btn btn--secondary btn-icon tc-btn-cancelar" type="button" title="Cancelar" aria-label="Cancelar"
+                  disabled style="display:none;">
+            ${iconCancelar()}
+          </button>
+        </td>
+      </tr>
+    `;
+  })
+  .join("");
 }
 
 function rowHasChanges(tr) {
-  const origDesc = tr.dataset.descOrig ?? "";
-  const origActivo = tr.dataset.activoOrig === "1";
+  const descOrig = tr.dataset.descOrig ?? "";
+  const activoOrig = tr.dataset.activoOrig === "1";
+  const visibleOrig = tr.dataset.visibleOrig === "1";
+  const obligOrig = tr.dataset.obligOrig === "1";
+  const ordenOrig = tr.dataset.ordenOrig ?? "";
 
   const desc = tr.querySelector(".tc-desc")?.value ?? "";
-  const activo = !!tr.querySelector(".tc-activo")?.checked;
+  const activo = tr.querySelector(".tc-activo")?.checked ?? false;
+  const visible = tr.querySelector(".tc-visible")?.checked ?? false;
+  const oblig = tr.querySelector(".tc-oblig")?.checked ?? false;
 
-  return desc !== origDesc || activo !== origActivo;
+  // (orden no está en UI aquí; si lo agregas, inclúyelo en el cálculo)
+  return desc !== descOrig || activo !== activoOrig || visible !== visibleOrig || oblig !== obligOrig || ordenOrig !== (tr.dataset.ordenOrig ?? "");
 }
 
 function rowRevert(tr) {
-  const origDesc = tr.dataset.descOrig ?? "";
-  const origActivo = tr.dataset.activoOrig === "1";
+  tr.querySelector(".tc-desc").value = tr.dataset.descOrig ?? "";
+  tr.querySelector(".tc-activo").checked = tr.dataset.activoOrig === "1";
+  tr.querySelector(".tc-visible").checked = tr.dataset.visibleOrig === "1";
+  tr.querySelector(".tc-oblig").checked = tr.dataset.obligOrig === "1";
+}
 
-  const descEl = tr.querySelector(".tc-desc");
-  const activoEl = tr.querySelector(".tc-activo");
+function setRowButtonsMode(tr, editing) {
+  const btnEditar = tr.querySelector(".tc-btn-editar");
+  const btnGuardar = tr.querySelector(".tc-btn-guardar");
+  const btnCancelar = tr.querySelector(".tc-btn-cancelar");
 
-  if (descEl) descEl.value = origDesc;
-  if (activoEl) activoEl.checked = origActivo;
+  if (editing) {
+    if (btnEditar) btnEditar.style.display = "none";
+    if (btnGuardar) btnGuardar.style.display = "inline-flex";
+    if (btnCancelar) btnCancelar.style.display = "inline-flex";
+  } else {
+    if (btnEditar) btnEditar.style.display = "inline-flex";
+    if (btnGuardar) btnGuardar.style.display = "none";
+    if (btnCancelar) btnCancelar.style.display = "none";
+  }
+}
 
-  setRowDirty(tr, false);
+function setRowEditing(tr, editing) {
+  if (editing) {
+    // Solo 1 fila en edición
+    document.querySelectorAll("#modalTiposCompromisos tr.tc-row.is-editing").forEach((other) => {
+      if (other !== tr) {
+        rowRevert(other);
+        other.classList.remove("is-editing");
+        other.dataset.editing = "0";
+        other.querySelectorAll("textarea, input[type=checkbox]").forEach((el) => (el.disabled = true));
+        setRowButtonsMode(other, false);
+      }
+    });
+  }
+
+  tr.dataset.editing = editing ? "1" : "0";
+  tr.classList.toggle("is-editing", !!editing);
+
+  tr.querySelectorAll("textarea, input[type=checkbox]").forEach((el) => {
+    el.disabled = !editing;
+  });
+
+  setRowButtonsMode(tr, editing);
+
+  const btnGuardar = tr.querySelector(".tc-btn-guardar");
+  const btnCancelar = tr.querySelector(".tc-btn-cancelar");
+  if (btnGuardar) btnGuardar.disabled = !(editing && rowHasChanges(tr));
+  if (btnCancelar) btnCancelar.disabled = !editing;
 }
 
 async function rowSave(tr) {
+  const supervisorId = await getSupervisorId();
+  if (!supervisorId) {
+    setMensaje("Sin sesión activa", "error");
+    return;
+  }
+
   const id = tr.dataset.id;
-  const desc = tr.querySelector(".tc-desc")?.value ?? "";
-  const activo = !!tr.querySelector(".tc-activo")?.checked;
+
+  const payload = {
+    descripcion: tr.querySelector(".tc-desc").value ?? null,
+    activo: !!tr.querySelector(".tc-activo").checked,
+    visible_para_todos: !!tr.querySelector(".tc-visible").checked,
+    es_obligatorio: !!tr.querySelector(".tc-oblig").checked,
+  };
 
   const { error } = await supabase
     .from("tipos_compromisos")
-    .update({ descripcion: desc, activo })
-    .eq("id", id);
+    .update(payload)
+    .eq("id", id) // PK real
+    .eq("supervisor_id", supervisorId); // safety extra
 
   if (error) {
-    console.error("❌ Error guardando tipo compromiso:", error);
-    setMensaje(`Error guardando: ${error.message}`, "error");
+    console.error("Update error:", error.message, error.details, error.hint);
+    setMensaje(error.message, "error");
     return;
   }
 
-  tr.dataset.descOrig = escapeHtml(desc);
-  tr.dataset.activoOrig = activo ? "1" : "0";
+  tr.dataset.descOrig = payload.descripcion ?? "";
+  tr.dataset.activoOrig = payload.activo ? "1" : "0";
+  tr.dataset.visibleOrig = payload.visible_para_todos ? "1" : "0";
+  tr.dataset.obligOrig = payload.es_obligatorio ? "1" : "0";
 
-  setRowDirty(tr, false);
   setRowEditing(tr, false);
-
-  setMensaje("Cambios guardados.", "info");
+  setMensaje("Cambios guardados");
 }
 
 /* ===========================================================
-   NUEVO TIPO (asociado al supervisor)
+   NUEVO TIPO (opcional)
    =========================================================== */
-
 async function guardarNuevoTipo() {
-  const btn = document.getElementById("btnGuardarNuevoTipo");
-  if (btn && btn.dataset.loading === "1") return; // anti-doble click / doble listener
-  if (btn) {
-    btn.dataset.loading = "1";
-    btn.disabled = true;
+  const supervisor_id = await getSupervisorId();
+  if (!supervisor_id) {
+    setMensaje("Sin sesión activa", "error");
+    return;
   }
-  try {
-    const supervisor_id = getSupervisorIdActivo();
-    if (!supervisor_id) {
-      setMensaje("Sin supervisor activo.", "error");
-      return;
-    }
 
-    const nombre = ($("nuevoTipoNombre")?.value || "").trim();
-    const descripcion = ($("nuevoTipoDescripcion")?.value || "").trim();
-    const activo = !!$("nuevoTipoActivo")?.checked;
-
-    if (!nombre) {
-      setMensaje("Falta nombre del tipo.", "error");
-      $("nuevoTipoNombre")?.focus?.();
-      return;
-    }
-
-    const { error } = await supabase.from("tipos_compromisos").insert([
-      {
-        supervisor_id,
-        nombre,
-        descripcion: descripcion || null,
-        activo,
-      },
-    ]);
-
-    if (error) {
-      console.error("❌ Error creando tipo:", error);
-      setMensaje(`Error creando: ${error.message}`, "error");
-      return;
-    }
-
-    cerrar("modalNuevoTipo");
-    setMensaje("Tipo creado.", "info");
-    await cargarTiposCompromisos();
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.dataset.loading = "0";
-    }
+  const nombre = ($("nuevoTipoNombre")?.value ?? "").trim();
+  if (!nombre) {
+    setMensaje("Falta nombre", "error");
+    return;
   }
+
+  const payload = {
+    supervisor_id,
+    nombre,
+    descripcion: ($("nuevoTipoDescripcion")?.value ?? "").trim() || null,
+    activo: $("nuevoTipoActivo")?.checked ?? true,
+    visible_para_todos: $("nuevoTipoVisibleParaTodos")?.checked ?? false,
+    es_obligatorio: $("nuevoTipoEsObligatorio")?.checked ?? false,
+    orden: (() => {
+      const v = ($("nuevoTipoOrden")?.value ?? "").trim();
+      if (!v) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    })(),
+    fecha_creacion: new Date().toISOString(), // si la BD no tiene default; si tiene, puedes borrar esto
+  };
+
+  const { error } = await supabase.from("tipos_compromisos").insert([payload]);
+
+  if (error) {
+    console.error("Insert error:", error.message, error.details, error.hint);
+    setMensaje(error.message, "error");
+    return;
+  }
+
+  cerrar("modalNuevoTipo");
+  setMensaje("Tipo creado");
+  await cargarTiposCompromisos();
 }
 
 /* ===========================================================
-   EVENTOS (delegación)
+   BIND UI (CLAVE)
    =========================================================== */
+function bindUI() {
+  document.querySelectorAll('.config-item__btn[data-param]').forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      activarParametro(btn.getAttribute("data-param"));
+    });
+  });
 
-// Evita duplicar listeners si este módulo se inyecta más de una vez (navegación embebida)
-if (window.__ps_click_handler) {
-  document.removeEventListener("click", window.__ps_click_handler);
+  const acciones = $("accionesParametro");
+  if (acciones) {
+    acciones.addEventListener("click", (e) => {
+      const t = e.target.closest("button");
+      if (!t) return;
+      if (t.id === "btnEditarTipos") abrirModalTiposCompromisos();
+      if (t.id === "btnCrearTipo") abrirModalCrearTipo();
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-modal-cerrar]");
+    if (!btn) return;
+    const id = btn.getAttribute("data-modal-cerrar");
+    if (id) cerrar(id);
+  });
+
+  const btnCerrarAviso = $("btnCerrarAviso");
+  if (btnCerrarAviso) btnCerrarAviso.addEventListener("click", () => cerrar("modalAviso"));
+
+  const btnGuardarNuevoTipo = $("btnGuardarNuevoTipo");
+  if (btnGuardarNuevoTipo) btnGuardarNuevoTipo.addEventListener("click", guardarNuevoTipo);
 }
-window.__ps_click_handler = async (e) => {
-  // Botón cerrar aviso
-  if (e.target && e.target.id === "btnCerrarAviso") {
-    cerrar("modalAviso");
-    return;
-  }
 
-  if (!$("modulo-configuracion")) return;
-
-  // Selección de parámetro (izquierda)
-  const btnParam = e.target.closest("[data-param]");
-  if (btnParam) {
-    if (btnParam.disabled || btnParam.classList.contains("is-disabled")) return;
-    parametroActivo = btnParam.getAttribute("data-param");
-    renderAccionesDerecha();
-    if ($("mensajeEstado")) $("mensajeEstado").textContent = "";
-    return;
-  }
-
-  // Acciones derecha (Ver/Editar)
-  const btnVer = e.target.closest("#btnVerEditarTipos");
-  if (btnVer && parametroActivo === "tipos_compromisos") {
-    await cargarTiposCompromisos();
-    abrir("modalTiposCompromisos");
-    return;
-  }
-
-  // Acciones derecha (Nuevo)
-  const btnNuevo = e.target.closest("#btnNuevoTipo");
-  if (btnNuevo && parametroActivo === "tipos_compromisos") {
-    if ($("nuevoTipoNombre")) $("nuevoTipoNombre").value = "";
-    if ($("nuevoTipoDescripcion")) $("nuevoTipoDescripcion").value = "";
-    if ($("nuevoTipoActivo")) $("nuevoTipoActivo").checked = true;
-    abrir("modalNuevoTipo");
-    return;
-  }
-
-  // Guardar nuevo tipo
-  const btnGuardarNuevo = e.target.closest("#btnGuardarNuevoTipo");
-  if (btnGuardarNuevo) {
-    await guardarNuevoTipo();
-    return;
-  }
-
-  // Edición por fila
-  const tr = e.target.closest("tr.tc-row");
-  if (tr) {
-    const btnEditar = e.target.closest(".tc-btn-editar");
-    const btnGuardar = e.target.closest(".tc-btn-guardar");
-    const btnCancelar = e.target.closest(".tc-btn-cancelar");
-
-    if (btnEditar) {
-      setRowEditing(tr, true);
-      setRowDirty(tr, rowHasChanges(tr));
-      return;
-    }
-
-    if (btnCancelar) {
-      rowRevert(tr);
-      setRowEditing(tr, false);
-      return;
-    }
-
-    if (btnGuardar) {
-      if (!rowHasChanges(tr)) {
-        setRowDirty(tr, false);
-        setRowEditing(tr, false);
-        return;
-      }
-      await rowSave(tr);
-      return;
-    }
-  }
-};
-document.addEventListener("click", window.__ps_click_handler);
-
-// Detecta cambios para habilitar Guardar
-if (window.__ps_input_handler) {
-  document.removeEventListener("input", window.__ps_input_handler);
-}
-window.__ps_input_handler = (e) => {
-  if (!$("modulo-configuracion")) return;
-
+/* ===========================================================
+   EVENTOS TABLA (delegación)
+   =========================================================== */
+document.addEventListener("click", async (e) => {
   const tr = e.target.closest("tr.tc-row");
   if (!tr) return;
-  if (tr.dataset.editing !== "1") return;
 
-  if (e.target.classList.contains("tc-desc")) {
-    setRowDirty(tr, rowHasChanges(tr));
+  if (e.target.closest(".tc-btn-editar")) {
+    setRowEditing(tr, true);
+    return;
   }
-};
-document.addEventListener("input", window.__ps_input_handler);
 
-document.addEventListener("change", (e) => {
-  if (!$("modulo-configuracion")) return;
+  if (e.target.closest(".tc-btn-cancelar")) {
+    rowRevert(tr);
+    setRowEditing(tr, false);
+    return;
+  }
 
+  if (e.target.closest(".tc-btn-guardar")) {
+    await rowSave(tr);
+  }
+});
+
+document.addEventListener("input", (e) => {
   const tr = e.target.closest("tr.tc-row");
-  if (!tr) return;
-  if (tr.dataset.editing !== "1") return;
-
-  if (e.target.classList.contains("tc-activo")) {
-    setRowDirty(tr, rowHasChanges(tr));
-  }
+  if (!tr || tr.dataset.editing !== "1") return;
+  const btnGuardar = tr.querySelector(".tc-btn-guardar");
+  if (btnGuardar) btnGuardar.disabled = !rowHasChanges(tr);
 });
 
-// Tooltip hover sobre “Tipos de compromiso”
-document.addEventListener("mouseover", (e) => {
-  if (!$("modulo-configuracion")) return;
-  const el = e.target.closest('[data-param="tipos_compromisos"]');
-  if (el) setTooltip("Administra los tipos de compromisos disponibles.", true);
-});
+/* ===========================================================
+   INIT robusto (para módulos inyectados)
+   =========================================================== */
+let __ps_inited = false;
 
-document.addEventListener("mouseout", (e) => {
-  if (!$("modulo-configuracion")) return;
-  const el = e.target.closest('[data-param="tipos_compromisos"]');
-  if (el) setTooltip("", false);
-});
+function init() {
+  if (__ps_inited) return;
 
-// Init
-(function init() {
-  if (!$("modulo-configuracion")) return;
-  parametroActivo = null;
-  renderAccionesDerecha();
-  setTooltip("", false);
-  if ($("mensajeEstado")) $("mensajeEstado").textContent = "";
-})();
+  // Tu módulo depende de este contenedor. Si tu HTML usa otro id, cámbialo aquí.
+  const cont = $("modulo-configuracion");
+  if (!cont) return;
+
+  __ps_inited = true;
+  bindUI();
+  activarParametro(null);
+}
+
+// DOM listo
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
+
+// Módulo inyectado después (caso supervisor.js)
+const mo = new MutationObserver(() => {
+  if (!__ps_inited && $("modulo-configuracion")) init();
+});
+mo.observe(document.documentElement, { childList: true, subtree: true });

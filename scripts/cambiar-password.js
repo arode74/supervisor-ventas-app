@@ -19,9 +19,10 @@ async function obtenerSesion(supabase) {
 }
 
 async function obtenerPerfil(supabase, userId) {
+  // ✅ profiles.role eliminado: solo traemos lo necesario
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, role, activo, must_change_password")
+    .select("id, activo, must_change_password")
     .eq("id", userId)
     .maybeSingle();
 
@@ -29,8 +30,16 @@ async function obtenerPerfil(supabase, userId) {
   return data ?? null;
 }
 
-function redirectPorRol(role) {
-  const r = (role || "").toLowerCase();
+async function obtenerPerfilActual(supabase, userId) {
+  // ✅ rol vigente desde RBAC (user_roles.id_perfil -> perfiles)
+  const { data, error } = await supabase.rpc("get_perfil_actual", { p_user_id: userId });
+  if (error) throw error;
+  return (data ?? null);
+}
+
+function redirectPorPerfil(perfil_actual) {
+  const r = (perfil_actual || "").toLowerCase();
+
   if (r === "admin") window.location.href = "../views/admin.html";
   else if (r === "supervisor") window.location.href = "../views/supervisor.html";
   else if (r === "vendedor") window.location.href = "../views/vendedor.html";
@@ -127,8 +136,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const userId = session.user.id;
 
-    // Guardia: debe venir marcado para cambio obligatorio
-    const perfil = await obtenerPerfil(supabase, userId);
+    // Traemos perfil + rol vigente RBAC
+    const [perfil, perfilActual] = await Promise.all([
+      obtenerPerfil(supabase, userId),
+      obtenerPerfilActual(supabase, userId),
+    ]);
 
     if (!perfil) {
       toast("Usuario sin perfil en el sistema.");
@@ -146,7 +158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (perfil.must_change_password !== true) {
       // No corresponde estar aquí
-      redirectPorRol(perfil.role);
+      redirectPorPerfil(perfilActual);
       return;
     }
 
@@ -180,11 +192,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
       }
 
-      // 2) Baja flag en profiles (vía RPC ya definida por ustedes)
+      // 2) Baja flag en profiles (RPC existente)
       const { error: errFlag } = await supabase.rpc("set_my_password_changed");
       if (errFlag) {
         console.error("Error update flag:", errFlag);
-        toast(`Contraseña actualizada, pero no se pudo cerrar el proceso. (${errFlag.message})`);
+        toast(
+          `Contraseña actualizada, pero no se pudo cerrar el proceso. (${errFlag.message})`
+        );
         ocultarOverlay();
         return;
       }
@@ -197,7 +211,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // 3) OK + Aceptar
       mostrarModalOK("Cambio de Contraseña Correcta.", () => {
-        redirectPorRol(perfil.role);
+        redirectPorPerfil(perfilActual);
       });
     });
   } catch (err) {

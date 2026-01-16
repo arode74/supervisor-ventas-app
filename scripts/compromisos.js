@@ -12,15 +12,20 @@ function ordenarTipos(a, b) {
 
 import { supabase } from "../config.js";
 
-
-
 let ultimoEquipoActivo = localStorage.getItem("idEquipoActivo");
+
 // =========================
 // UTILIDADES DE FECHA
 // =========================
 function formatoFechaLocal(date) {
-  return date.toISOString().split("T")[0];
+  // Importante: NO usar toISOString() porque convierte a UTC y puede correr el día.
+  // Usamos componentes locales.
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
+
 
 function rangoSemanaDesdeFecha(fechaISO) {
   const base = new Date(fechaISO + "T00:00:00");
@@ -94,7 +99,6 @@ const tbodyCompromisos = tablaCompromisos
   ? tablaCompromisos.querySelector("tbody")
   : null;
 
-
 function getTablaCompromisos() {
   return document.getElementById("tablaCompromisos");
 }
@@ -102,7 +106,6 @@ function getTablaCompromisos() {
 function getTbodyCompromisos() {
   return getTablaCompromisos()?.querySelector("tbody") || null;
 }
-
 
 const inputFechaBaseSemana = document.getElementById("inputFechaBaseSemana");
 const labelRangoSemana = document.getElementById("labelRangoSemana");
@@ -118,7 +121,6 @@ const spanNombreVendedor = document.getElementById(
 );
 const spanSemana = document.getElementById("tituloModalCompromisoSemana");
 
-
 const hiddenIdVendedor = document.getElementById("idVendedorCompromiso");
 const hiddenInicio = document.getElementById("fechaInicioSemana");
 const hiddenFin = document.getElementById("fechaFinSemana");
@@ -128,7 +130,6 @@ const hiddenFin = document.getElementById("fechaFinSemana");
 // =========================
 let usuarioActual = null;
 let rolActual = null;
-
 
 // =========================
 // HELPERS (seguro, sin dependencias fantasma)
@@ -151,11 +152,12 @@ function escapeHtml(s) {
     "'": "&#39;",
   }[c]));
 }
+
 let tiposCompromisos = [];
 let tiposObligatoriosCache = [];
 let columnasObligatorias = []; // [{id, nombre, orden}]
 let tiposSupervisorCache = [];
- // [{id, nombre, descripcion, supervisor_id, activo, es_obligatorio}]
+// [{id, nombre, descripcion, supervisor_id, activo, es_obligatorio, visible_para_todos}]
 let mapaNombrePorId = {}; // { id: NOMBRE_MAYUS }
 
 let semanaInicioActual = null;
@@ -188,14 +190,28 @@ async function obtenerUsuarioActual() {
   usuarioActual = data.user;
 }
 
-async function obtenerPerfil() {
-  const { data } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", usuarioActual.id)
-    .single();
+// RBAC: rol vigente se obtiene desde user_roles (via RPC get_perfil_actual)
+async function obtenerPerfilActual() {
+  const { data, error } = await supabase.rpc("get_perfil_actual", {
+    p_user_id: usuarioActual.id,
+  });
 
-  rolActual = data ? data.role : null;
+  if (error) {
+    console.error("❌ get_perfil_actual error:", error);
+    safeAlert("No se pudo obtener tu perfil (RBAC). Inicia sesión nuevamente.");
+    window.location.href = "../index.html";
+    return;
+  }
+
+  rolActual = data ? String(data).toLowerCase() : null;
+
+  // Cache auxiliar (compatibilidad con módulos legacy)
+  try {
+    if (rolActual) {
+      localStorage.setItem("perfil_actual", rolActual);
+      sessionStorage.setItem("perfil_actual", rolActual);
+    }
+  } catch {}
 }
 
 // =========================
@@ -204,7 +220,10 @@ async function obtenerPerfil() {
 async function cargarTiposCompromiso() {
   const { data, error } = await supabase
     .from("tipos_compromisos")
-    .select("id, nombre, descripcion, supervisor_id, activo, es_obligatorio, orden");
+    // ✅ FIX: incluir visible_para_todos para que el filtro funcione
+    .select(
+      "id, nombre, descripcion, supervisor_id, activo, es_obligatorio, orden, visible_para_todos"
+    );
 
   if (error) {
     console.error("Error cargando tipos_compromisos:", error);
@@ -222,13 +241,18 @@ async function cargarTiposCompromiso() {
     .filter((t) => t.es_obligatorio === true)
     .sort(ordenarTipos);
 
-  // No obligatorios del supervisor (vista agrupada por vendedor / seguimiento)
+  // No obligatorios del supervisor + visibles para todos
   tiposSupervisorCache = tiposCompromisos
-    .filter(
-      (t) =>
-        t.es_obligatorio === false &&
-        String(t.supervisor_id || "") === String(usuarioActual?.id || "")
-    )
+    .filter((t) => {
+      if (!t) return false;
+      if (t.es_obligatorio !== false) return false;
+
+      const esMio =
+        String(t.supervisor_id || "") === String(usuarioActual?.id || "");
+      const esVisibleParaTodos = t.visible_para_todos === true;
+
+      return esMio || esVisibleParaTodos;
+    })
     .sort(ordenarTipos);
 }
 
@@ -288,7 +312,10 @@ function reconstruirIndicesCompromisos() {
     const m = Number(c.monto_comprometido || 0);
 
     const k1 = keyVTF(idV, idT, f);
-    idxMontoPorVendedorTipoFecha.set(k1, (idxMontoPorVendedorTipoFecha.get(k1) || 0) + m);
+    idxMontoPorVendedorTipoFecha.set(
+      k1,
+      (idxMontoPorVendedorTipoFecha.get(k1) || 0) + m
+    );
 
     const k2 = keyVT(idV, idT);
     idxMontoPorVendedorTipo.set(k2, (idxMontoPorVendedorTipo.get(k2) || 0) + m);
@@ -296,8 +323,6 @@ function reconstruirIndicesCompromisos() {
 }
 
 function setMontoEnIndice(idV, idT, fechaISO, nuevoMonto) {
-  // Actualiza idxMontoPorVendedorTipoFecha y compromisosSemana (solo para ese día)
-  // Estrategia: eliminar registros existentes en memoria para ese (v,t,f) y dejar 1 (si monto > 0)
   const monto = Number(nuevoMonto || 0);
 
   compromisosSemana = (compromisosSemana || []).filter(
@@ -309,7 +334,6 @@ function setMontoEnIndice(idV, idT, fechaISO, nuevoMonto) {
       )
   );
 
-  // Insertar registro en memoria si monto > 0
   if (monto > 0) {
     compromisosSemana.push({
       id_vendedor: idV,
@@ -322,7 +346,6 @@ function setMontoEnIndice(idV, idT, fechaISO, nuevoMonto) {
     });
   }
 
-  // Reindexar SOLO por simplicidad (rápido y seguro; tamaño semanal suele ser acotado)
   reconstruirIndicesCompromisos();
 }
 
@@ -354,9 +377,7 @@ async function cargarTablaCompromisos() {
     return;
   }
 
-  const vendedores = (rels || [])
-    .map((r) => r.vendedores)
-    .filter(Boolean);
+  const vendedores = (rels || []).map((r) => r.vendedores).filter(Boolean);
 
   if (vendedores.length === 0) {
     tbodyCompromisos.innerHTML =
@@ -405,9 +426,7 @@ async function cargarTablaCompromisos() {
       id_vendedor: v.id_vendedor,
       nombre: v.nombre,
     };
-    for (const t of columnasObligatorias) {
-      row["t_" + t.id] = 0;
-    }
+    for (const t of columnasObligatorias) row["t_" + t.id] = 0;
     metricas[v.id_vendedor] = row;
   });
 
@@ -424,21 +443,18 @@ async function cargarTablaCompromisos() {
 
   datosTabla = Object.values(metricas);
   renderTabla();
-
 }
 
 // =========================
 // DETALLE EXPANDIBLE
 // =========================
 function construirHtmlDetalleCompromisos(idVendedor) {
-  // Tipos de compromisos configurados PARA ESTE SUPERVISOR (cache)
   const tiposSupervisor = tiposSupervisorCache;
 
   if (!tiposSupervisor || tiposSupervisor.length === 0) {
     return '<div class="detalle-compromisos-vacio">Sin compromisos configurados para este supervisor.</div>';
   }
 
-  // Fechas y nombres de día
   const fechaAyer = fechaAyerDetalleISO;
   const fechaHoy = fechaHoyDetalleISO;
 
@@ -496,7 +512,7 @@ function construirHtmlDetalleCompromisos(idVendedor) {
       '" data-id-tipo="' +
       tipo.id +
       '" min="0" step="1" value="' +
-      ((Number(totalHoy) > 0) ? Number(totalHoy) : "") +
+      (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
       '" />' +
       '<button type="button" class="btn-guardar-compromiso-dia" ' +
       'data-id-vendedor="' +
@@ -515,39 +531,41 @@ function construirHtmlDetalleCompromisos(idVendedor) {
 
 // =========================
 // RENDER TABLA PRINCIPAL
-
+// =========================
 function reconstruirTheadObligatorios() {
   const tabla = document.getElementById("tablaCompromisos");
   if (!tabla) return;
   const thead = tabla.querySelector("thead");
   if (!thead) return;
 
-  // columnasObligatorias ya viene ordenada
-  let html = '<tr>';
-  html += '<th class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>';
+  let html = "<tr>";
+  html +=
+    '<th class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>';
 
   for (const t of columnasObligatorias) {
     const key = "t_" + t.id;
-    html += `<th class="th-sortable" data-col="${key}">${escapeHtml(t.nombre || "")} <span class="sort-arrow"></span></th>`;
+    html += `<th class="th-sortable" data-col="${key}">${escapeHtml(
+      t.nombre || ""
+    )} <span class="sort-arrow"></span></th>`;
   }
 
-  html += '<th>Acciones</th>';
-  html += '</tr>';
+  html += "<th>Acciones</th>";
+  html += "</tr>";
   thead.innerHTML = html;
-  // Columnas ordenables: cursor
-  thead.querySelectorAll('th.th-sortable[data-col]').forEach((th) => { th.style.cursor = 'pointer'; });
+
+  thead
+    .querySelectorAll("th.th-sortable[data-col]")
+    .forEach((th) => (th.style.cursor = "pointer"));
   if (ordenColumna) actualizarFlechas(ordenColumna, ordenAsc);
 }
 
-
-// =========================
 function renderTabla() {
   const tbodyCompromisos = getTbodyCompromisos();
   if (!tbodyCompromisos) return;
 
   tbodyCompromisos.innerHTML = "";
 
-  const totalCols = 2 + (columnasObligatorias?.length || 0); // vendedor + obligatorios + acciones
+  const totalCols = 2 + (columnasObligatorias?.length || 0);
   if (!datosTabla || datosTabla.length === 0) {
     tbodyCompromisos.innerHTML =
       `<tr><td colspan="${totalCols}" style="text-align:center;">Sin datos</td></tr>`;
@@ -562,7 +580,8 @@ function renderTabla() {
     tr.dataset.idVendedor = d.id_vendedor;
 
     let html = "";
-    html += "<td>" +
+    html +=
+      "<td>" +
       '<button type="button" class="btn-toggle-detalle" data-id-vendedor="' +
       d.id_vendedor +
       '" aria-expanded="false">+</button> ' +
@@ -576,7 +595,8 @@ function renderTabla() {
       html += "<td>" + fmt(d[key]) + "</td>";
     }
 
-    html += '<td class="acciones">' +
+    html +=
+      '<td class="acciones">' +
       '<button type="button" class="btn-compromiso-semanal" data-id-vendedor="' +
       d.id_vendedor +
       '" data-nombre="' +
@@ -587,7 +607,6 @@ function renderTabla() {
     tr.innerHTML = html;
     tbodyCompromisos.appendChild(tr);
 
-    // Fila detalle (placeholder)
     const trDetalle = document.createElement("tr");
     trDetalle.classList.add("fila-detalle");
     trDetalle.dataset.idVendedor = d.id_vendedor;
@@ -624,7 +643,6 @@ function ordenarTabla(col) {
       return 0;
     }
 
-    // numérico para t_<id>
     v1 = Number(v1 || 0);
     v2 = Number(v2 || 0);
     return ordenAsc ? v1 - v2 : v2 - v1;
@@ -647,7 +665,6 @@ function actualizarFlechas(columnaOrdenada, asc) {
 }
 
 function inicializarOrdenamiento() {
-  // Delegación: 1 listener, sobrevive a reconstrucción dinámica del THEAD.
   const tabla = document.getElementById("tablaCompromisos");
   const thead = tabla?.querySelector("thead");
   if (!tabla || !thead) return;
@@ -669,7 +686,7 @@ function inicializarOrdenamiento() {
     if (!col) return;
 
     ordenarTabla(col);
-    aplicarCursor(); // por si el thead se reconstruyó
+    aplicarCursor();
   });
 }
 
@@ -677,17 +694,28 @@ function inicializarOrdenamiento() {
 // MODAL COMPROMISO SEMANAL
 // =========================
 function abrirModal(idV, nombre) {
-  // Re-tomar referencias (por si el módulo fue embebido y el DOM no estaba listo al evaluar el script)
   const _hiddenIdVendedor = document.getElementById("idVendedorCompromiso");
   const _hiddenInicio = document.getElementById("fechaInicioSemana");
   const _hiddenFin = document.getElementById("fechaFinSemana");
-  const _spanNombreVendedor = document.getElementById("tituloModalCompromisoNombre");
+  const _spanNombreVendedor = document.getElementById(
+    "tituloModalCompromisoNombre"
+  );
   const _spanSemana = document.getElementById("tituloModalCompromisoSemana");
   const _tabla = document.getElementById("tablaModalTipos");
   const _modal = document.getElementById("modalCompromiso");
 
-  if (!_hiddenIdVendedor || !_hiddenInicio || !_hiddenFin || !_spanNombreVendedor || !_spanSemana || !_tabla || !_modal) {
-    console.error("❌ Modal Compromiso: faltan elementos del DOM. Revisa compromisos.html (ids).");
+  if (
+    !_hiddenIdVendedor ||
+    !_hiddenInicio ||
+    !_hiddenFin ||
+    !_spanNombreVendedor ||
+    !_spanSemana ||
+    !_tabla ||
+    !_modal
+  ) {
+    console.error(
+      "❌ Modal Compromiso: faltan elementos del DOM. Revisa compromisos.html (ids)."
+    );
     safeAlert("No se pudo abrir el compromiso: faltan elementos del modal.");
     return;
   }
@@ -703,20 +731,30 @@ function abrirModal(idV, nombre) {
   _hiddenFin.value = semanaFinActual;
   _spanNombreVendedor.textContent = nombre || "Vendedor";
 
-  // Título semana
   const [yi, mi, di] = semanaInicioActual.split("-");
   const [yf, mf, df] = semanaFinActual.split("-");
-  _spanSemana.textContent = "Semana " + di + "-" + mi + "-" + yi + " / " + df + "-" + mf + "-" + yf;
+  _spanSemana.textContent =
+    "Semana " +
+    di +
+    "-" +
+    mi +
+    "-" +
+    yi +
+    " / " +
+    df +
+    "-" +
+    mf +
+    "-" +
+    yf;
 
-  // Tipos obligatorios (fuente de verdad)
-  const tiposObl = (tiposCompromisos || []).filter((t) => t && t.es_obligatorio === true);
+  const tiposObl = (tiposCompromisos || []).filter(
+    (t) => t && t.es_obligatorio === true
+  );
 
-  // Mapa id_tipo -> monto previo para esta semana/vendedor
   const prev = (compromisosSemana || []).filter((c) => c.id_vendedor === idV);
   const prevMap = {};
   for (const r of prev) prevMap[r.id_tipo] = Number(r.monto_comprometido || 0);
 
-  // Render tabla dinámica
   let html = "";
   for (const t of tiposObl) {
     const val = prevMap[t.id] ?? 0;
@@ -735,11 +773,14 @@ function abrirModal(idV, nombre) {
   }
   _tabla.innerHTML = `<tbody>${html}</tbody>`;
 
-  // A prueba de humanos: evitar que el "0" se concatene (1 => 10)
-  const _inputs = _tabla.querySelectorAll('input.input-compromiso-semanal[data-id-tipo]');
+  const _inputs = _tabla.querySelectorAll(
+    'input.input-compromiso-semanal[data-id-tipo]'
+  );
   _inputs.forEach((inp) => {
     inp.addEventListener("focus", () => {
-      try { inp.select(); } catch {}
+      try {
+        inp.select();
+      } catch {}
     });
   });
 
@@ -774,24 +815,20 @@ function rerenderDetallesAbiertos() {
 // =========================
 // EVENTOS GENERALES (click)
 // =========================
-// =========================
-// EVENTOS GENERALES (click)
-// =========================
 async function __compromisosHandleClick(e) {
-
-  // Abrir modal compromiso semanal (delegado, evita DOM muerto al volver)
   const btnCompSemanal = e.target.closest(".btn-compromiso-semanal");
   if (btnCompSemanal) {
     const tr = e.target.closest("tr.fila-vendedor");
     if (!tr) return;
     const idV = tr.dataset.idVendedor;
     const nombreEl = tr.querySelector(".nombre-vendedor");
-    const nombre = nombreEl ? nombreEl.textContent.trim() : (btnCompSemanal.dataset.nombre || "");
+    const nombre = nombreEl
+      ? nombreEl.textContent.trim()
+      : btnCompSemanal.dataset.nombre || "";
     abrirModal(idV, nombre);
     return;
   }
 
-  // Botones +/- del modal
   const btnCantidad = e.target.closest(".btn-cantidad");
   if (btnCantidad) {
     const id = btnCantidad.dataset.target;
@@ -804,7 +841,6 @@ async function __compromisosHandleClick(e) {
     return;
   }
 
-  // Toggle detalle (+ / -)
   const btnToggle = e.target.closest(".btn-toggle-detalle");
   if (btnToggle) {
     const tbodyCompromisos = getTbodyCompromisos();
@@ -830,7 +866,6 @@ async function __compromisosHandleClick(e) {
     return;
   }
 
-  // Navegación día "ayer" (flechas ◀ ▶)
   const btnNavDia = e.target.closest(".btn-nav-dia-ayer");
   if (btnNavDia) {
     const dir = Number(btnNavDia.dataset.dir || "0");
@@ -841,7 +876,6 @@ async function __compromisosHandleClick(e) {
     return;
   }
 
-  // Guardar compromiso diario (columna "Compromiso hoy")
   const btnGuardarDia = e.target.closest(".btn-guardar-compromiso-dia");
   if (btnGuardarDia) {
     const idV = btnGuardarDia.dataset.idVendedor;
@@ -865,18 +899,15 @@ async function __compromisosHandleClick(e) {
     const fechaHoy = fechaHoyDetalleISO;
 
     try {
-      // 1) Persistencia (DB): UPSERT (RPC)
       await supabase.rpc("upsert_compromiso", {
         p_id_equipo: idEquipo,
         p_id_vendedor: idV,
         p_id_tipo: idTipo,
         p_fecha: fechaHoy,
         p_monto: monto,
-        p_comentario: null
+        p_comentario: null,
       });
 
-      // 2) Performance: NO recargar toda la tabla.
-      //    Actualizamos cache local y re-render solo el detalle abierto.
       setMontoEnIndice(idV, idTipo, fechaHoy, monto);
       rerenderDetalleAbierto(idV);
     } catch (err) {
@@ -888,19 +919,21 @@ async function __compromisosHandleClick(e) {
 }
 
 if (window.__compromisosClickHandler) {
-  try { document.removeEventListener("click", window.__compromisosClickHandler); } catch {}
+  try {
+    document.removeEventListener("click", window.__compromisosClickHandler);
+  } catch {}
 }
 window.__compromisosClickHandler = __compromisosHandleClick;
 document.addEventListener("click", window.__compromisosClickHandler);
 
-// A prueba de humanos: evitar concatenación por value=0 (1 => 10) en inputs diarios
 document.addEventListener("focusin", (e) => {
   const inp = e.target;
   if (inp && inp.matches && inp.matches("input.input-compromiso-dia")) {
-    try { inp.select(); } catch {}
+    try {
+      inp.select();
+    } catch {}
   }
 });
-
 
 // =========================
 // FORM MODAL SEMANAL
@@ -920,9 +953,12 @@ if (form) {
     }
 
     try {
-      // Inputs dinámicos desde la tabla del modal
       const tabla = document.getElementById("tablaModalTipos");
-      const inputs = tabla ? Array.from(tabla.querySelectorAll('input.input-compromiso-semanal[data-id-tipo]')) : [];
+      const inputs = tabla
+        ? Array.from(
+            tabla.querySelectorAll('input.input-compromiso-semanal[data-id-tipo]')
+          )
+        : [];
 
       const payloads = inputs
         .map((inp) => ({
@@ -931,7 +967,6 @@ if (form) {
         }))
         .filter((x) => x.id_tipo && x.monto >= 0);
 
-      // Construir inserts (1 fila por tipo con monto > 0)
       const inserts = payloads
         .filter((p) => p.monto > 0)
         .map((p) => ({
@@ -943,21 +978,23 @@ if (form) {
           monto_comprometido: p.monto,
           cumplido: false,
           comentario: null,
-        }));// Guardado idempotente (a prueba de duplicados):
-// UPSERT por clave única ux_compromisos_equipo_vendedor_tipo_fecha
-if (inserts.length > 0) {
-  const { error: upErr } = await supabase
-    .from("compromisos")
-    .upsert(inserts, {
-      onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso"
-    });
+        }));
 
-  if (upErr) {
-    console.error("Error guardando (upsert) compromisos:", upErr);
-    safeAlert("Error al guardar compromisos.");
-    return;
-  }
-}
+      // Guardado idempotente (a prueba de duplicados):
+      if (inserts.length > 0) {
+        const { error: upErr } = await supabase
+          .from("compromisos")
+          .upsert(inserts, {
+            onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
+          });
+
+        if (upErr) {
+          console.error("Error guardando (upsert) compromisos:", upErr);
+          safeAlert("Error al guardar compromisos.");
+          return;
+        }
+      }
+
       if (modal && typeof modal.close === "function") modal.close();
       await cargarTablaCompromisos();
     } catch (err) {
@@ -968,12 +1005,6 @@ if (inserts.length > 0) {
 }
 
 // =========================
-// EVENTOS TABLA PRINCIPAL
-// =========================
-// (Se usa delegación en document click para evitar DOM muerto al re-embebido)
-
-
-// =========================
 // BOTONES VOLVER / CANCELAR
 // =========================
 if (btnVolver) {
@@ -981,14 +1012,12 @@ if (btnVolver) {
     const panelBotones = document.getElementById("panel-botones");
     const contenedorModulos = document.getElementById("contenedor-modulos");
 
-    // Si está embebido, supervisor.js controla el volver
     if (panelBotones && contenedorModulos) return;
 
     e.preventDefault();
     window.location.href = "../views/supervisor.html";
   });
 }
-
 
 if (btnCancelar) {
   btnCancelar.addEventListener("click", () => {
@@ -997,42 +1026,39 @@ if (btnCancelar) {
 }
 
 window.addEventListener("equipoCambiado", async () => {
-  // 1) Limpiar cache de compromisos (por equipo)
   Object.keys(localStorage).forEach((k) => {
     if (k.startsWith("compromisos_bootstrap:")) {
       localStorage.removeItem(k);
     }
   });
 
-  // 2) Resetear semana a HOY (igual que Ventas)
   const hoy = formatoFechaLocal(new Date());
   if (inputFechaBaseSemana) {
     inputFechaBaseSemana.value = hoy;
     actualizarSemanaYDetalle(hoy);
   }
 
-  // 3) Recargar tabla con el nuevo equipo
   await cargarTablaCompromisos();
 });
-
 
 // =========================
 // INIT
 // =========================
 (async function init() {
   await obtenerUsuarioActual();
-  await obtenerPerfil();
+  await obtenerPerfilActual();
   await cargarTiposCompromiso();
   inicializarSelectorSemana();
   inicializarOrdenamiento();
   await cargarTablaCompromisos();
 
-
-  if (window.__compromisosIntervalId) { try { clearInterval(window.__compromisosIntervalId); } catch {} }
+  if (window.__compromisosIntervalId) {
+    try {
+      clearInterval(window.__compromisosIntervalId);
+    } catch {}
+  }
   window.__compromisosIntervalId = setInterval(verificarCambioEquipo, 500);
-
 })();
-
 
 function verificarCambioEquipo() {
   const actual = localStorage.getItem("idEquipoActivo");

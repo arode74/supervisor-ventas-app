@@ -753,152 +753,195 @@ dialog.modal .modal-contenido{
   font-size: 0.95rem;
 }
 
-/* ===========================================================
-   MODAL TIPOS COMPROMISOS — GRID + BOTONES ACCIONES EN LÍNEA
-   =========================================================== */
+/* =======================================================================
+   MODAL: TIPOS DE COMPROMISOS — CSS ÚNICO LIMPIO
+   Objetivo:
+   - Modal máx 800px
+   - Tabla 100% sin scroll horizontal
+   - Headers SIN truncado (wrap permitido)
+   - NO incluye estilos de botones iconos (se manejan por CSS global .btn)
+   ======================================================================= */
 
-/* Descripción: textarea ocupa el ancho completo */
-#modalTiposCompromisos .tc-desc{
-  width: 100%;
-  min-height: 42px;
+#modalTiposCompromisos{
+  width: min(900px, 95vw);
+  max-width: 900px;
+  border: none;
+  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
 }
 
-/* Acciones: 3 botones en una sola fila */
-#modalTiposCompromisos td:last-child{
+#modalTiposCompromisos::backdrop{
+  background: rgba(0,0,0,.45);
+}
+
+#modalTiposCompromisos .modal-contenido{
+  width: 100%;
+  box-sizing: border-box;
+  padding: 18px 22px 14px; /* margen derecho para que no se “corte” la última columna */
+  overflow-x: hidden;
+}
+
+/* ===== ACCIONES (icon-only) — SOLO modalTiposCompromisos ===== */
+#modalTiposCompromisos td.tc-actions {
+  text-align: center;
   white-space: nowrap;
 }
 
-#modalTiposCompromisos .tc-btn-editar,
-#modalTiposCompromisos .tc-btn-guardar,
-#modalTiposCompromisos .tc-btn-cancelar{
+/* Neutraliza estilos globales (.btn, padding, fondo, etc.) */
+#modalTiposCompromisos td.tc-actions button {
+  all: unset;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 25px;          /* ajusta si quieres más compacto */
-  height: 26px;
-  padding: 0;
-  margin: 0 6px 0 0;    /* separación horizontal */
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
+  cursor: pointer;
+  color: #0b3d91;          /* el SVG usa currentColor */
+  background: transparent; /* sin bloque */
 }
 
-/* Quita el margen del último botón */
-#modalTiposCompromisos .tc-btn-cancelar{
-  margin-right: 0;
+#modalTiposCompromisos td.tc-actions button svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
 }
 
-/* Guardar/Cancelar desactivados: tono celeste */
-#modalTiposCompromisos .tc-btn-guardar:disabled,
-#modalTiposCompromisos .tc-btn-cancelar:disabled{
-  background: #8ec7ff !important;     /* celeste */
-  border-color: #8ec7ff !important;
-  color: #ffffff !important;
-  opacity: 1 !important;              /* importante: que se vea “celeste”, no gris */
-  cursor: not-allowed !important;
-  filter: none !important;
+#modalTiposCompromisos td.tc-actions button:hover,
+#modalTiposCompromisos td.tc-actions button:focus-visible {
+  background: #0b3d91;
+  color: #fff;
+  outline: none;
 }
 
-/* ===========================================================
-   MODAL TIPOS COMPROMISOS — ANCHOS FORZADOS POR COLUMNA
-   =========================================================== */
-
-#modalTiposCompromisos table{
-  width: 100%;
-  table-layout: fixed; /* clave: hace que los widths se respeten */
-}
-
-/* Nombre */
-#modalTiposCompromisos th:nth-child(1),
-#modalTiposCompromisos td:nth-child(1){
-  width: 18%;
-}
-
-/* Descripción (AQUÍ controlas el ancho real) */
-#modalTiposCompromisos th:nth-child(2),
-#modalTiposCompromisos td:nth-child(2){
-  width: 57%;
-}
-
-/* Activo */
-#modalTiposCompromisos th:nth-child(3),
-#modalTiposCompromisos td:nth-child(3){
-  width: 8%;
-  text-align: center;
-}
-
-/* Acciones */
-#modalTiposCompromisos th:nth-child(4),
-#modalTiposCompromisos td:nth-child(4){
-  width: 17%;
-  white-space: nowrap;
-}
-
-/* El textarea debe ocupar la celda */
-#modalTiposCompromisos .tc-desc{
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* ===========================================================
-   OVERRIDE DEFINITIVO — ANCHO MODAL TIPOS COMPROMISOS
-   =========================================================== */
-
-dialog#modalTiposCompromisos.modal{
-  width: 700px !important;       /* ✅ fijo */
-  max-width: 700px !important;
-  min-width: 700px !important;
-  overflow-x: hidden !important; /* ✅ sin scroll horizontal */
-}
-
-dialog#modalTiposCompromisos.modal .modal-contenido{
-  width: 100% !important;        /* ✅ la tabla queda 100% dentro */
-  max-width: none !important;
-  margin: 0 auto !important;     /* ✅ centra el contenido */
-  box-sizing: border-box !important;
-  overflow-x: hidden !important;
-}
-
-dialog#modalTiposCompromisos.modal .modal-contenido{
-  padding: 18px 20px !important;
-}
-
-/* Modal Nuevo Tipo — checkbox PEGADO al texto (override a width:100%) */
-#modalNuevoTipo .modal-checkline{
-  display: inline-flex;     /* no ocupa todo el ancho */
-  align-items: center;
-  gap: 6px;
-  margin-top: 12px;
-}
-
-#modalNuevoTipo .modal-checkline__label{
-  font-weight: 600;
-  margin: 0;
-}
-
-/* CLAVE: neutraliza .modal-contenido input { width:100% } para el checkbox */
-#modalNuevoTipo .modal-checkline input[type="checkbox"]{
-  width: auto !important;
-  margin: 0 !important;
-  flex: 0 0 auto;
-}
-
-/* ===========================================================
-   FIX — BOTONES SECUNDARIOS (si existen)
-   Mantiene “Cancelar” como secundario (outline) y respeta disabled
-   =========================================================== */
-
-.modal .modal-botones .btn--secondary{
-  background: #fff;
-  color: var(--color-principal);
-  border: 1px solid var(--color-principal);
-  opacity: 1;
-}
-
-.modal .modal-botones .btn--secondary:hover{
-  background-color: rgba(0, 75, 147, 0.08);
-}
-
-.modal .modal-botones .btn--secondary:disabled{
-  opacity: 0.55;
+#modalTiposCompromisos td.tc-actions button:disabled {
+  opacity: .45;
   cursor: not-allowed;
 }
 
+
+#modalTiposCompromisos h3{
+  margin: 4px 0 10px;
+  text-align: center;
+}
+
+/* ===== Tabla ===== */
+#modalTiposCompromisos table{
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+}
+
+#modalTiposCompromisos th,
+#modalTiposCompromisos td{
+  vertical-align: middle;
+}
+
+/* Celdas de datos: si pueden truncar (ok) */
+#modalTiposCompromisos td{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Headers: NO truncar, permitir wrap */
+#modalTiposCompromisos th{
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;     /* permite 2 líneas */
+  line-height: 1.15;
+}
+
+/* Descripción (col 2): siempre wrap */
+#modalTiposCompromisos th:nth-child(2),
+#modalTiposCompromisos td:nth-child(2){
+  white-space: normal;
+}
+
+/* Inputs descripción */
+#modalTiposCompromisos textarea.tc-desc{
+  width: 100%;
+  min-height: 34px;
+  max-height: 56px;
+  resize: none;
+  box-sizing: border-box;
+}
+
+/* ===== Anchos por columna (una sola fuente) ===== */
+#modalTiposCompromisos colgroup col:nth-child(1){ width: 20%; }    /* Nombre */
+#modalTiposCompromisos colgroup col:nth-child(2){ width: 46%; }    /* Descripción */
+#modalTiposCompromisos colgroup col:nth-child(3){ width: 10%; }    /* Activo */
+#modalTiposCompromisos colgroup col:nth-child(4){ width: 14%; }    /* Visible para todos */
+#modalTiposCompromisos colgroup col:nth-child(5){ width: 130px; }  /* Acciones fijo (antes 110px) */
+
+/* Columna Acciones: centrado, sin flex */
+#modalTiposCompromisos td.tc-actions{
+  text-align: center;
+  white-space: nowrap;
+  padding: 6px 4px;
+
+  /* ajuste clave: evitar corte en acciones */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Visibilidad por modo (esto NO es “estilo de icono”, es lógica visual) */
+#modalTiposCompromisos tr.tc-row .tc-btn-editar{ display: inline-flex; }
+#modalTiposCompromisos tr.tc-row .tc-btn-guardar,
+#modalTiposCompromisos tr.tc-row .tc-btn-cancelar{ display: none; }
+
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-editar{ display: none; }
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-guardar,
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-cancelar{ display: inline-flex; }
+
+/* Footer */
+#modalTiposCompromisos .modal-botones{
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Botón Cerrar: texto visible (sin reventar nada global) */
+#modalTiposCompromisos .modal-botones button[data-modal-cerrar="modalTiposCompromisos"]{
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 1;
+}
+
+/* ===== Modal Nuevo Tipo: checkboxes en una sola línea, alineados ===== */
+#modalNuevoTipo .modal-checkline{
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+#modalNuevoTipo .modal-checkline__label{
+  margin: 0;
+}
+
+#modalNuevoTipo .modal-checkline input[type="checkbox"]{
+  margin: 0;
+}
+
+/* ===== modalNuevoTipo: Activo + Visible en la MISMA línea ===== */
+#modalNuevoTipo .modal-checkline{
+  display: inline-flex;      /* clave: deja de ser block */
+  align-items: center;
+  gap: 8px;                  /* texto ↔ checkbox */
+  margin: 10px 28px 10px 0;  /* separa ambos checks */
+  white-space: nowrap;
+}
+
+#modalNuevoTipo .modal-checkline__label{
+  margin: 0;
+}
+
+#modalNuevoTipo .modal-checkline input[type="checkbox"]{
+  margin: 0;
+}

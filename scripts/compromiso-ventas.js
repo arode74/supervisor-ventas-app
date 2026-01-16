@@ -1,138 +1,60 @@
 // scripts/compromiso-ventas.js
-// - Opción 2: SheetJS dinámico (sin tocar HTML)
-// - Ventas diarias SIEMPRE se renderiza (aunque esté en blanco)
-// - Panel 2 columnas: Compromisos (Lu..Vi) + Ventas (Lu..Do) con scroll en ventas y sync de días
-// - Export Excel: UNA hoja por vendedor, con ambas tablas en la MISMA hoja, formateadas
+// - Filtro: DÍA (por defecto HOY).
+// - Label: SOLO rango semanal "dd-mm-aaaa a dd-mm-aaaa" (sin "Semana X").
+// - El DÍA define:
+//    (1) Semana del reporte (Lu..Do donde cae el día; puede cruzar mes)
+//    (2) Acumulado de ventas del MES COMPLETO del día seleccionado (1..último del mes)
+// - Resumen por vendedor alineado en columnas: Tope/Sobre/Bajo/Plan/PV
+// - PV en formato $ con separador de miles ".", y tope visual $999.999.999
+// - Si el perfil es "zonal": se agrupa por ZONA (mostrando zona + nombre del zonal y si es principal/suplencia),
+//   dentro se listan EQUIPOS, y al expandir un equipo se ven los VENDEDORES como ahora.
 
 if (!window.supabase) throw new Error("Supabase no inicializado en window");
 const supabase = window.supabase;
 
-// ============================================================
-// DOM (con fallback de IDs para no “romper” si cambiaste HTML)
-// ============================================================
+// ======================= DOM =======================
 const $ = (id) => document.getElementById(id);
 
-const elSemana =
+const elDia =
+  $("selectDia") ||
+  $("inputDia") ||
+  $("dia") ||
+  $("fecha") ||
+  // fallback si alguien dejó week input
   $("selectSemana") ||
-  $("inputSemana") ||
-  $("semana") ||
-  $("week") ||
+  document.querySelector('input[type="date"]') ||
   document.querySelector('input[type="week"]');
 
 const elRango = $("labelRango") || $("rangoSemana") || $("rango");
 const elReporte = $("contenedorReporte") || $("contenedorReporteCV") || $("reporte") || $("contenedor");
 const elCarga = $("estadoCarga") || $("statusCarga") || $("lblEstado");
 
-// ✅ Enterprise-grade: el botón "Volver" del reporte NO debe usar id="btnVolver"
-// para no disparar el delegado global del supervisor. Solo aceptamos el botón propio
-// del submódulo o un data-attr explícito.
-const btnVolver =
-  $("btnVolverReporteCV") ||
-  document.querySelector("[data-volver-reportes]");
+const btnVolver = $("btnVolverReporteCV") || document.querySelector("[data-volver-reportes]");
+const btnExcel = $("btnExcel") || $("btnExcelReporte") || document.querySelector("[data-export-excel]");
 
-const btnExcel =
-  $("btnExcel") ||
-  $("btnExcelReporte") ||
-  document.querySelector("[data-export-excel]");
+let DATASET = null; // modo supervisor
+const DATASET_BY_TEAM = new Map(); // modo zonal: equipoId -> dataset
 
-let DATASET = null;
-
-// ============================================================
-// SheetJS (XLSX) loader (opción 2: dinámico)
-// ============================================================
-async function asegurarXLSX() {
-  if (window.XLSX) return true;
-
-  if (window.__xlsx_loading_promise) {
-    await window.__xlsx_loading_promise;
-    return !!window.XLSX;
-  }
-
-  window.__xlsx_loading_promise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
-    s.async = true;
-    s.onload = () => resolve(true);
-    s.onerror = () => reject(new Error("No se pudo cargar XLSX (SheetJS)."));
-    document.head.appendChild(s);
-  });
-
-  try {
-    await window.__xlsx_loading_promise;
-  } finally {
-    window.__xlsx_loading_promise = null;
-  }
-
-  return !!window.XLSX;
-}
-
-// ============================================================
-// Helpers fecha
-// ============================================================
-function toISODate(d) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
-function startOfISOWeek(year, week) {
-  const simple = new Date(year, 0, 1 + (week - 1) * 7);
-  const dow = simple.getDay(); // 0..6
-  const monday = new Date(simple);
-  const diff = dow <= 4 ? 1 - dow : 8 - dow;
-  monday.setDate(simple.getDate() + diff);
-  monday.setHours(0, 0, 0, 0);
-  return monday;
-}
-function semanaDefaultISOWeekInput() {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  const yyyy = d.getUTCFullYear();
-  return `${yyyy}-W${String(weekNo).padStart(2, "0")}`;
-}
-function parseWeekInput(weekStr) {
-  const raw = String(weekStr || "").trim();
-  const m = raw.match(/^(\d{4})-W(\d{1,2})$/);
-  if (!m) throw new Error("Semana inválida (formato esperado: YYYY-Www)");
-  const year = Number(m[1]);
-  const week = Number(m[2]);
-  const lunes = startOfISOWeek(year, week);
-  const domingo = addDays(lunes, 6);
-  const viernes = addDays(lunes, 4);
-  return { year, week, lunes, viernes, domingo };
-}
-function setRangoLabel(semana) {
-  const fmt = (d) => {
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = d.getFullYear();
-    return `${dd}-${mm}-${yy}`;
-  };
-  if (elRango) elRango.textContent = `${fmt(semana.lunes)} a ${fmt(semana.domingo)}`;
-}
-
-// ============================================================
-// UI helpers
-// ============================================================
+// ======================= UI helpers =======================
 function estado(msg, esError = false) {
   if (!elCarga) return;
   elCarga.textContent = msg || "";
   elCarga.style.color = esError ? "#b00020" : "";
 }
-function formatCLP(n) {
-  if (n === null || n === undefined || n === "") return "";
+
+const MAX_MONTO = 999_999_999;
+function clampMonto(n) {
   const num = Number(n);
-  if (Number.isNaN(num)) return "";
+  if (Number.isNaN(num) || num === null || num === undefined) return 0;
+  if (num < 0) return 0;
+  return Math.min(num, MAX_MONTO);
+}
+function formatCLP(n) {
+  const num = clampMonto(n);
   return num.toLocaleString("es-CL");
+}
+function formatCLPWithSymbol(n) {
+  return `$${formatCLP(n)}`;
 }
 function normTipo(txt) {
   return String(txt || "")
@@ -152,22 +74,113 @@ function labelTipoVenta(tipoVenta) {
   return raw ? raw.toUpperCase() : "";
 }
 
-// Días y filas
 const DIAS_SHORT = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"];
 const TIPOS_VENTA = ["Tope", "Sobre", "Bajo", "Plan", "Saldo PV"];
 
-// ============================================================
-// Contexto supervisor/equipo
-// ============================================================
-function getSupervisorId() {
-  if (window.idSupervisorActivo) return window.idSupervisorActivo;
-  const keys = ["idSupervisorActivo", "supervisor_id", "id_supervisor", "appventas_supervisor_id", "SUPERVISOR_ID"];
+// ======================= Fechas =======================
+function toISODate(d) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+function startOfWeekMonday(d) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const day = x.getDay(); // 0..6 (0=Dom)
+  const diff = day === 0 ? -6 : 1 - day; // lunes
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+function monthBounds(dateObj) {
+  const y = dateObj.getFullYear();
+  const m = dateObj.getMonth();
+  const first = new Date(y, m, 1);
+  first.setHours(0, 0, 0, 0);
+  const last = new Date(y, m + 1, 0);
+  last.setHours(0, 0, 0, 0);
+  return { first, last };
+}
+function defaultDateInputValue() {
+  return toISODate(new Date());
+}
+function fmtDMY(d) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = d.getFullYear();
+  return `${dd}-${mm}-${yy}`;
+}
+
+// Acepta "YYYY-MM-DD" o "YYYY-Www"
+function parseInputToContext(value) {
+  const raw = String(value || "").trim();
+  if (!raw) throw new Error("Fecha inválida");
+
+  let selectedDay;
+
+  const mWeek = raw.match(/^(\d{4})-W(\d{2})$/);
+  if (mWeek) {
+    const year = Number(mWeek[1]);
+    const week = Number(mWeek[2]);
+
+    // lunes de la semana ISO
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const mondayWeek1 = new Date(jan4);
+    mondayWeek1.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+    const monday = new Date(mondayWeek1);
+    monday.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7);
+
+    selectedDay = new Date(`${toISODate(new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate())))}T00:00:00`);
+  } else {
+    const d = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(d.getTime())) throw new Error("Fecha inválida (formato esperado: YYYY-MM-DD)");
+    selectedDay = d;
+  }
+
+  const weekMonday = startOfWeekMonday(selectedDay);
+  const weekSunday = addDays(weekMonday, 6);
+  const weekFriday = addDays(weekMonday, 4);
+  const { first: monthStart, last: monthEnd } = monthBounds(selectedDay);
+
+  return { selectedDay, weekMonday, weekFriday, weekSunday, monthStart, monthEnd };
+}
+
+function setRangoLabel(ctx) {
+  if (!elRango) return;
+  elRango.textContent = `${fmtDMY(ctx.weekMonday)} a ${fmtDMY(ctx.weekSunday)}`;
+}
+
+// ======================= Auth / Perfil =======================
+async function getUserId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) return null;
+  return data.user.id;
+}
+
+async function getPerfilActual(userId) {
+  // Preferido: RPC RBAC
+  try {
+    const { data, error } = await supabase.rpc("get_perfil_actual", { p_user_id: userId });
+    if (!error && data) return String(data).trim().toLowerCase();
+  } catch (_) {}
+
+  // Fallback localStorage
+  const keys = ["perfil_actual", "perfilActual", "appventas_perfil", "role"];
   for (const k of keys) {
     const v = localStorage.getItem(k);
-    if (v) return v;
+    if (v) return String(v).trim().toLowerCase();
   }
-  return null;
+
+  return "supervisor";
 }
+
+// ======================= Equipo actual (modo no-zonal) =======================
 function getEquipoIdActual() {
   const sel = document.getElementById("selectEquipo");
   if (sel && sel.value) return sel.value;
@@ -180,9 +193,7 @@ function getEquipoIdActual() {
   return null;
 }
 
-// ============================================================
-// Fetchs
-// ============================================================
+// ======================= Fetch base (supervisor / ventas) =======================
 async function fetchTiposCompromisos(supervisorId) {
   const { data, error } = await supabase
     .from("tipos_compromisos")
@@ -205,7 +216,7 @@ async function fetchEquipoVendedorTramos(equipoId) {
   return data || [];
 }
 
-function tramosVigentesEnSemana(tramos, lunesISO, domingoISO) {
+function tramosVigentesEnRango(tramos, desdeISO, hastaISO) {
   const ids = new Set();
   const map = new Map();
 
@@ -216,8 +227,8 @@ function tramosVigentesEnSemana(tramos, lunesISO, domingoISO) {
     const fi = t.fecha_inicio ? String(t.fecha_inicio).slice(0, 10) : null;
     const ff = t.fecha_fin ? String(t.fecha_fin).slice(0, 10) : null;
 
-    if (fi && fi > domingoISO) continue;
-    if (ff && ff < lunesISO) continue;
+    if (fi && fi > hastaISO) continue;
+    if (ff && ff < desdeISO) continue;
 
     ids.add(t.id_vendedor);
     if (!map.has(t.id_vendedor)) map.set(t.id_vendedor, []);
@@ -254,33 +265,31 @@ async function fetchGestion(equipoId, supervisorId, lunesISO, viernesISO) {
   return data || [];
 }
 
-async function fetchVentas(vendorIds, lunesISO, domingoISO) {
+async function fetchVentas(vendorIds, desdeISO, hastaISO) {
   if (!vendorIds.length) return [];
   const { data, error } = await supabase
     .from("ventas")
     .select("id_vendedor, fecha_venta, monto, tipo_venta")
     .in("id_vendedor", vendorIds)
-    .gte("fecha_venta", lunesISO)
-    .lte("fecha_venta", domingoISO);
+    .gte("fecha_venta", desdeISO)
+    .lte("fecha_venta", hastaISO);
 
   if (error) throw new Error(`Error ventas: ${error.message}`);
   return data || [];
 }
 
-// ============================================================
-// Indexado
-// ============================================================
+// ======================= Indexado =======================
 function buildGestionMap(rows) {
   const map = {};
   for (const r of rows || []) {
     const vid = r.id_vendedor;
     const tid = r.id_tipo;
     const f = String(r.fecha_compromiso).slice(0, 10);
-    const m = Number(r.monto_comprometido || 0);
+    const m = clampMonto(r.monto_comprometido || 0);
 
     map[vid] ??= {};
     map[vid][tid] ??= {};
-    map[vid][tid][f] = (map[vid][tid][f] || 0) + m;
+    map[vid][tid][f] = clampMonto((map[vid][tid][f] || 0) + m);
   }
   return map;
 }
@@ -290,7 +299,7 @@ function buildVentasMap(rows, tramosPorVendedor) {
   for (const r of rows || []) {
     const vid = r.id_vendedor;
     const f = String(r.fecha_venta).slice(0, 10);
-    const m = Number(r.monto || 0);
+    const m = clampMonto(r.monto || 0);
     const tipo = labelTipoVenta(r.tipo_venta);
 
     const tramos = tramosPorVendedor.get(vid) || [];
@@ -299,21 +308,118 @@ function buildVentasMap(rows, tramosPorVendedor) {
 
     map[vid] ??= {};
     map[vid][f] ??= {};
-    map[vid][f][tipo] = (map[vid][f][tipo] || 0) + m;
+    map[vid][f][tipo] = clampMonto((map[vid][f][tipo] || 0) + m);
   }
   return map;
 }
 
-// ============================================================
-// Render reporte (por vendedor, + / −)
-// ============================================================
-function renderReporte(ds) {
-  if (!elReporte) return;
+function buildVentasAcumuladoMap(rows, tramosPorVendedor) {
+  const acc = {};
+  for (const r of rows || []) {
+    const vid = r.id_vendedor;
+    const f = String(r.fecha_venta).slice(0, 10);
+    const m = clampMonto(r.monto || 0);
+    const tipo = labelTipoVenta(r.tipo_venta);
 
-  elReporte.innerHTML = "";
+    const tramos = tramosPorVendedor.get(vid) || [];
+    const ok = tramos.some((t) => t.fi <= f && f <= t.ff);
+    if (!ok) continue;
+
+    acc[vid] ??= {};
+    acc[vid][tipo] = clampMonto((acc[vid][tipo] || 0) + m);
+  }
+  return acc;
+}
+
+// ======================= ZONAL: Zonas / Equipos =======================
+// Tablas reales (según tus imágenes):
+// - public.zonas: id_zona, nombre, activo
+// - public.zona_zonal: id_zona, id_zonal, es_principal, fecha_inicio, fecha_fin, motivo_suplencia, id_motivo
+// - public.zona_equipo: id_zona, id_equipo, fecha_inicio, fecha_fin
+// - public.equipos: id_equipo, nombre (o nombre_equipo)
+// - public.profiles: id (uuid), nombre
+function isoRefFromCtx(ctx) {
+  return toISODate(ctx.selectedDay);
+}
+function vigente(fi, ff, refISO) {
+  const a = fi ? String(fi).slice(0, 10) : "0000-01-01";
+  const b = ff ? String(ff).slice(0, 10) : "9999-12-31";
+  return a <= refISO && refISO <= b;
+}
+
+async function fetchZonasAsignadasAZonal(zonalUserId, refISO) {
+  const { data: zz, error } = await supabase
+    .from("zona_zonal")
+    .select("id_relacion, id_zona, id_zonal, es_principal, fecha_inicio, fecha_fin, motivo_suplencia, id_motivo")
+    .eq("id_zonal", zonalUserId);
+
+  if (error) throw new Error(`Error zona_zonal: ${error.message}`);
+
+  const rows = (zz || []).filter((r) => vigente(r.fecha_inicio, r.fecha_fin, refISO));
+  if (!rows.length) return [];
+
+  const zonaIds = Array.from(new Set(rows.map((r) => r.id_zona).filter(Boolean)));
+
+  const [{ data: zonas, error: eZ }, { data: profs, error: eP }] = await Promise.all([
+    supabase.from("zonas").select("id_zona, nombre, activo").in("id_zona", zonaIds),
+    supabase.from("profiles").select("id, nombre").in("id", [zonalUserId]),
+  ]);
+  if (eZ) throw new Error(`Error zonas: ${eZ.message}`);
+  if (eP) throw new Error(`Error profiles: ${eP.message}`);
+
+  const zonaById = new Map((zonas || []).map((z) => [z.id_zona, z]));
+  const nombreZonal = (profs && profs[0] && profs[0].nombre) ? profs[0].nombre : "(sin nombre)";
+
+  return rows
+    .map((r) => {
+      const z = zonaById.get(r.id_zona);
+      return {
+        id_zona: r.id_zona,
+        zona_nombre: z?.nombre || "(sin zona)",
+        zona_activo: z?.activo !== false,
+        id_zonal: r.id_zonal,
+        zonal_nombre: nombreZonal,
+        es_principal: r.es_principal === true,
+        motivo_suplencia: r.motivo_suplencia || null,
+        fecha_inicio: r.fecha_inicio,
+        fecha_fin: r.fecha_fin,
+      };
+    })
+    .filter((x) => x.zona_activo)
+    .sort((a, b) => a.zona_nombre.localeCompare(b.zona_nombre, "es"));
+}
+
+async function fetchEquiposDeZona(idZona, refISO) {
+  const { data: ze, error } = await supabase
+    .from("zona_equipo")
+    .select("id_relacion, id_zona, id_equipo, fecha_inicio, fecha_fin")
+    .eq("id_zona", idZona);
+
+  if (error) throw new Error(`Error zona_equipo: ${error.message}`);
+
+  const equipoIds = Array.from(
+    new Set((ze || []).filter((r) => vigente(r.fecha_inicio, r.fecha_fin, refISO)).map((r) => r.id_equipo).filter(Boolean))
+  );
+  if (!equipoIds.length) return [];
+
+  const { data: eq, error: e2 } = await supabase
+    .from("equipos")
+    .select("id_equipo, nombre, nombre_equipo")
+    .in("id_equipo", equipoIds);
+
+  if (e2) throw new Error(`Error equipos: ${e2.message}`);
+
+  return (eq || [])
+    .map((r) => ({ id_equipo: r.id_equipo, nombre: r.nombre || r.nombre_equipo || "(sin nombre)" }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+}
+
+// ======================= Render: Vendedores (como ahora) =======================
+function renderVendedoresEnContenedor(ds, containerEl) {
+  containerEl.innerHTML = "";
 
   if (!ds.vendedores.length) {
-    elReporte.innerHTML = `<div style="padding:10px 0;">Sin vendedores vigentes para el equipo/semana.</div>`;
+    containerEl.innerHTML = `<div style="padding:10px 0;">Sin vendedores vigentes para el equipo/semana.</div>`;
     return;
   }
 
@@ -340,13 +446,60 @@ function renderReporte(ds) {
     const nombre = document.createElement("span");
     nombre.textContent = vend.nombre;
 
+    const spacer = document.createElement("div");
+    spacer.style.flex = "1";
+
+    const acc = ds.ventasAcumuladasMes?.[vend.id] || {};
+
+    // Grid compacto y alineado
+    const acumulado = document.createElement("div");
+    acumulado.style.display = "grid";
+    acumulado.style.gridTemplateColumns = "80px 80px 80px 80px 120px";
+    acumulado.style.columnGap = "6px";
+    acumulado.style.justifyContent = "end";
+    acumulado.style.alignItems = "center";
+    acumulado.style.fontSize = "12px";
+    acumulado.style.opacity = "0.92";
+
+    const mk = (label, value, isPV = false) => {
+      const cell = document.createElement("div");
+      cell.style.display = "flex";
+      cell.style.justifyContent = "space-between";
+      cell.style.gap = "4px";
+      cell.style.whiteSpace = "nowrap";
+
+      const lab = document.createElement("span");
+      lab.textContent = label;
+
+      const v = clampMonto(value || 0);
+      const shown = isPV ? formatCLPWithSymbol(v) : formatCLP(v);
+
+      const val = document.createElement("span");
+      val.textContent = `[${shown || (isPV ? "$0" : "0")}]`;
+      val.style.fontWeight = "700";
+      val.style.textAlign = "right";
+      val.style.marginLeft = "auto";
+
+      cell.appendChild(lab);
+      cell.appendChild(val);
+      return cell;
+    };
+
+    acumulado.appendChild(mk("Tope", acc["Tope"]));
+    acumulado.appendChild(mk("Sobre", acc["Sobre"]));
+    acumulado.appendChild(mk("Bajo", acc["Bajo"]));
+    acumulado.appendChild(mk("Plan", acc["Plan"]));
+    acumulado.appendChild(mk("PV", acc["Saldo PV"], true));
+
     fila.appendChild(toggle);
     fila.appendChild(nombre);
+    fila.appendChild(spacer);
+    fila.appendChild(acumulado);
 
     const panel = document.createElement("div");
     panel.style.display = "none";
     panel.style.marginTop = "10px";
-    panel.appendChild(buildPanel2Column(vend, ds));
+    panel.appendChild(buildPanel2Column(vend, ds)); // mantiene vista actual
 
     fila.addEventListener("click", () => {
       const abierto = panel.style.display !== "none";
@@ -356,19 +509,15 @@ function renderReporte(ds) {
 
     bloque.appendChild(fila);
     bloque.appendChild(panel);
-    elReporte.appendChild(bloque);
+    containerEl.appendChild(bloque);
   }
 }
 
-// ============================================================
-// PANEL: 2 columnas
-// - Compromisos (Lu..Vi) sin barra (pero se sincroniza por scroll de ventas)
-// - Ventas (Lu..Do) con barra horizontal (la que manda)
-// ============================================================
+// ======================= Panel detalle (se mantiene) =======================
 function buildPanel2Column(vend, ds) {
-  const { tipos, semana, gestionMap, ventasMap } = ds;
+  const { tipos, ctx, gestionMap, ventasMap } = ds;
 
-  const fechas7 = Array.from({ length: 7 }, (_, i) => toISODate(addDays(semana.lunes, i))); // Lu..Do
+  const fechas7 = Array.from({ length: 7 }, (_, i) => toISODate(addDays(ctx.weekMonday, i))); // Lu..Do
   const fechas5 = fechas7.slice(0, 5); // Lu..Vi
 
   const S = {
@@ -419,7 +568,6 @@ function buildPanel2Column(vend, ds) {
   const compBlock = document.createElement("div");
   compBlock.style.display = "flex";
   compBlock.style.alignItems = "flex-start";
-  compBlock.style.gap = "0";
 
   const labelsComp = buildLabelTable({
     title: "Compromiso",
@@ -438,16 +586,14 @@ function buildPanel2Column(vend, ds) {
 
   const compDaysInner = document.createElement("div");
   compDaysInner.style.width = "max-content";
-  compDaysInner.appendChild(
-    buildDaysTableCompromisos({
-      tipos,
-      fechas: fechas5,
-      diasShort: DIAS_SHORT.slice(0, 5),
-      vendId: vend.id,
-      gestionMap,
-      S,
-    })
-  );
+  compDaysInner.appendChild(buildDaysTableCompromisos({
+    tipos,
+    fechas: fechas5,
+    diasShort: DIAS_SHORT.slice(0, 5),
+    vendId: vend.id,
+    gestionMap,
+    S,
+  }));
   compDaysFrame.appendChild(compDaysInner);
 
   compBlock.appendChild(labelsComp);
@@ -456,7 +602,6 @@ function buildPanel2Column(vend, ds) {
   const ventBlock = document.createElement("div");
   ventBlock.style.display = "flex";
   ventBlock.style.alignItems = "flex-start";
-  ventBlock.style.gap = "0";
 
   const labelsVent = buildLabelTable({
     title: "Tipo",
@@ -476,15 +621,13 @@ function buildPanel2Column(vend, ds) {
 
   const ventDaysInner = document.createElement("div");
   ventDaysInner.style.width = "max-content";
-  ventDaysInner.appendChild(
-    buildDaysTableVentas({
-      fechas: fechas7,
-      diasShort: DIAS_SHORT,
-      vendId: vend.id,
-      ventasMap,
-      S,
-    })
-  );
+  ventDaysInner.appendChild(buildDaysTableVentas({
+    fechas: fechas7,
+    diasShort: DIAS_SHORT,
+    vendId: vend.id,
+    ventasMap,
+    S,
+  }));
   ventDaysFrame.appendChild(ventDaysInner);
 
   ventBlock.appendChild(labelsVent);
@@ -524,7 +667,6 @@ function buildPanel2Column(vend, ds) {
     th.style.textAlign = "left";
     th.style.whiteSpace = "nowrap";
     th.style.height = S.rowH;
-    th.style.boxSizing = "border-box";
     trh.appendChild(th);
     thead.appendChild(trh);
 
@@ -532,6 +674,7 @@ function buildPanel2Column(vend, ds) {
     rows.forEach((txt, idx) => {
       const tr = document.createElement("tr");
       tr.style.background = idx % 2 ? "rgba(255,255,255,0.65)" : "white";
+
       const td = document.createElement("td");
       td.textContent = txt;
       td.style.border = S.border;
@@ -539,7 +682,6 @@ function buildPanel2Column(vend, ds) {
       td.style.textAlign = "left";
       td.style.verticalAlign = "middle";
       td.style.height = S.rowH;
-      td.style.boxSizing = "border-box";
 
       if (wrap2Lines) {
         td.style.whiteSpace = "normal";
@@ -567,7 +709,6 @@ function buildPanel2Column(vend, ds) {
     tbl.style.borderCollapse = "separate";
     tbl.style.borderSpacing = "0";
     tbl.style.fontSize = S.fontSize;
-    tbl.style.tableLayout = "auto";
     tbl.style.boxShadow = S.shadow;
     tbl.style.borderRadius = S.radius;
     tbl.style.overflow = "hidden";
@@ -583,7 +724,6 @@ function buildPanel2Column(vend, ds) {
       th.style.textAlign = "center";
       th.style.whiteSpace = "nowrap";
       th.style.height = S.rowH;
-      th.style.boxSizing = "border-box";
       th.style.minWidth = `${S.dayMinW}px`;
       trh.appendChild(th);
     }
@@ -605,7 +745,6 @@ function buildPanel2Column(vend, ds) {
         td.style.textAlign = "right";
         td.style.whiteSpace = "nowrap";
         td.style.height = S.rowH;
-        td.style.boxSizing = "border-box";
         td.style.minWidth = `${S.dayMinW}px`;
         tr.appendChild(td);
       }
@@ -623,7 +762,6 @@ function buildPanel2Column(vend, ds) {
     tbl.style.borderCollapse = "separate";
     tbl.style.borderSpacing = "0";
     tbl.style.fontSize = S.fontSize;
-    tbl.style.tableLayout = "auto";
     tbl.style.boxShadow = S.shadow;
     tbl.style.borderRadius = S.radius;
     tbl.style.overflow = "hidden";
@@ -639,7 +777,6 @@ function buildPanel2Column(vend, ds) {
       th.style.textAlign = "center";
       th.style.whiteSpace = "nowrap";
       th.style.height = S.rowH;
-      th.style.boxSizing = "border-box";
       th.style.minWidth = `${S.dayMinW}px`;
       trh.appendChild(th);
     }
@@ -661,7 +798,6 @@ function buildPanel2Column(vend, ds) {
         td.style.textAlign = "right";
         td.style.whiteSpace = "nowrap";
         td.style.height = S.rowH;
-        td.style.boxSizing = "border-box";
         td.style.minWidth = `${S.dayMinW}px`;
         tr.appendChild(td);
       }
@@ -675,255 +811,330 @@ function buildPanel2Column(vend, ds) {
   }
 }
 
-// ============================================================
-// Excel export (UNA hoja por vendedor, ambas tablas en la misma hoja)
-// ============================================================
-function safeSheetName(name) {
-  const s = String(name || "Vendedor")
-    .replace(/[\\/?*\[\]:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return (s || "Vendedor").slice(0, 31);
+// ======================= Dataset loader (por equipo) =======================
+async function cargarDatasetEquipo({ equipoId, perfil, userId, ctx }) {
+  const weekMondayISO = toISODate(ctx.weekMonday);
+  const weekFridayISO = toISODate(ctx.weekFriday);
+  const weekSundayISO = toISODate(ctx.weekSunday);
+
+  const mesInicioISO = toISODate(ctx.monthStart);
+  const mesFinISO = toISODate(ctx.monthEnd);
+
+  const tramos = await fetchEquipoVendedorTramos(equipoId);
+  const { vendorIds, tramosPorVendedor } = tramosVigentesEnRango(tramos, weekMondayISO, weekSundayISO);
+  const vendorList = Array.from(vendorIds);
+
+  const [vendedores, ventasSemana, ventasMes] = await Promise.all([
+    fetchVendedoresPorIds(vendorList),
+    fetchVentas(vendorList, weekMondayISO, weekSundayISO),
+    fetchVentas(vendorList, mesInicioISO, mesFinISO),
+  ]);
+
+  // Compromisos SOLO si no es zonal (porque zona no tiene supervisor_id)
+  let tipos = [];
+  let compromisosSemana = [];
+  if (perfil !== "zonal") {
+    tipos = await fetchTiposCompromisos(userId);
+    compromisosSemana = await fetchGestion(equipoId, userId, weekMondayISO, weekFridayISO);
+  }
+
+  return {
+    perfil,
+    userId,
+    equipoId,
+    ctx,
+    vendedores,
+    tipos,
+    gestionMap: buildGestionMap(compromisosSemana),
+    ventasMap: buildVentasMap(ventasSemana, tramosPorVendedor),
+    ventasAcumuladasMes: buildVentasAcumuladoMap(ventasMes, tramosPorVendedor),
+  };
 }
 
-function exportarExcel(ds) {
-  if (!window.XLSX) {
-    alert("No se cargó XLSX (SheetJS).");
+// ======================= Render supervisor (sin agrupación) =======================
+function renderReporte(ds) {
+  renderVendedoresEnContenedor(ds, elReporte);
+}
+
+// ======================= Render zonal (zona -> equipos -> vendedores) =======================
+function renderZonalEstructura({ zonasAsignadas, ctx, userId }) {
+  elReporte.innerHTML = "";
+
+  if (!zonasAsignadas.length) {
+    elReporte.innerHTML = `<div style="padding:10px 0;">Sin zonas asignadas para la fecha seleccionada.</div>`;
     return;
   }
+
+  zonasAsignadas.forEach((z) => {
+    const zonaBox = document.createElement("div");
+    zonaBox.style.border = "1px solid rgba(0,0,0,0.08)";
+    zonaBox.style.borderRadius = "10px";
+    zonaBox.style.padding = "10px";
+    zonaBox.style.margin = "10px 0";
+    zonaBox.style.background = "rgba(255,255,255,0.7)";
+
+    const head = document.createElement("div");
+    head.style.display = "flex";
+    head.style.alignItems = "baseline";
+    head.style.gap = "10px";
+    head.style.marginBottom = "8px";
+
+    const titulo = document.createElement("div");
+    titulo.style.fontWeight = "800";
+    titulo.textContent = `Zona: ${z.zona_nombre}`;
+
+    const sub = document.createElement("div");
+    sub.style.opacity = "0.85";
+    sub.style.fontSize = "12px";
+    const tag = z.es_principal ? "Principal" : "Suplencia";
+    const extra = (!z.es_principal && z.motivo_suplencia) ? ` — ${z.motivo_suplencia}` : "";
+    sub.textContent = `Zonal: ${z.zonal_nombre} (${tag}${extra})`;
+
+    head.appendChild(titulo);
+    head.appendChild(sub);
+    zonaBox.appendChild(head);
+
+    const equiposWrap = document.createElement("div");
+    equiposWrap.textContent = "Cargando equipos…";
+    zonaBox.appendChild(equiposWrap);
+
+    elReporte.appendChild(zonaBox);
+
+    // Carga equipos async por zona
+    (async () => {
+      try {
+        const refISO = isoRefFromCtx(ctx);
+        const equipos = await fetchEquiposDeZona(z.id_zona, refISO);
+
+        if (!equipos.length) {
+          equiposWrap.innerHTML = `<div style="padding:6px 0; opacity:0.8;">Sin equipos vigentes en esta zona.</div>`;
+          return;
+        }
+
+        equiposWrap.innerHTML = "";
+        equipos.forEach((eq) => {
+          const bloqueEq = document.createElement("div");
+          bloqueEq.style.padding = "8px 0";
+          bloqueEq.style.borderTop = "1px solid rgba(0,0,0,0.06)";
+
+          const filaEq = document.createElement("div");
+          filaEq.style.display = "flex";
+          filaEq.style.alignItems = "center";
+          filaEq.style.gap = "10px";
+          filaEq.style.cursor = "pointer";
+          filaEq.style.userSelect = "none";
+
+          const tg = document.createElement("span");
+          tg.textContent = "+";
+          tg.style.fontWeight = "900";
+          tg.style.width = "18px";
+          tg.style.textAlign = "center";
+
+          const nm = document.createElement("span");
+          nm.style.fontWeight = "700";
+          nm.textContent = eq.nombre;
+
+          const spacer = document.createElement("div");
+          spacer.style.flex = "1";
+
+          filaEq.appendChild(tg);
+          filaEq.appendChild(nm);
+          filaEq.appendChild(spacer);
+
+          const panelEq = document.createElement("div");
+          panelEq.style.display = "none";
+          panelEq.style.marginTop = "8px";
+          panelEq.style.paddingLeft = "28px";
+          panelEq.innerHTML = `<div style="opacity:0.8;">(sin cargar)</div>`;
+
+          let loaded = false;
+
+          filaEq.addEventListener("click", async () => {
+            const abierto = panelEq.style.display !== "none";
+            if (abierto) {
+              panelEq.style.display = "none";
+              tg.textContent = "+";
+              return;
+            }
+
+            panelEq.style.display = "block";
+            tg.textContent = "−";
+
+            if (loaded) return;
+
+            try {
+              panelEq.innerHTML = `<div style="opacity:0.8;">Cargando vendedores…</div>`;
+              const ds = await cargarDatasetEquipo({ equipoId: eq.id_equipo, perfil: "zonal", userId, ctx });
+              DATASET_BY_TEAM.set(eq.id_equipo, ds);
+              panelEq.innerHTML = "";
+              renderVendedoresEnContenedor(ds, panelEq);
+              loaded = true;
+            } catch (e) {
+              console.error(e);
+              panelEq.innerHTML = `<div style="color:#b00020;">Error: ${e?.message || e}</div>`;
+            }
+          });
+
+          bloqueEq.appendChild(filaEq);
+          bloqueEq.appendChild(panelEq);
+          equiposWrap.appendChild(bloqueEq);
+        });
+      } catch (e) {
+        console.error(e);
+        equiposWrap.innerHTML = `<div style="color:#b00020;">Error: ${e?.message || e}</div>`;
+      }
+    })();
+  });
+}
+
+// ======================= Excel (mínimo) =======================
+async function asegurarXLSX() {
+  if (window.XLSX) return true;
+  if (window.__xlsx_loading_promise) {
+    await window.__xlsx_loading_promise;
+    return !!window.XLSX;
+  }
+  window.__xlsx_loading_promise = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("No se pudo cargar XLSX (SheetJS)."));
+    document.head.appendChild(s);
+  });
+  try {
+    await window.__xlsx_loading_promise;
+  } finally {
+    window.__xlsx_loading_promise = null;
+  }
+  return !!window.XLSX;
+}
+
+function exportarExcelDataset(ds, nombreArchivo) {
+  if (!window.XLSX) throw new Error("No se cargó XLSX (SheetJS).");
   const XLSX = window.XLSX;
 
-  const { vendedores, tipos, semana, gestionMap, ventasMap } = ds;
-
-  const fechas7 = Array.from({ length: 7 }, (_, i) => toISODate(addDays(semana.lunes, i)));
+  const fechas7 = Array.from({ length: 7 }, (_, i) => toISODate(addDays(ds.ctx.weekMonday, i)));
   const fechas5 = fechas7.slice(0, 5);
 
   const wb = XLSX.utils.book_new();
 
-  const ST = {
-    title: {
-      font: { bold: true, sz: 14 },
-      alignment: { horizontal: "center", vertical: "center" },
-    },
-    subTitle: {
-      font: { bold: true, sz: 12 },
-      alignment: { horizontal: "center", vertical: "center" },
-      fill: { patternType: "solid", fgColor: { rgb: "CFE3F7" } },
-    },
-    header: {
-      font: { bold: true, sz: 11 },
-      alignment: { horizontal: "center", vertical: "center" },
-      fill: { patternType: "solid", fgColor: { rgb: "CFE3F7" } },
-    },
-    leftHeader: {
-      font: { bold: true, sz: 11 },
-      alignment: { horizontal: "left", vertical: "center" },
-      fill: { patternType: "solid", fgColor: { rgb: "CFE3F7" } },
-    },
-    cellText: {
-      font: { sz: 11 },
-      alignment: { horizontal: "left", vertical: "center", wrapText: true },
-    },
-    cellNum: {
-      font: { sz: 11 },
-      alignment: { horizontal: "right", vertical: "center" },
-      numFmt: "#,##0",
-    },
-    borderAll: {
-      border: {
-        top: { style: "thin", color: { rgb: "000000" } },
-        bottom: { style: "thin", color: { rgb: "000000" } },
-        left: { style: "thin", color: { rgb: "000000" } },
-        right: { style: "thin", color: { rgb: "000000" } },
-      },
-    },
-  };
-
-  function setCell(ws, addr, v, s) {
-    ws[addr] = ws[addr] || { t: "s", v: "" };
-    ws[addr].v = v;
-    if (typeof v === "number") ws[addr].t = "n";
-    else ws[addr].t = "s";
-    if (s) ws[addr].s = s;
-  }
-
-  function applyBorder(ws, rangeA1) {
-    const r = XLSX.utils.decode_range(rangeA1);
-    for (let R = r.s.r; R <= r.e.r; R++) {
-      for (let C = r.s.c; C <= r.e.c; C++) {
-        const a = XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[a]) ws[a] = { t: "s", v: "" };
-        ws[a].s = ws[a].s || {};
-        ws[a].s.border = ST.borderAll.border;
-      }
-    }
-  }
-
-  for (const v of vendedores) {
+  for (const v of ds.vendedores) {
     const aoa = [];
-    aoa.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
-    aoa.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
-    aoa.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+    aoa.push([String(v.nombre || "Vendedor")]);
+    aoa.push([`${toISODate(ds.ctx.weekMonday)} a ${toISODate(ds.ctx.weekSunday)}`]);
+    aoa.push([""]);
 
-    const rowsData = Math.max((tipos || []).length, TIPOS_VENTA.length);
-    for (let i = 0; i < rowsData; i++) aoa.push(new Array(15).fill(""));
-
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-    ws["!cols"] = [
-      { wch: 28 },
-      { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 },
-      { wch: 3 },
-      { wch: 14 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
-    ];
-
-    const title = (v.nombre || "Vendedor").toUpperCase();
-    setCell(ws, "A1", title, ST.title);
-    ws["!merges"] = ws["!merges"] || [];
-    ws["!merges"].push({ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } });
-
-    setCell(ws, "A2", "Compromisos diarios", ST.subTitle);
-    ws["!merges"].push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } });
-
-    setCell(ws, "H2", "Ventas diarias", ST.subTitle);
-    ws["!merges"].push({ s: { r: 1, c: 7 }, e: { r: 1, c: 14 } });
-
-    setCell(ws, "A3", "Compromiso", { ...ST.leftHeader, ...ST.borderAll });
-    ["Lu", "Ma", "Mi", "Ju", "Vi"].forEach((d, i) => {
-      const col = String.fromCharCode("B".charCodeAt(0) + i);
-      setCell(ws, `${col}3`, d, { ...ST.header, ...ST.borderAll });
-    });
-
-    setCell(ws, "H3", "Tipo", { ...ST.leftHeader, ...ST.borderAll });
-    ["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].forEach((d, i) => {
-      const col = String.fromCharCode("I".charCodeAt(0) + i);
-      setCell(ws, `${col}3`, d, { ...ST.header, ...ST.borderAll });
-    });
-
-    const baseRow = 4;
-
-    for (let i = 0; i < (tipos || []).length; i++) {
-      const tc = tipos[i];
-      const r = baseRow + i;
-
-      setCell(ws, `A${r}`, tc.descripcion || "", { ...ST.cellText, ...ST.borderAll });
-
-      for (let d = 0; d < 5; d++) {
-        const f = fechas5[d];
-        const val = gestionMap[v.id]?.[tc.id]?.[f] ?? "";
-        const col = String.fromCharCode("B".charCodeAt(0) + d);
-        setCell(ws, `${col}${r}`, val === "" ? "" : Number(val), { ...ST.cellNum, ...ST.borderAll });
+    // Compromisos (si aplica)
+    if ((ds.tipos || []).length) {
+      aoa.push(["Compromiso", "Lu", "Ma", "Mi", "Ju", "Vi"]);
+      for (const tc of ds.tipos) {
+        const r = [tc.descripcion || ""];
+        for (let d = 0; d < 5; d++) {
+          const f = fechas5[d];
+          r.push(ds.gestionMap[v.id]?.[tc.id]?.[f] ?? "");
+        }
+        aoa.push(r);
       }
+      aoa.push([""]);
     }
 
-    for (let i = 0; i < TIPOS_VENTA.length; i++) {
-      const tv = TIPOS_VENTA[i];
-      const r = baseRow + i;
-
-      setCell(ws, `H${r}`, tv, { ...ST.cellText, ...ST.borderAll });
-
+    // Ventas
+    aoa.push(["Tipo", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"]);
+    for (const tv of TIPOS_VENTA) {
+      const r = [tv];
       for (let d = 0; d < 7; d++) {
         const f = fechas7[d];
-        const monto = ventasMap[v.id]?.[f]?.[tv] ?? "";
-        const col = String.fromCharCode("I".charCodeAt(0) + d);
-        setCell(ws, `${col}${r}`, monto === "" ? "" : Number(monto), { ...ST.cellNum, ...ST.borderAll });
+        r.push(ds.ventasMap[v.id]?.[f]?.[tv] ?? "");
       }
+      aoa.push(r);
     }
 
-    const lastRow = baseRow + rowsData - 1;
-    applyBorder(ws, `A3:F${lastRow}`);
-    applyBorder(ws, `H3:O${lastRow}`);
-
-    ws["!ref"] = `A1:O${lastRow}`;
-
-    XLSX.utils.book_append_sheet(wb, ws, safeSheetName(v.nombre));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    XLSX.utils.book_append_sheet(wb, ws, String(v.nombre || "Vendedor").slice(0, 31));
   }
 
-  XLSX.writeFile(wb, `compromiso-ventas_${toISODate(semana.lunes)}_${toISODate(semana.domingo)}.xlsx`);
+  XLSX.writeFile(wb, nombreArchivo);
 }
 
-// ============================================================
-// Core
-// ============================================================
-async function cargarDataset() {
-  const supervisorId = getSupervisorId();
-  if (!supervisorId) throw new Error("No se encontró supervisor_id (sesión).");
-
-  const equipoId = getEquipoIdActual();
-  if (!equipoId) throw new Error("No se encontró equipo activo.");
-
-  const weekValue = (elSemana && elSemana.value) ? elSemana.value : semanaDefaultISOWeekInput();
-  const semana = parseWeekInput(weekValue);
-
-  setRangoLabel(semana);
-
-  const lunesISO = toISODate(semana.lunes);
-  const viernesISO = toISODate(semana.viernes);
-  const domingoISO = toISODate(semana.domingo);
-
-  estado("Cargando datos…");
-
-  const tramos = await fetchEquipoVendedorTramos(equipoId);
-  const { vendorIds, tramosPorVendedor } = tramosVigentesEnSemana(tramos, lunesISO, domingoISO);
-  const vendorList = Array.from(vendorIds);
-
-  const [tipos, vendedores, compromisos, ventas] = await Promise.all([
-    fetchTiposCompromisos(supervisorId),
-    fetchVendedoresPorIds(vendorList),
-    fetchGestion(equipoId, supervisorId, lunesISO, viernesISO),
-    fetchVentas(vendorList, lunesISO, domingoISO),
-  ]);
-
-  return {
-    supervisorId,
-    equipoId,
-    semana,
-    vendedores,
-    tipos,
-    gestionMap: buildGestionMap(compromisos),
-    ventasMap: buildVentasMap(ventas, tramosPorVendedor),
-  };
-}
-
+// ======================= Orquestación =======================
 async function refrescar() {
   try {
-    DATASET = null;
-    if (elReporte) elReporte.innerHTML = "";
-
-    if (elSemana && !elSemana.value) elSemana.value = semanaDefaultISOWeekInput();
-
-    const ds = await cargarDataset();
-    DATASET = ds;
-    renderReporte(ds);
     estado("");
+    if (!elReporte) return;
+
+    const userId = await getUserId();
+    if (!userId) throw new Error("Sesión inválida.");
+
+    const perfil = await getPerfilActual(userId);
+
+    // default fecha
+    if (elDia && !elDia.value) elDia.value = defaultDateInputValue();
+
+    const ctx = parseInputToContext(elDia?.value || defaultDateInputValue());
+    setRangoLabel(ctx);
+
+    // Limpieza de caches
+    DATASET = null;
+    DATASET_BY_TEAM.clear();
+    elReporte.innerHTML = "";
+
+    if (perfil === "zonal") {
+      estado("Cargando zonas…");
+      const refISO = isoRefFromCtx(ctx);
+      const zonasAsignadas = await fetchZonasAsignadasAZonal(userId, refISO);
+      estado("");
+      renderZonalEstructura({ zonasAsignadas, ctx, userId });
+      return;
+    }
+
+    // Supervisor / Admin / etc: vista actual por equipo
+    const equipoId = getEquipoIdActual();
+    if (!equipoId) throw new Error("No se encontró equipo activo.");
+
+    estado("Cargando datos…");
+    const ds = await cargarDatasetEquipo({ equipoId, perfil, userId, ctx });
+    DATASET = ds;
+    estado("");
+    renderReporte(ds);
   } catch (e) {
     console.error(e);
     estado(`Error: ${e?.message || e}`, true);
   }
 }
 
-// ============================================================
-// Eventos
-// ============================================================
+// ======================= Eventos =======================
 btnVolver?.addEventListener("click", (e) => {
   e?.preventDefault?.();
   window.dispatchEvent(new Event("reportes:volver"));
 });
 
 btnExcel?.addEventListener("click", async () => {
-  if (!DATASET) return;
   try {
     await asegurarXLSX();
-    exportarExcel(DATASET);
+
+    // Supervisor: exporta dataset actual
+    if (DATASET) {
+      exportarExcelDataset(DATASET, `compromiso-ventas_${toISODate(DATASET.ctx.weekMonday)}_${toISODate(DATASET.ctx.weekSunday)}.xlsx`);
+      return;
+    }
+
+    // Zonal: si hay equipos cargados, exporta el primero cargado (para no inventar “multi-workbook”)
+    const first = DATASET_BY_TEAM.values().next().value;
+    if (first) {
+      exportarExcelDataset(first, `compromiso-ventas_${toISODate(first.ctx.weekMonday)}_${toISODate(first.ctx.weekSunday)}.xlsx`);
+      return;
+    }
+
+    throw new Error("No hay datos cargados para exportar.");
   } catch (e) {
     alert(e?.message || String(e));
   }
 });
 
-elSemana?.addEventListener("change", refrescar);
+elDia?.addEventListener("change", refrescar);
 
-(function bindEquipoSupervisor() {
+(function bindEquipoSelector() {
   const sel = document.getElementById("selectEquipo");
   if (!sel) return;
   if (window.__cv_equipo_listener_bound) return;
@@ -932,6 +1143,6 @@ elSemana?.addEventListener("change", refrescar);
 })();
 
 (function init() {
-  if (elSemana && !elSemana.value) elSemana.value = semanaDefaultISOWeekInput();
+  if (elDia && !elDia.value) elDia.value = defaultDateInputValue();
   refrescar();
 })();

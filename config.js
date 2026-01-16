@@ -47,8 +47,7 @@ export function guardarUsuarioNormalizado(user, perfil) {
   const payload = {
     id: user.id,
     email: user.email ?? null,
-    role: perfil?.role ?? null,
-    nombre: perfil?.nombre ?? null,
+nombre: perfil?.nombre ?? null,
     genero: perfil?.genero ?? null,
   };
 
@@ -58,7 +57,7 @@ export function guardarUsuarioNormalizado(user, perfil) {
 
 // ------------------------------------------------------------
 //  Obtener usuario activo (AUTH + PROFILES)
-//  Retorna: {id, email, role, nombre, genero}
+//  Retorna: {id, email, nombre, genero}
 // ------------------------------------------------------------
 export async function obtenerUsuarioActivo() {
   try {
@@ -76,7 +75,7 @@ export async function obtenerUsuarioActivo() {
     try {
       const { data: p, error: errP } = await supabase
         .from("profiles")
-        .select("role, nombre, genero")
+        .select("nombre, genero")
         .eq("id", user.id)
         .single();
 
@@ -87,12 +86,7 @@ export async function obtenerUsuarioActivo() {
 
     const payload = guardarUsuarioNormalizado(user, perfil);
 
-    // Conveniencia histórica del proyecto
-    if (payload?.id) {
-      localStorage.setItem("idSupervisorActivo", payload.id);
-      window.idSupervisorActivo = payload.id;
-    }
-
+    // (RBAC) No persistimos identidad en storage: supervisor = auth.uid()
     return payload;
   } catch (err) {
     console.error("Error reconstruyendo usuario desde Supabase:", err);

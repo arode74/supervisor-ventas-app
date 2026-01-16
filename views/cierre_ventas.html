@@ -53,9 +53,16 @@
     }
 	
 	#modulo-cierre-ventas input.input-cierre-pv{
-		width: 140px;
+		width: 120px;
 		text-align: right;
+		font-size: 12px;
+		padding: 4px 6px;
+		box-sizing: border-box;
 	}
+
+	/* Evita que PV empuje el layout en pantallas angostas */
+	#modulo-cierre-ventas td:last-child{ min-width: 130px; }
+	#modulo-cierre-ventas th:last-child{ min-width: 130px; }
 
   </style>
 </head>
@@ -118,7 +125,7 @@
             <tr>
               <th id="thVendedor" style="cursor:pointer; user-select:none;">Vendedor <span id="triVendedor">▲</span></th>
               <th>TF</th>
-              <th>>40</th>
+              <th id="thVentas" style="cursor:pointer; user-select:none;">&gt;40 <span id="triVentas">▼</span></th>
               <th>>70</th>
               <th>Plan</th>
               <th>Producto Voluntario</th>

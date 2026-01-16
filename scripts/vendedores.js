@@ -5,6 +5,26 @@
 
 import { supabase } from "../config.js";
 
+
+// ============================================================
+// RBAC: Supervisor = auth.uid() (fuente única)
+// - No se usa localStorage/sessionStorage para identidad
+// ============================================================
+let __AV_SUPERVISOR_UID = null;
+
+async function ensureSupervisorUid() {
+  if (__AV_SUPERVISOR_UID) return __AV_SUPERVISOR_UID;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data?.user?.id) return null;
+  __AV_SUPERVISOR_UID = data.user.id;
+  // compat legacy en memoria (NO storage)
+  window.idSupervisorActivo = __AV_SUPERVISOR_UID;
+  return __AV_SUPERVISOR_UID;
+}
+
+function getSupervisorUid() {
+  return __AV_SUPERVISOR_UID || window.idSupervisorActivo || null;
+}
 // Namespace para APP Ventas (módulo Vendedores)
 const AppVentas = (window.AppVentas = window.AppVentas || {});
 AppVentas.features = AppVentas.features || {};
@@ -35,11 +55,11 @@ AppVentas.features.vendedores.init = async function () {
         return;
       }
       idSupervisorActivo = usuario.id;
-      localStorage.setItem("idSupervisorActivo", idSupervisorActivo);
+// (RBAC) idSupervisorActivo eliminado: supervisor = auth.uid()
     } else {
       // 2) Fallback: lee de localStorage (flujo antiguo, entrando directo a vendedores.html)
       const userRaw = localStorage.getItem("user");
-      const supRaw  = localStorage.getItem("idSupervisorActivo");
+      const supRaw  = getSupervisorUid();
 
       if (!userRaw && !supRaw) {
         console.warn("No hay sesión válida, redirigiendo a login.");
@@ -55,8 +75,7 @@ AppVentas.features.vendedores.init = async function () {
         window.location.href = "../index.html";
         return;
       }
-
-      localStorage.setItem("idSupervisorActivo", idSupervisorActivo);
+// (RBAC) idSupervisorActivo eliminado: supervisor = auth.uid()
       console.log("DEBUG ▶ idSupervisorActivo (fallback):", idSupervisorActivo);
     }
 
@@ -1415,6 +1434,8 @@ tablaVendedores?.addEventListener("click", async e => {
    INICIALIZACIÓN INTERNA
    =========================================================== */
 async function inicializarModuloVendedores() {
+  await ensureSupervisorUid();
+
   try {
     console.log(
       "DEBUG ▶ inicializarModuloVendedores() — idSupervisorActivo:",

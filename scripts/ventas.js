@@ -206,18 +206,19 @@ async function obtenerUsuarioActual() {
 // PERFIL DEL USUARIO
 // ================================
 async function obtenerPerfil() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", usuarioActual.id)
-    .single();
+  // ✅ RBAC: rol vigente se obtiene desde user_roles -> perfiles (no desde profiles.role)
+  const { data, error } = await supabase.rpc("get_perfil_actual", {
+    p_user_id: usuarioActual.id,
+  });
 
   if (error) {
-    console.error("Error obteniendo perfil:", error);
+    console.error("Error obteniendo perfil actual (RBAC):", error);
     return;
   }
-  rolActual = data.role;
+
+  rolActual = data ? String(data).trim().toLowerCase() : null;
 }
+
 
 // ================================
 // FILTROS DE FECHA (MES / AÑO / DÍA)
@@ -669,6 +670,7 @@ function abrirModalNuevaVentaPara(idVendedor, nombreVendedor) {
   fechaOriginalEdicion = null;
 setTituloModal("nuevo", vendedorSeleccionadoNombre);
   configurarRangoFechaVenta();
+  inicializarBotonesCantidad();
   // Usar el día seleccionado en el filtro como fecha por defecto
   if (selectDia && fechaVentaInput && selectDia.value) {
     fechaVentaInput.value = selectDia.value;
@@ -748,6 +750,7 @@ function abrirModalEditarVentaPara(idVendedor, nombreVendedor) {
 
   setTituloModal("editar", vendedorSeleccionadoNombre);
   configurarRangoFechaVenta();
+  inicializarBotonesCantidad();
   // Usar el día seleccionado como fecha base de edición
   if (selectDia && fechaVentaInput && selectDia.value) {
     fechaVentaInput.value = selectDia.value;
@@ -779,15 +782,23 @@ if (fechaVentaInput) {
   });
 }
 
-// Botones + / - dentro de la modal
-if (formVenta) {
+// ================================
+// BOTONES + / - (UNA SOLA VEZ)
+// ================================
+function inicializarBotonesCantidad() {
+  if (!formVenta || formVenta.dataset.cantidadInit === "1") return;
+  formVenta.dataset.cantidadInit = "1";
+
   formVenta.addEventListener("click", (e) => {
     const btn = e.target.closest(".btn-cantidad");
     if (!btn) return;
 
+    e.preventDefault();
+    e.stopPropagation();
+
     const targetId = btn.dataset.target;
     const delta = parseInt(btn.dataset.delta || "0", 10);
-    if (!targetId || !delta) return;
+    if (!targetId || !Number.isFinite(delta)) return;
 
     const input = document.getElementById(targetId);
     if (!input) return;
@@ -795,7 +806,8 @@ if (formVenta) {
     const actual = parseInt(input.value || "0", 10);
     let nuevo = actual + delta;
     if (nuevo < 0) nuevo = 0;
-    input.value = nuevo.toString();
+
+    input.value = String(nuevo);
   });
 }
 
@@ -1138,6 +1150,7 @@ btnVolver.addEventListener("click", (e) => {
   inicializarFiltrosFecha();
   inicializarOrdenamiento();
   configurarRangoFechaVenta();
+  inicializarBotonesCantidad();
   await sincronizarVentasPendientes();
   await cargarVentas();
 

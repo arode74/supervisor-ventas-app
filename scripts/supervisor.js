@@ -60,9 +60,9 @@ async function initSupervisor() {
   }
 
   const idSupervisor = usuarioActivo.id;
+  // Fuente de verdad: auth.uid() (usuarioActivo.id). Mantener SOLO en memoria por compatibilidad legacy.
   window.idSupervisorActivo = idSupervisor;
-  localStorage.setItem("idSupervisorActivo", idSupervisor);
-
+  // NOTA: no persistimos idSupervisor en storage (RBAC: supervisor = auth.uid())
   // Nombre supervisor
   if (nombreSupervisorEl) {
     nombreSupervisorEl.textContent =

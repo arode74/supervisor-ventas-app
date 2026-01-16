@@ -15,21 +15,26 @@
         </div>
       </div>
 
-      <div class="config-grid">
-        <div class="config-lista">
-          <button class="config-item__btn" data-param="tipos_compromisos" type="button">
-            Tipos de compromiso
+      <div class="config-layout" style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap;">
+        <div class="config-lista" style="flex:0 0 260px;">
+          <button class="config-item__btn" type="button" data-param="tipos_compromisos">
+            Tipos de compromisos
           </button>
 
-          <button class="config-item__btn" data-param="ingreso_ventas" type="button" disabled>
-            Ingreso de ventas <span class="tag-prox">Próximamente</span>
+          <button class="config-item__btn" type="button" data-param="motivos_suplencia" disabled title="Próximamente">
+            Motivos de suplencia <span class="tag-prox">Próximamente</span>
+          </button>
+
+          <button class="config-item__btn" type="button" data-param="equipos" disabled title="Próximamente">
+            Equipos <span class="tag-prox">Próximamente</span>
           </button>
         </div>
 
-        <div class="config-detalle">
-          <div id="accionesParametro" class="config-acciones-right" style="display:none;"></div>
-          <div id="tooltipParametro" class="config-tooltip" style="display:none;"></div>
-          <div id="mensajeEstado" class="mensaje-estado"></div>
+        <div class="config-detalle" style="flex:1; min-width:280px;">
+          <div id="cfgHint" class="config-tooltip">
+            Selecciona un parámetro para habilitar acciones.
+          </div>
+          <div id="accionesParametro" class="config-acciones-right" style="margin-top:12px;"></div>
         </div>
       </div>
     </div>
@@ -37,7 +42,7 @@
 </div>
 
 <!-- ===========================================================
-     MODAL: Tipos de compromisos (edición por fila)
+     MODAL: Tipos de Compromisos
      =========================================================== -->
 <dialog id="modalTiposCompromisos" class="modal">
   <div class="modal-contenido">
@@ -46,31 +51,44 @@
     <div style="margin-top:10px;">
       <table class="tabla-compacta" style="width:100%; border-collapse:collapse;">
         <colgroup>
-          <col style="width:22%;">
-          <col style="width:44%;">
-          <col style="width:12%;">
-          <col style="width:22%;">
+          <col style="width:20%;">   <!-- Nombre -->
+          <col style="width:46%;">   <!-- Descripción -->
+          <col style="width:10%;">   <!-- Activo -->
+          <col style="width:16%;">   <!-- Visible para todos -->
+          <col style="width:120px;"> <!-- Acciones (FIJO, NO %) -->
         </colgroup>
+
         <thead>
           <tr>
             <th style="text-align:left;">Nombre</th>
             <th style="text-align:left;">Descripción</th>
             <th style="text-align:center;">Activo</th>
-            <th style="text-align:left;">Acciones</th>
+            <th style="text-align:center;">Visible<br>para todos</th>
+            <th style="text-align:center;">Acciones</th>
           </tr>
         </thead>
+
+        <!--
+          IMPORTANTE:
+          - Este tbody se llena SOLO vía JS
+          - La columna Acciones NO tiene inputs aquí
+          - Los botones icono (Editar / Guardar / Cancelar)
+            se inyectan dinámicamente con clase .icon-action
+        -->
         <tbody id="tbodyTiposCompromisos"></tbody>
       </table>
     </div>
 
     <div class="modal-botones">
-      <button class="btn btn--secondary" data-modal-cerrar="modalTiposCompromisos">Cerrar</button>
+      <button class="btn btn--secondary" data-modal-cerrar="modalTiposCompromisos">
+        Cerrar
+      </button>
     </div>
   </div>
 </dialog>
 
 <!-- ===========================================================
-     MODAL: Nuevo tipo
+     MODAL: Nuevo Tipo
      =========================================================== -->
 <dialog id="modalNuevoTipo" class="modal">
   <div class="modal-contenido">
@@ -85,6 +103,11 @@
     <div class="modal-checkline">
       <span class="modal-checkline__label">Activo</span>
       <input id="nuevoTipoActivo" type="checkbox" checked />
+    </div>
+
+    <div class="modal-checkline">
+      <span class="modal-checkline__label">Visible para todos</span>
+      <input id="nuevoTipoVisibleParaTodos" type="checkbox" />
     </div>
 
     <div class="modal-botones">

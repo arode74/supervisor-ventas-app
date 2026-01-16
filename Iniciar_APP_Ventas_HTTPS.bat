@@ -4,7 +4,7 @@ echo Iniciando APP Ventas (DEV - Desarrollo V3)
 echo =========================================
 
 REM Ruta del proyecto
-cd /d "C:\Users\usuariolocal\Desktop\Alejandro\Respaldado\APP_Ventas\Desarrollo V3"
+cd /d "C:\Users\usuariolocal\Desktop\Alejandro\Respaldado\APP_Ventas\Desarrollo V3\Prod"
 
 REM Validación rápida
 if not exist index.html (
