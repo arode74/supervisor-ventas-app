@@ -1,0 +1,177 @@
+/* ===========================================================
+   HEADER — IDENTIDAD VISUAL (LOGO)
+   =========================================================== */
+
+header.supbar .supbar__logo {
+  height: 44px;      /* ajusta si quieres 44 / 50 */
+  width: auto;
+  display: block;
+}
+
+/* Estilos institucionales generales - APP Ventas */
+
+:root {
+  --color-primario: #004E89;
+  --color-secundario: #0066d6;
+  --color-fondo: #f5f7fa;
+  --color-texto: #333;
+  --color-boton-texto: #fff;
+  --radio-borde: 12px;
+  --sombra-base: 0 2px 6px rgba(0, 0, 0, 0.15);
+  --fuente-base: "Open Sans", Arial, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--fuente-base);
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+}
+
+/* === LOGIN === */
+.login-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.login-card {
+  background: white;
+  padding: 40px;
+  border-radius: var(--radio-borde);
+  box-shadow: var(--sombra-base);
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.login-logo {
+  width: 120px;
+  margin-bottom: 15px;
+}
+
+.login-card h2 {
+  margin-bottom: 20px;
+  color: var(--color-primario);
+}
+
+.login-card label {
+  display: block;
+  text-align: left;
+  font-weight: 600;
+  margin-top: 10px;
+  color: var(--color-texto);
+}
+
+.login-card input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.btn-login {
+  margin-top: 20px;
+  width: 100%;
+  background-color: var(--color-secundario);
+  color: var(--color-boton-texto);
+  border: none;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn-login:hover {
+  background-color: var(--color-primario);
+}
+
+/* === DEBUG === */
+.debug-panel {
+  position: fixed;
+  bottom: 10px;
+  left: 15px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 6px 10px;
+  border-radius: 8px;
+  box-shadow: var(--sombra-base);
+  color: var(--color-primario);
+  z-index: 999;
+}
+
+.oculto {
+  display: none !important;
+  visibility: hidden;
+}
+
+:root{
+  --color-principal: #004a8f;
+}
+
+/* ===========================================================
+   ESTÁNDAR GLOBAL HEADER
+   Barra azul fija + logo grande sin agrandar la barra
+   =========================================================== */
+
+/* Barra azul con alto fijo (sin padding inflador) */
+header.supbar {
+  height: 74px;
+  padding: 0 !important;
+  overflow: visible;
+}
+
+/* Mantener el grid original y centrar vertical en toda la franja */
+header.supbar .supbar__wrap {
+  height: 100%;
+  padding: 0 16px;
+  align-items: center;     /* centra vertical dentro del grid */
+  overflow: visible;
+}
+
+/* Asegurar centrado vertical en columnas izquierda/derecha */
+header.supbar .supbar__left,
+header.supbar .supbar__right {
+  height: 100%;
+  display: flex;
+  align-items: center;     /* centra logo y botón verticalmente */
+}
+
+header.supbar .supbar__logo {
+  height: 46px;
+  width: auto;
+  display: block;
+  transform: translateY(4px); /* AJUSTE VISUAL: prueba 3px a 6px */
+}
+
+/* ====== CANDADO ALTURA SUPBAR (NO NEGOCIABLE) ====== */
+header.supbar{
+  height: 74px !important;
+  min-height: 74px !important;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+header.supbar .supbar__wrap{
+  height: 74px !important;     /* o 100%, pero 74px es “a prueba de balas” */
+  padding: 0 16px !important;  /* consistente */
+  box-sizing: border-box;
+  align-items: center;
+}
+
+header.supbar .supbar__left,
+header.supbar .supbar__right{
+  height: 74px !important;
+  display: flex;
+  align-items: center;
+}
