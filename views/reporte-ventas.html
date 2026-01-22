@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APP Ventas | Reporte Ventas</title>
+
+  <link rel="stylesheet" href="../css/institucional.css" />
+  <link rel="stylesheet" href="../css/panel-base.css" />
+  <link rel="stylesheet" href="../css/panel-modulos.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+
+  <style>
+    .rv-wrap{ padding: 10px; font-size: 11px; line-height: 1.2; }
+
+    /* --- SOLO ESTO: asegurar Volver visible --- */
+    #btnVolverReporteVentas{
+      display: inline-block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: static !important;
+      margin-bottom: 6px;
+    }
+
+    /* Línea superior: Volver */
+    .rv-toprow{
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      margin: 4px 0 6px;
+    }
+
+    /* Línea única: Día + Rango + Orden + Excel */
+    .rv-oneline{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 0 10px;
+    }
+
+    .rv-left, .rv-right{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .rv-field label{ font-weight:700; margin-right:4px; }
+
+    .rv-field select{
+      font-size: 11px;
+      height: 28px;
+      padding: 2px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.18);
+      background:#fff;
+      min-width:150px;
+    }
+
+    #labelRangoVentas{
+      font-size:11px;
+      font-weight:700;
+      opacity:.85;
+      white-space:nowrap;
+    }
+
+    #btnExcelVentas{
+      height:28px;
+      width:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:8px;
+      border:1px solid rgba(0,0,0,0.18);
+      background:#fff;
+      cursor:pointer;
+    }
+    #btnExcelVentas svg{ width:18px; height:18px; }
+  </style>
+</head>
+
+<body>
+  <div class="rv-wrap">
+
+    <!-- Volver: SIEMPRE visible -->
+    <div class="rv-toprow">
+      <button id="btnVolverReporteVentas" type="button">← Volver</button>
+    </div>
+
+    <!-- Día + Semana/Rango + Orden + Excel -->
+    <div class="rv-oneline">
+      <div class="rv-left">
+        <div class="rv-field">
+          <label for="selectDiaVentas">Día</label>
+          <select id="selectDiaVentas"></select>
+        </div>
+        <div id="labelRangoVentas">—</div>
+      </div>
+
+      <div class="rv-right">
+        <div class="rv-field">
+          <label for="selectOrdenVentas">Orden</label>
+          <select id="selectOrdenVentas">
+            <option value="gt40_desc" selected>Reales &gt;40 (Mayor→Menor)</option>
+            <option value="gt40_asc">Reales &gt;40 (Menor→Mayor)</option>
+            <option value="nombre_asc">Nombre (A→Z)</option>
+            <option value="nombre_desc">Nombre (Z→A)</option>
+          </select>
+        </div>
+
+        <button id="btnExcelVentas" title="Descargar Excel">
+          <svg viewBox="0 0 24 24">
+            <path fill="#107C41" d="M14 2h6a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-6z"/>
+            <path fill="#185C37" d="M14 2v20h-2V2z"/>
+            <path fill="#21A366" d="M2 6a2 2 0 0 1 2-2h10v16H4a2 2 0 0 1-2-2z"/>
+            <path fill="#fff" d="M6.2 16.6 8.8 12 6.2 7.4h2.1l1.4 2.9 1.4-2.9h2.1L10.6 12l2.6 4.6H11l-1.4-2.9-1.4 2.9z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="estadoCargaVentas"></div>
+    <div id="contenedorReporteVentas"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../scripts/env.js"></script>
+  <script src="../scripts/reporte-ventas.js"></script>
+</body>
+</html>

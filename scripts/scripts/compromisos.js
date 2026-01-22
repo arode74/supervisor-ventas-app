@@ -869,9 +869,31 @@ function abrirModal(idV, nombre) {
     "-" +
     yf;
 
-  const tiposObl = (tiposCompromisos || []).filter(
-    (t) => t && t.es_obligatorio === true
-  );
+	const norm = (s) =>
+	  String(s || "")
+		.toLowerCase()
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.trim();
+
+	const prioridadObl = (nombre) => {
+	  const n = norm(nombre);
+	  if (n.includes("tope")) return 1;
+	  if (n.includes("sobre")) return 2;
+	  if (n.includes("bajo")) return 3;
+	  if (n.includes("plan")) return 4;
+	  return 99;
+	};
+
+	const tiposObl = (tiposCompromisos || [])
+	  .filter((t) => t && t.es_obligatorio === true)
+	  .sort((a, b) => {
+		const pa = prioridadObl(a?.nombre);
+		const pb = prioridadObl(b?.nombre);
+		if (pa !== pb) return pa - pb;
+		return ordenarTipos(a, b); // fallback por orden / nombre
+	  });
+
 
   const prev = (compromisosSemana || []).filter((c) => c.id_vendedor === idV);
   const prevMap = {};

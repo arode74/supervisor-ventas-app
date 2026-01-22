@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Panel Supervisor – APP Ventas</title>
-  
+
   <script src="../env.js"></script>
 
   <link rel="icon" type="image/svg" href="../assets/logo_app_ventas.svg" />
@@ -13,10 +13,7 @@
   <link rel="stylesheet" href="../styles/panel-base-responsive.css">
   <link rel="stylesheet" href="../styles/panel-modulos.css">
 
-
-  <!-- ===========================================================
-       GUÍAS INSTITUCIONALES VISIBLES (MÁRGENES Y REFERENCIAS)
-       =========================================================== -->
+  <!-- (se mantiene tu bloque de guías tal cual estaba) -->
   <style>
     #guias-institucionales {
       position: fixed;
@@ -66,24 +63,33 @@
     .etiqueta-izq { left: 3px; }
     .etiqueta-centro { left: 50%; transform: translateX(-50%); }
     .etiqueta-der { right: 3px; }
+
+    /* ===== Velocímetro TF40 en franja celeste ===== */
+    .bloque-supervisor {
+      position: relative; /* necesario para posicionar el widget dentro */
+    }
+    #velocimetro-tf40 {
+      position: absolute;
+      left: 12px;
+      bottom: 8px;
+      width: 210px;
+      height: 110px;
+      pointer-events: none;
+      user-select: none;
+      overflow: hidden;
+    }
+    @media (max-width: 520px) {
+      #velocimetro-tf40 {
+        width: 150px;
+        height: 95px;
+        left: 10px;
+        bottom: 8px;
+      }
+    }
   </style>
 </head>
 
-
 <body class="panel-container">
-  <!-- Guías institucionales
-  <div id="guias-institucionales">
-    <div class="guia-izq"></div>
-    <div class="guia-der"></div>
-    <div class="guia-centro"></div>
-    <div class="guia-top"></div>
-    <div class="guia-bottom"></div>
-    <div class="etiqueta-guia etiqueta-izq">Margen Izquierdo</div>
-    <div class="etiqueta-guia etiqueta-centro">Centro</div>
-    <div class="etiqueta-guia etiqueta-der">Margen Derecho</div>
-  </div>
-  -->
-
   <!-- Encabezado -->
   <header class="supbar">
     <div class="supbar__wrap">
@@ -101,45 +107,39 @@
   <main class="supmain">
     <!-- Bloque Supervisor -->
     <section class="bloque-supervisor">
+      <!-- Widget TF40 (abajo-izquierda dentro de la franja) -->
+      <div id="velocimetro-tf40" aria-hidden="true"></div>
+
       <div class="linea-superior">
         <span id="textoBienvenida" class="texto-bienvenida">Bienvenido/a,</span>
         <span class="texto-nombre" id="nombreSupervisor"></span>
         <label for="selectEquipo">Equipo:</label>
         <select id="selectEquipo" class="selector-equipo"></select>
       </div>
-      <p style="text-align:center; margin-top:6px; font-weight:600; color:#003366;">
-        Desde este panel puedes gestionar tus vendedores, revisar ventas y compromisos.
-      </p>
+      <!-- frase eliminada -->
     </section>
 
     <!-- Módulos del supervisor -->
     <section id="panel-botones" class="cards">
-     <div class="card">
-     <!--      <h3 class="card__title">Gestión de Ventas</h3> -->
+      <div class="card">
         <button class="btn" id="btnVentas">Gestión de Ventas</button>
       </div>
       <div class="card">
-     <!--      <h3 class="card__title">Compromisos</h3> -->
         <button class="btn" id="btnCompromisos">Compromisos</button>
       </div>
       <div class="card">
-     <!--      <h3 class="card__title">Cierre Mensual Ventas</h3> -->
         <button class="btn" id="btnCierreVentas">Cierre Ventas</button>
-      </div>	  
+      </div>
       <div class="card">
-     <!--      <h3 class="card__title">Reportes</h3> -->
         <button class="btn" id="btnReportes">Reportes</button>
       </div>
       <div class="card">
-     <!--      <h3 class="card__title">Suplencias</h3> -->
         <button class="btn" id="btnSuplencias">Suplencias</button>
       </div>
       <div class="card">
-     <!--   <h3 class="card__title">Gestión de Vendedores</h3> -->
         <button class="btn" id="btnVendedores">Gestión de Vendedores</button>
-      </div>	  
+      </div>
       <div class="card">
-     <!--      <h3 class="card__title">Configuracion SUpervisor</h3> -->
         <button class="btn" id="btnConfiguracion">Configuración</button>
       </div>
     </section>
@@ -153,10 +153,10 @@
     AFP Habitat – Los Leones 5 | Sistema de Gestión de Ventas
   </footer>
 
-<!-- Gestor de modales: se carga UNA vez -->
-<script type="module" src="../scripts/ui_modales.js"></script>
+  <!-- Gestor de modales: se carga UNA vez -->
+  <script type="module" src="../scripts/ui_modales.js"></script>
 
-<!-- Lógica del supervisor -->
-<script type="module" src="../scripts/supervisor.js"></script>
+  <!-- Lógica del supervisor -->
+  <script type="module" src="../scripts/supervisor.js"></script>
 </body>
 </html>
