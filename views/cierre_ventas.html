@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cierre Mensual de Ventas – APP Ventas</title>
+
+  <!-- Variables de entorno -->
+  <script src="../env.js"></script>
+
+  <!-- CSS base (NO TOCADOS) -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+
+  <!-- Ajustes específicos SOLO para cierre (override controlado) -->
+  <style>
+    /* ===== Layout estándar del módulo (clonado de ventas) ===== */
+    #modulo-cierre-ventas {
+      width: 100%;
+      max-width: 880px;
+      margin: 15px auto 0 auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    /* ===== Vendedor en una sola línea ===== */
+    #modulo-cierre-ventas th:first-child,
+    #modulo-cierre-ventas td:first-child,
+    #modulo-cierre-ventas .nombre-vendedor {
+      white-space: nowrap;
+    }
+
+    /* ===== Tabla contenida y responsive ===== */
+    #modulo-cierre-ventas .contenedor-tabla {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    #modulo-cierre-ventas #tablaCierre {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* Inputs compactos como en Ventas */
+    #modulo-cierre-ventas input.input-cierre {
+      width: 70px;
+      text-align: right;
+      padding: 4px 6px;
+    }
+	
+	#modulo-cierre-ventas input.input-cierre-pv{
+		width: 120px;
+		text-align: right;
+		font-size: 12px;
+		padding: 4px 6px;
+		box-sizing: border-box;
+	}
+
+	/* Evita que PV empuje el layout en pantallas angostas */
+	#modulo-cierre-ventas td:last-child{ min-width: 130px; }
+	#modulo-cierre-ventas th:last-child{ min-width: 130px; }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- ===========================================================
+       CIERRE MENSUAL DE VENTAS
+       =========================================================== -->
+  <section id="modulo-cierre-ventas">
+    <div class="tarjeta-principal">
+
+      <!-- HEADER -->
+      <div class="modulo-header">
+        <h2>Cierre Mensual de Ventas</h2>
+        <button id="btnVolver" class="btn-volver" type="button">← Volver</button>
+      </div>
+
+      <!-- FILTROS + GUARDAR -->
+      <div class="acciones-vendedores">
+        <div class="filtros-vendedores" style="justify-content: space-between; width:100%; gap:12px;">
+
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label style="margin:0;">
+              Mes:
+              <select id="selectMes">
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+              </select>
+            </label>
+
+            <label style="margin:0;">
+              Año:
+              <select id="selectAnio"></select>
+            </label>
+          </div>
+
+          <!-- ÚNICO botón Guardar -->
+          <button id="btnGuardarCierre" class="btn-volver" type="button">
+            💾 Guardar
+          </button>
+
+        </div>
+      </div>
+
+      <!-- TABLA -->
+      <div class="contenedor-tabla">
+        <table id="tablaCierre" class="tabla-listado">
+          <thead>
+            <tr>
+              <th id="thVendedor" style="cursor:pointer; user-select:none;">Vendedor <span id="triVendedor">▲</span></th>
+              <th>TF</th>
+              <th id="thVentas" style="cursor:pointer; user-select:none;">&gt;40 <span id="triVentas">▼</span></th>
+              <th>>70</th>
+              <th>Plan</th>
+              <th>Producto Voluntario</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td colspan="6" style="text-align:center;">Cargando…</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Scripts (si supervisor.js no los inyecta, déjalos; si los inyecta, puedes quitarlos) -->
+  <script type="module" src="../scripts/cierre_ventas.js"></script>
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+</body>
+</html>

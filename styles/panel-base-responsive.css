@@ -1,0 +1,91 @@
+/* ==========================================================================
+   RESPONSIVE HEADER — ESTRUCTURA BASE APP VENTAS
+   Aplica a supervisor.html y admin.html
+   ========================================================================== */
+
+@media (max-width: 900px) {
+
+  /* Contenedor principal */
+  .supbar {
+    padding: 10px 0;
+  }
+
+  /* Wrapper del header */
+  .supbar__wrap {
+    display: flex;
+    flex-wrap: wrap;     /* Permite que el logo, título y botón bajen */
+    align-items: center;
+    justify-content: center;
+    row-gap: 10px;
+    text-align: center;
+  }
+
+  /* Logo */
+  .supbar__left {
+    flex: 0 0 100%;
+    text-align: center;
+  }
+
+  .supbar__logo {
+    max-height: 60px;
+  }
+
+  /* Título institucional */
+  .supbar__title {
+    flex: 0 0 100%;
+    text-align: center;
+    font-size: 1.25rem;
+    padding: 0 8px;
+  }
+
+  /* Botón derecho */
+  .supbar__right {
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .supbar__right .btn,
+  .supbar__right .btn--danger {
+    font-size: 0.95rem;
+    padding: 8px 16px;
+  }
+}
+
+/* ==========================================================================
+   AJUSTES GENERALES DEL LAYOUT
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .supmain,
+  .modulo-dinamico,
+  .contenedor-modulos {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* ==========================================================================
+   TABLAS EN MÓVIL
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  table {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+@media (max-width: 900px) {
+  .footer {
+    text-align: center;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}

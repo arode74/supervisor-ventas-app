@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>APP Ventas — Móvil</title>
+
+  <!-- CSS base + mobile -->
+  <link rel="stylesheet" href="../styles/institucional.css"/>
+  <link rel="stylesheet" href="../styles/panel-base.css"/>
+  <link rel="stylesheet" href="../styles/mobile-afp.css"/>
+
+  <!-- Supabase + ENV (misma fuente que PC) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../env.js"></script>
+
+  <!-- Shared mobile helpers (DEBE ir antes de supervisor.mobile.js) -->
+  <script src="../scripts/mobile_shared.js"></script>
+
+  <!-- Page logic -->
+  <script defer src="../scripts/supervisor.mobile.js"></script>
+</head>
+
+<body class="appventas-body">
+  <header class="m-topbar">
+    <div class="m-topbar__left">
+      <div class="m-topbar__icon">✓</div>
+      <div class="m-topbar__title">APP Ventas</div>
+    </div>
+    <button class="m-iconbtn" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+  </header>
+
+  <main class="m-page">
+    <div style="height:4px"></div>
+
+    <div class="type-block" style="text-align:center;">
+      <div class="type-title" style="margin:0;">Panel móvil</div>
+      <div style="color:var(--muted); font-weight:800; margin-top:4px;" id="lbl-user">Cargando…</div>
+    </div>
+
+    <div style="height:12px"></div>
+
+    <button class="btn btn-primary" id="go-ventas" type="button">Ventas</button>
+    <div style="height:10px"></div>
+    <button class="btn btn-primary" id="go-compromisos" type="button">Compromisos</button>
+  </main>
+</body>
+</html>

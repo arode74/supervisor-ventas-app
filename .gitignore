@@ -1,0 +1,6 @@
+.DS_Store
+node_modules/
+.env
+cert.pem
+key.pem
+server.log

@@ -1,0 +1,947 @@
+/* ==== LÍNEAS DE REFERENCIA INSTITUCIONALES ==== */
+.supbar__wrap::before,
+.supbar__wrap::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* Línea roja: margen izquierdo */
+/*.supbar__wrap::before {
+  left: calc(50% - 500px + 6px);
+  border-left: 1px dashed rgba(255, 0, 0, 0.7);
+}*/
+
+/* Línea azul: margen derecho */
+/*.supbar__wrap::after {
+  right: calc(50% - 500px + 0px);
+  border-right: 1px dashed rgba(0, 128, 255, 0.7);
+}*/
+
+/* Etiqueta margen izquierdo */
+/*.supbar__wrap::before {
+  content: "Margen Izquierdo";
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: translateX(-8px);
+  color: rgba(255, 0, 0, 0.8);
+  font-size: 0.7rem;
+}*/
+
+/* Etiqueta margen derecho */
+/*.supbar__wrap::after {
+  content: "Margen Derecho";
+  writing-mode: vertical-lr;
+  text-orientation: mixed;
+  transform: translateX(8px);
+  color: rgba(0, 128, 255, 0.8);
+  font-size: 0.7rem;
+}*/
+
+.centrado-post-saludo .linea-superior {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.centrado-post-saludo .selector-equipo {
+  margin: 0 auto;
+}
+.texto-bienvenida[style*="display: none"] + .texto-nombre {
+  margin-left: 0;
+}
+
+html, body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+main.supmain {
+  flex: 1 0 auto;
+}
+
+.footer {
+  flex-shrink: 0;
+  position: relative;
+  text-align: center;
+}
+
+/* ==== MÓDULO VENDEDORES ==== */
+#contenedorVendedores,
+#contenedorVendedores .modulo-panel,
+#contenedorVendedores .tarjeta-principal {
+  width: 940px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+#contenedorVendedores .tarjeta-principal {
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.08);
+  padding: 25px 30px;
+}
+
+/* Encabezado institucional azul */
+#contenedorVendedores .modulo-header {
+  background-color: var(--color-principal);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 12px 20px;
+  border-radius: 10px 10px 0 0;
+  margin: 0 auto 20px auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  max-width: 940px;
+}
+
+/* Título */
+#contenedorVendedores .modulo-header h2 {
+  margin: 0;
+}
+
+/* Botón volver */
+#contenedorVendedores .btn-volver {
+  position: absolute;
+  right: 20px;
+  background-color: #fff;
+  color: var(--color-principal);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+#contenedorVendedores .btn-volver:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Alineación tabla */
+#contenedorVendedores .tarjeta-encabezado,
+#contenedorVendedores .filtros-vendedores,
+#contenedorVendedores .tarjeta-cuerpo {
+  width: 100%;
+}
+
+#contenedorVendedores table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#contenedorVendedores th,
+#contenedorVendedores td {
+  padding: 8px 12px;
+}
+
+/* ==== Corrección de alineación general módulo vendedores ==== */
+
+/* Contenedor general dentro del área central */
+#contenedorVendedores {
+  max-width: 940px;     /* límite institucional */
+  margin: 0 auto;       /* centra horizontalmente */
+}
+
+/* Tarjeta blanca ajustada al mismo ancho */
+#contenedorVendedores .tarjeta-principal {
+  width: 100%;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.08);
+  padding: 0;
+  overflow: hidden;     /* evita que el azul sobresalga */
+}
+
+/* Encabezado azul */
+#contenedorVendedores .modulo-header {
+  width: 100%;
+  background-color: var(--color-principal);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.2rem;
+  padding: 12px 20px;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+/* Contenido interno con margen correcto */
+#contenedorVendedores .contenido-vendedores {
+  padding: 25px 30px;
+}
+
+/* ==== CORRECCIÓN DEFINITIVA MÓDULO VENDEDORES ==== */
+
+/* El contenedor general de vendedores se comporta como bloque centrado dentro del flex */
+#contenedorVendedores {
+  display: block;         /* corrige efecto de flex del padre */
+  width: 940px;           /* ancho institucional */
+  max-width: 100%;
+  margin: 0 auto;         /* centra horizontalmente */
+}
+
+/* Tarjeta principal alineada */
+#contenedorVendedores .tarjeta-principal {
+  width: 100%;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 0 6px rgba(0,0,0,0.08);
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Encabezado azul superior */
+#contenedorVendedores .modulo-header {
+  background-color: #3b6ea5; /* azul institucional atenuado */;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.7rem;
+  padding: 12px 20px;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box; /* ✅ garantiza que padding no expanda el ancho */
+  max-width: 940px;       /* ✅ mantiene el margen institucional */
+  margin: 0 auto;         /* ✅ centra dentro del contenedor */
+}
+
+/* Botón volver */
+#contenedorVendedores .btn-volver {
+  position: absolute;
+  right: 20px;             /* ✅ respeta el padding del header */
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: #fff;
+  color: var(--color-principal);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+#contenedorVendedores .btn-volver:hover {
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Contenido interno con margen */
+#contenedorVendedores .tarjeta-encabezado,
+#contenedorVendedores .filtros-vendedores,
+#contenedorVendedores .tarjeta-cuerpo {
+  width: 100%;
+  padding: 25px 30px;
+  box-sizing: border-box;
+}
+
+/* Espaciado entre el bloque celeste del supervisor y el módulo cargado */
+#contenedorVendedores {
+  margin-top: 20px;   /* separa visualmente los bloques */
+}
+
+/* ==== Acciones (botón + filtro vigentes) ==== */
+/* ==== Acciones (botón + filtro vigentes) ==== */
+.contenido-vendedores {
+  width: 100%;
+}
+
+.acciones-vendedores {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.filtros-vendedores {
+  margin-left: auto;
+}
+
+.filtros-vendedores label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.contenido-vendedores,
+.tarjeta-principal {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ===========================================================
+   MÓDULO CONFIGURACIÓN DEL SUPERVISOR
+   =========================================================== */
+
+.modulo-configuracion .bloque-config__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.modulo-configuracion .bloque-config__titulo {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #003366;
+  font-weight: 600;
+}
+
+.modulo-configuracion .bloque-config__sub {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.modulo-configuracion .bloque-config__acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modulo-configuracion .btn-primario {
+  background-color: #004a8f;
+  color: #fff;
+  border-radius: 6px;
+  padding: 6px 14px;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.modulo-configuracion .btn-primario:hover {
+  background-color: #003366;
+}
+
+.modulo-configuracion .mensaje-estado {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.modulo-configuracion .chk-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.modulo-configuracion .chk-inline input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+/* ===========================================================
+   CONFIGURACIÓN — Título y subtítulo en blanco
+   =========================================================== */
+
+.modulo-configuracion .bloque-config__titulo,
+.modulo-configuracion .bloque-config__sub {
+  color: #ffffff !important;
+}
+
+#modulo-configuracion .lista-config {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+#modulo-configuracion .btn-config-item {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #004b93;
+  background-color: #fff;
+  color: #004b93;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#modulo-configuracion .btn-config-item:hover {
+  background-color: #004b93;
+  color: #fff;
+}
+
+#modulo-configuracion .btn-config-disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#configContenido {
+  margin-top: 1rem;
+}
+
+/* ===========================================================
+   MODALES — TODO JUNTO (LEGACY DIV + <dialog>)
+   =========================================================== */
+
+/* Solo para modales legacy tipo DIV (no <dialog>) */
+div.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-contenido {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px 25px;
+  width: 400px;
+  max-width: 90%;
+  margin: auto;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+}
+
+.modal-contenido h3 {
+  margin-top: 0;
+  text-align: center;
+  color: var(--color-principal);
+}
+
+.modal-contenido label {
+  display: block;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+.modal-contenido input,
+.modal-contenido select {
+  width: 100%;
+  padding: 6px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* ===========================================================
+   MODALES — BOTONES EN UNA SOLA LÍNEA
+   Guardar izquierda · Cancelar derecha
+   =========================================================== */
+
+.modal-botones{
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between; /* extremos */
+  align-items: center;
+  gap: 12px;
+}
+
+/* Mantén tus estilos de botón sin estirar al 100% */
+.modal-botones button{
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  width: auto;
+  min-width: 120px; /* opcional: consistencia visual */
+}
+
+/* Disabled: debe verse disabled (y no clickable) */
+.modal-botones button:disabled,
+.modal-botones button[disabled],
+.modal-botones button[aria-disabled="true"]{
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-guardar {
+  background-color: var(--color-principal);
+  color: white;
+}
+
+.btn-guardar{
+  background-color: #003874;
+}
+
+.btn-guardar:hover {
+  background-color: rgba(0, 75, 147, 0.08);
+}
+
+.btn-cancelar{
+  background-color: var(--color-principal);
+  color: #fff;
+  border: none;
+}
+
+.btn-cancelar:hover{
+  background-color: #003874;
+}
+
+.btn-cancelar:hover {
+  background-color: rgba(0, 75, 147, 0.08);
+}
+
+/* ===========================================================
+   MODAL DE ALERTA INSTITUCIONAL
+   =========================================================== */
+.modal-alerta {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: aparecerFondo 0.2s ease-out;
+}
+
+@keyframes aparecerFondo {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.alerta-contenido {
+  background: #ffffff;
+  width: 360px;
+  max-width: 90%;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  padding: 25px 30px;
+  animation: aparecerModal 0.25s ease-out;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+@keyframes aparecerModal {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.alerta-contenido h3 {
+  color: #003366;
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+.alerta-contenido p {
+  color: #333;
+  font-size: 0.95rem;
+  margin-bottom: 18px;
+}
+
+.alerta-contenido button {
+  background-color: #003366;
+  color: #ffffff;
+  font-weight: 600;
+  padding: 8px 22px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.alerta-contenido button:hover {
+  background-color: #004b99;
+}
+
+/* ===========================================================
+   MODALES <dialog> — ÚNICA FUENTE DE VERDAD
+   =========================================================== */
+
+dialog.modal:not([open]) { display: none; }
+
+dialog.modal[open]{
+  display: block;
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%,-50%);
+  z-index: 15000;
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 88vh;
+  overflow: auto;
+}
+
+dialog.modal::backdrop{
+  background: rgba(0,0,0,0.45);
+}
+
+dialog.modal .modal-contenido{
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px 30px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  text-align: left;
+}
+
+/* ===========================================================
+   FIX DEFINITIVO — CHECKBOX REVERTIR BAJA
+   =========================================================== */
+
+/* Anula el width:100% heredado por inputs en tablas */
+#filaRevertirBaja input[type="checkbox"] {
+  width: auto !important;
+}
+
+/* Fuerza alineación izquierda de la celda */
+#filaRevertirBaja td {
+  text-align: left !important;
+}
+
+/* Asegura layout inline correcto */
+#filaRevertirBaja .checkbox-linea {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+/* En filas de checkbox, no queremos input 100% */
+#filaRevertirBaja input[type="checkbox"]{
+  width: auto !important;
+}
+
+/* Alineación como el resto del formulario */
+#filaRevertirBaja td {
+  vertical-align: middle;
+}
+
+#filaRevertirBaja .checkbox-linea{
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* ===========================================================
+   MODALES — CHECKBOX EN TABLA (Editar Vendedor)
+   =========================================================== */
+.tabla-modal td .checkbox-linea {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.checkbox-linea {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.checkbox-linea input[type="checkbox"] {
+  margin: 0;
+}
+
+/* ===========================================================
+   CONFIGURACIÓN SUPERVISOR — LISTA IZQ + DETALLE DER
+   =========================================================== */
+
+/* Layout principal */
+.config-grid{
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.config-lista{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-detalle{
+  min-height: 220px;
+}
+
+/* Tag “Próximamente” */
+.tag-prox{
+  font-size: .85em;
+  opacity: .9;
+  margin-left: 6px;
+  white-space: nowrap;
+  }
+
+/* Mensaje de estado */
+.mensaje-estado{
+  margin-top: 8px;
+  font-size: .9rem;
+  color: #555;
+}
+
+/* ===========================================================
+   CONFIGURACIÓN — BOTONES PARÁMETROS (AZUL/BLANCO + 2 LÍNEAS)
+   =========================================================== */
+
+.config-item__btn{
+  width: 100%;
+  max-width: 240px;         /* ajusta si quieres más ancho */
+  padding: 10px 12px;
+
+  background-color: #004b93;  /* azul */
+  border: 1px solid #004b93;
+  border-radius: 8px;
+  color: #ffffff;             /* letras blancas */
+  font-weight: 600;
+
+  /* 2 líneas máximo, sin “…” y manteniendo el texto dentro */
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  min-height: calc(1.2em * 2 + 20px); /* asegura espacio para 2 líneas + padding */
+
+  cursor: pointer;
+  text-align: left;
+}
+
+.config-item__btn:hover{
+  filter: brightness(0.95);
+}
+
+.config-item__btn.is-active{
+  filter: brightness(0.90);
+  outline: 2px solid rgba(255,255,255,0.35);
+  outline-offset: 1px;
+}
+
+.config-item__btn:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* ===========================================================
+   CONFIGURACIÓN — ACCIONES A LA DERECHA (VER/EDITAR, + NUEVO)
+   =========================================================== */
+
+.config-acciones-right{
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===========================================================
+   CONFIGURACIÓN — TOOLTIP HOVER
+   =========================================================== */
+
+.config-tooltip{
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 8px;
+  background: #f7fbff;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+/* =======================================================================
+   MODAL: TIPOS DE COMPROMISOS — CSS ÚNICO LIMPIO
+   Objetivo:
+   - Modal máx 800px
+   - Tabla 100% sin scroll horizontal
+   - Headers SIN truncado (wrap permitido)
+   - NO incluye estilos de botones iconos (se manejan por CSS global .btn)
+   ======================================================================= */
+
+#modalTiposCompromisos{
+  width: min(900px, 95vw);
+  max-width: 900px;
+  border: none;
+  border-radius: 14px;
+  padding: 0;
+  overflow: hidden;
+}
+
+#modalTiposCompromisos::backdrop{
+  background: rgba(0,0,0,.45);
+}
+
+#modalTiposCompromisos .modal-contenido{
+  width: 100%;
+  box-sizing: border-box;
+  padding: 18px 22px 14px; /* margen derecho para que no se “corte” la última columna */
+  overflow-x: hidden;
+}
+
+/* ===== ACCIONES (icon-only) — SOLO modalTiposCompromisos ===== */
+#modalTiposCompromisos td.tc-actions {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Neutraliza estilos globales (.btn, padding, fondo, etc.) */
+#modalTiposCompromisos td.tc-actions button {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #0b3d91;          /* el SVG usa currentColor */
+  background: transparent; /* sin bloque */
+}
+
+#modalTiposCompromisos td.tc-actions button svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+#modalTiposCompromisos td.tc-actions button:hover,
+#modalTiposCompromisos td.tc-actions button:focus-visible {
+  background: #0b3d91;
+  color: #fff;
+  outline: none;
+}
+
+#modalTiposCompromisos td.tc-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+
+#modalTiposCompromisos h3{
+  margin: 4px 0 10px;
+  text-align: center;
+}
+
+/* ===== Tabla ===== */
+#modalTiposCompromisos table{
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+}
+
+#modalTiposCompromisos th,
+#modalTiposCompromisos td{
+  vertical-align: middle;
+}
+
+/* Celdas de datos: si pueden truncar (ok) */
+#modalTiposCompromisos td{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Headers: NO truncar, permitir wrap */
+#modalTiposCompromisos th{
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;     /* permite 2 líneas */
+  line-height: 1.15;
+}
+
+/* Descripción (col 2): siempre wrap */
+#modalTiposCompromisos th:nth-child(2),
+#modalTiposCompromisos td:nth-child(2){
+  white-space: normal;
+}
+
+/* Inputs descripción */
+#modalTiposCompromisos textarea.tc-desc{
+  width: 100%;
+  min-height: 34px;
+  max-height: 56px;
+  resize: none;
+  box-sizing: border-box;
+}
+
+/* ===== Anchos por columna (una sola fuente) ===== */
+#modalTiposCompromisos colgroup col:nth-child(1){ width: 20%; }    /* Nombre */
+#modalTiposCompromisos colgroup col:nth-child(2){ width: 46%; }    /* Descripción */
+#modalTiposCompromisos colgroup col:nth-child(3){ width: 10%; }    /* Activo */
+#modalTiposCompromisos colgroup col:nth-child(4){ width: 14%; }    /* Visible para todos */
+#modalTiposCompromisos colgroup col:nth-child(5){ width: 130px; }  /* Acciones fijo (antes 110px) */
+
+/* Columna Acciones: centrado, sin flex */
+#modalTiposCompromisos td.tc-actions{
+  text-align: center;
+  white-space: nowrap;
+  padding: 6px 4px;
+
+  /* ajuste clave: evitar corte en acciones */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Visibilidad por modo (esto NO es “estilo de icono”, es lógica visual) */
+#modalTiposCompromisos tr.tc-row .tc-btn-editar{ display: inline-flex; }
+#modalTiposCompromisos tr.tc-row .tc-btn-guardar,
+#modalTiposCompromisos tr.tc-row .tc-btn-cancelar{ display: none; }
+
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-editar{ display: none; }
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-guardar,
+#modalTiposCompromisos tr.tc-row.is-editing .tc-btn-cancelar{ display: inline-flex; }
+
+/* Footer */
+#modalTiposCompromisos .modal-botones{
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Botón Cerrar: texto visible (sin reventar nada global) */
+#modalTiposCompromisos .modal-botones button[data-modal-cerrar="modalTiposCompromisos"]{
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 1;
+}
+
+/* ===== Modal Nuevo Tipo: checkboxes en una sola línea, alineados ===== */
+#modalNuevoTipo .modal-checkline{
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+#modalNuevoTipo .modal-checkline__label{
+  margin: 0;
+}
+
+#modalNuevoTipo .modal-checkline input[type="checkbox"]{
+  margin: 0;
+}
+
+/* ===== modalNuevoTipo: Activo + Visible en la MISMA línea ===== */
+#modalNuevoTipo .modal-checkline{
+  display: inline-flex;      /* clave: deja de ser block */
+  align-items: center;
+  gap: 8px;                  /* texto ↔ checkbox */
+  margin: 10px 28px 10px 0;  /* separa ambos checks */
+  white-space: nowrap;
+}
+
+#modalNuevoTipo .modal-checkline__label{
+  margin: 0;
+}
+
+#modalNuevoTipo .modal-checkline input[type="checkbox"]{
+  margin: 0;
+}

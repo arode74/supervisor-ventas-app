@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Supervisor – APP Ventas</title>
+
+  <script src="../env.js"></script>
+
+  <link rel="icon" type="image/svg" href="../assets/logo_app_ventas.svg" />
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css">
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css">
+  <link rel="stylesheet" href="../styles/panel-modulos.css">
+
+  <!-- (se mantiene tu bloque de guías tal cual estaba) -->
+  <style>
+    #guias-institucionales {
+      position: fixed;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 940px;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .guia-izq, .guia-der {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(255, 0, 0, 0.7);
+    }
+    .guia-izq { left: 0; }
+    .guia-der { right: 0; }
+    .guia-centro {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 50%;
+      width: 1px;
+      background: rgba(0, 102, 255, 0.7);
+    }
+    .guia-top, .guia-bottom {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(0, 102, 255, 0.7);
+    }
+    .guia-top { top: 0; }
+    .guia-bottom { bottom: 0; }
+    .etiqueta-guia {
+      position: absolute;
+      top: 2px;
+      font-size: 11px;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .etiqueta-izq { left: 3px; }
+    .etiqueta-centro { left: 50%; transform: translateX(-50%); }
+    .etiqueta-der { right: 3px; }
+
+    /* ===== Velocímetro TF40 en franja celeste ===== */
+    .bloque-supervisor {
+      position: relative; /* necesario para posicionar el widget dentro */
+    }
+    #velocimetro-tf40 {
+      position: absolute;
+      left: 12px;
+      bottom: 8px;
+      width: 210px;
+      height: 110px;
+      pointer-events: none;
+      user-select: none;
+      overflow: hidden;
+    }
+    @media (max-width: 520px) {
+      #velocimetro-tf40 {
+        width: 150px;
+        height: 95px;
+        left: 10px;
+        bottom: 8px;
+      }
+    }
+  </style>
+</head>
+
+<body class="panel-container">
+  <!-- Encabezado -->
+  <header class="supbar">
+    <div class="supbar__wrap">
+      <div class="supbar__left">
+        <img src="../assets/logo_app_ventas.svg" class="supbar__logo" alt="Logo AFP Habitat" />
+      </div>
+      <h1 class="supbar__title">Sistema de Gestión de Ventas</h1>
+      <div class="supbar__right">
+        <button id="btnLogout" class="btn">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenido principal -->
+  <main class="supmain">
+    <!-- Bloque Supervisor -->
+    <section class="bloque-supervisor">
+      <!-- Widget TF40 (abajo-izquierda dentro de la franja) -->
+      <div id="velocimetro-tf40" aria-hidden="true"></div>
+
+      <div class="linea-superior">
+        <span id="textoBienvenida" class="texto-bienvenida">Bienvenido/a,</span>
+        <span class="texto-nombre" id="nombreSupervisor"></span>
+        <label for="selectEquipo">Equipo:</label>
+        <select id="selectEquipo" class="selector-equipo"></select>
+      </div>
+      <!-- frase eliminada -->
+    </section>
+
+    <!-- Módulos del supervisor -->
+    <section id="panel-botones" class="cards">
+      <div class="card">
+        <button class="btn" id="btnVentas">Gestión de Ventas</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnCompromisos">Compromisos</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnCierreVentas">Cierre Ventas</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnReportes">Reportes</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnSuplencias">Suplencias</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnVendedores">Gestión de Vendedores</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnConfiguracion">Configuración</button>
+      </div>
+    </section>
+
+    <!-- Contenedor dinámico -->
+    <section id="contenedor-modulos" class="modulo-dinamico" style="display:none;"></section>
+  </main>
+
+  <!-- Pie institucional -->
+  <footer class="footer">
+    AFP Habitat – Los Leones 5 | Sistema de Gestión de Ventas
+  </footer>
+
+  <!-- Gestor de modales: se carga UNA vez -->
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+  <!-- Lógica del supervisor -->
+  <script type="module" src="../scripts/supervisor.js"></script>
+</body>
+</html>

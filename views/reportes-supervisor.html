@@ -1,0 +1,62 @@
+<!-- views/reportes-supervisor.html -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reportes – APP Ventas</title>
+
+  <script src="../env.js"></script>
+
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+</head>
+
+<body>
+  <section id="modulo-vendedores">
+    <div class="tarjeta-principal">
+
+      <div class="modulo-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <h2 style="margin:0;">Reportes</h2>
+        <button id="btnVolverReportes" class="btn" type="button">← Volver</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+        <button id="btnReporteCompromisoVentas" class="btn" type="button">
+          Compromiso Ventas
+        </button>
+
+        <button id="btnReporteVentas" class="btn" type="button">
+          Reporte Ventas
+        </button>
+
+        <!-- ✅ NUEVO -->
+		<button
+		  id="btnReporteVentasSemanal"
+		  class="btn"
+		  type="button"
+		  style="
+			width: 140px;
+			min-width: 140px;
+			white-space: normal;
+			text-align: center;
+			line-height: 1.15;
+			padding: 10px 12px;
+		  "
+		>
+		  Reporte Ventas<br>Semanal
+		</button>
+      </div>
+
+      <section
+        id="contenedor-reporte-anidado"
+        style="display:none; margin-top:16px;"
+      ></section>
+
+    </div>
+  </section>
+
+  <script type="module" src="../scripts/reportes-supervisor.js"></script>
+</body>
+</html>

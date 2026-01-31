@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Módulo Ventas – APP Ventas</title>
+  
+  <script src="../env.js"></script>
+
+  <!-- Estilos institucionales -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+
+  <style>
+    /* Resaltado de fila de ventas del día seleccionado */
+    #tablaVentas .fila-dia-ventas .celda-dia {
+      background-color: #e7f1ff;
+    }
+    #tablaVentas .fila-dia-ventas td:first-child {
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===========================================================
+       MÓDULO VENTAS (EMBEBIDO EN SUPERVISOR)
+  ============================================================ -->
+  <section id="modulo-vendedores">
+    <div class="tarjeta-principal">
+
+      <!-- ENCABEZADO DEL MÓDULO -->
+      <div class="modulo-header">
+        <h2>Gestión de Ventas</h2>
+        <button class="btn-volver" id="btnVolver">← Volver</button>
+      </div>
+
+      <!-- BLOQUE SUPERIOR: DÍA / MES / AÑO -->
+      <div class="acciones-vendedores">
+        <div class="filtros-vendedores" style="gap:8px; justify-content:flex-start;">
+
+          <label style="font-size:0.9rem;">
+            Día:
+            <input
+              type="date"
+              id="selectDia"
+              style="padding:4px 6px;"
+            />
+          </label>
+
+          <label style="font-size:0.9rem;">
+            Mes:
+            <select id="selectMes" style="padding:4px 6px;">
+              <option value="1">Enero</option>
+              <option value="2">Febrero</option>
+              <option value="3">Marzo</option>
+              <option value="4">Abril</option>
+              <option value="5">Mayo</option>
+              <option value="6">Junio</option>
+              <option value="7">Julio</option>
+              <option value="8">Agosto</option>
+              <option value="9">Septiembre</option>
+              <option value="10">Octubre</option>
+              <option value="11">Noviembre</option>
+              <option value="12">Diciembre</option>
+            </select>
+          </label>
+
+          <label style="font-size:0.9rem;">
+            Año:
+            <select id="selectAnio" style="padding:4px 6px;"></select>
+          </label>
+        </div>
+      </div>
+
+      <!-- TABLA CONSOLIDADA POR VENDEDOR -->
+      <table id="tablaVentas" class="tabla-vendedores">
+        <thead>
+          <tr>
+            <th class="th-sortable" data-col="nombre">
+              Vendedor <span class="sort-arrow"></span>
+            </th>
+            <th class="th-sortable" data-col="tope">
+              Tope <span class="sort-arrow"></span>
+            </th>
+            <th class="th-sortable" data-col="sobre">
+              Sobre <span class="sort-arrow"></span>
+            </th>
+            <th class="th-sortable" data-col="bajo">
+              Bajo <span class="sort-arrow"></span>
+            </th>
+            <th class="th-sortable" data-col="plan">
+              Plan <span class="sort-arrow"></span>
+            </th>
+            <th class="th-sortable" data-col="productoVoluntario">
+              Producto Voluntario <span class="sort-arrow"></span>
+            </th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td colspan="7" style="text-align:center;">Cargando…</td>
+          </tr>
+        </tbody>
+      </table>
+
+    </div>
+
+    <!-- ===========================================================
+         MODAL — CARGA DE VENTAS POR TIPO
+    ============================================================ -->
+    <dialog id="modalVenta" class="modal">
+      <div class="modal-contenido">
+        <h3>
+          Ventas –
+          <span id="tituloModalVentasNombre">Vendedor</span>
+        </h3>
+
+        <form id="formVenta" method="dialog">
+          <table class="tabla-modal">
+
+            <!-- FECHA VENTA -->
+            <tr>
+              <td><label for="fechaVenta">Fecha Venta:</label></td>
+              <td>
+                <input type="date" id="fechaVenta" required />
+              </td>
+            </tr>
+
+            <!-- TOPE -->
+            <tr>
+              <td>Tope</td>
+              <td class="modal-ventas-botones">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input
+                    type="number"
+                    id="cantidadTope"
+                    min="0"
+                    step="1"
+                    value=""
+                    style="width:60px; text-align:right;"
+                  />
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadTope"
+                    data-delta="1"
+                  >+</button>
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadTope"
+                    data-delta="-1"
+                  >−</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- SOBRE -->
+            <tr>
+              <td>Sobre</td>
+              <td class="modal-ventas-botones">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input
+                    type="number"
+                    id="cantidadSobre"
+                    min="0"
+                    step="1"
+                    value=""
+                    style="width:60px; text-align:right;"
+                  />
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadSobre"
+                    data-delta="1"
+                  >+</button>
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadSobre"
+                    data-delta="-1"
+                  >−</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- BAJO -->
+            <tr>
+              <td>Bajo</td>
+              <td class="modal-ventas-botones">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input
+                    type="number"
+                    id="cantidadBajo"
+                    min="0"
+                    step="1"
+                    value=""
+                    style="width:60px; text-align:right;"
+                  />
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadBajo"
+                    data-delta="1"
+                  >+</button>
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadBajo"
+                    data-delta="-1"
+                  >−</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- PLAN -->
+            <tr>
+              <td>Plan</td>
+              <td class="modal-ventas-botones">
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input
+                    type="number"
+                    id="cantidadPlan"
+                    min="0"
+                    step="1"
+                    value=""
+                    style="width:60px; text-align:right;"
+                  />
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadPlan"
+                    data-delta="1"
+                  >+</button>
+
+                  <button
+                    type="button"
+                    class="btn-cantidad"
+                    data-target="cantidadPlan"
+                    data-delta="-1"
+                  >−</button>
+                </div>
+              </td>
+            </tr>
+
+            <!-- PRODUCTO VOLUNTARIO (SIN BOTONES + / -) -->
+            <tr>
+              <td>Producto Voluntario</td>
+              <td>
+				<input
+				  type="text"
+				  id="cantidadProductoVol"
+				  class="monto-vol"
+				  inputmode="numeric"
+				  autocomplete="off"
+				  style="width:100px; text-align:right;"
+				  value=""
+				/>
+              </td>
+            </tr>
+
+          </table>
+
+          <div class="modal-botones">
+            <button type="submit" class="btn-guardar">Guardar</button>
+            <button type="button" id="cancelarVenta" class="btn-cancelar">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+  </section>
+
+  <!-- SCRIPTS -->
+  <script type="module" src="../scripts/ventas.js"></script>
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+</body>
+</html>
