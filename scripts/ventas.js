@@ -35,28 +35,14 @@ function rangoMesActualYAnterior() {
 // Mes actual + últimos 2 días mes anterior si hoy es 1 o 2
 // ================================
 function fechaVentaPermitida(fechaVentaStr) {
+  // ✅ NUEVO NEGOCIO: permitir grabar meses pasados.
+  // Única restricción: no permitir fechas futuras.
   const hoy = new Date();
   const fechaVenta = new Date(fechaVentaStr + "T00:00:00");
   if (Number.isNaN(fechaVenta.getTime())) return false;
 
-  const year = hoy.getFullYear();
-  const month = hoy.getMonth();
-  const day = hoy.getDate();
-
-  const inicioMesActual = new Date(year, month, 1);
-  const ultimoMesAnterior = new Date(year, month, 0);
-  const penultimoMesAnterior = new Date(year, month, -1);
-
-  if (fechaVenta >= inicioMesActual) return true;
-
-  if (
-    day <= 2 &&
-    fechaVenta >= penultimoMesAnterior &&
-    fechaVenta <= ultimoMesAnterior
-  ) {
-    return true;
-  }
-  return false;
+  const hoyISO = formatoFechaLocal(hoy);
+  return String(fechaVentaStr) <= hoyISO;
 }
 
 // ================================
@@ -317,18 +303,20 @@ function configurarRangoFechaVenta() {
   if (!fechaVentaInput) return;
 
   const hoy = new Date();
-  const year = hoy.getFullYear();
-  const month = hoy.getMonth();
-  const day = hoy.getDate();
+  const hoyISO = formatoFechaLocal(hoy);
 
-  let minFecha = new Date(year, month, 1);
-  if (day <= 2) {
-    minFecha = new Date(year, month, -1);
+  // ✅ NUEVO NEGOCIO: permitir registrar en meses pasados.
+  // Rango amplio hacia atrás para no bloquear operación histórica.
+  // Si necesitas acotar (ej. 24 meses), se ajusta acá.
+  const minFecha = "2020-01-01";
+
+  fechaVentaInput.min = minFecha;
+  fechaVentaInput.max = hoyISO;
+
+  // No sobre-escribimos si ya hay una fecha seleccionada válida.
+  if (!fechaVentaInput.value || fechaVentaInput.value > hoyISO) {
+    fechaVentaInput.value = hoyISO;
   }
-
-  fechaVentaInput.min = formatoFechaLocal(minFecha);
-  fechaVentaInput.max = formatoFechaLocal(hoy);
-  fechaVentaInput.value = formatoFechaLocal(hoy);
 }
 
 // ================================
@@ -874,10 +862,7 @@ if (formVenta) {
     }
     // VALIDACIÓN DE NEGOCIO: rango permitido
     if (!fechaVentaPermitida(fecha)) {
-      alert(
-        "Solo puedes ingresar ventas del mes actual.\n" +
-        "Si estamos a día 1 o 2, también se permiten los últimos dos días del mes anterior."
-      );
+      alert("No puedes ingresar ventas con fecha futura.");
       return;
     }
 
