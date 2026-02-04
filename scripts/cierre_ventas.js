@@ -17,6 +17,7 @@ let rolActual =
   "supervisor";
 
 let existentesPorVendedor = new Map();
+let fuenteActual = 'BASE';
 
 // ======================================================
 // Utilidades base
@@ -182,6 +183,8 @@ async function obtenerMontosExistentes(idEquipoLocal, anio, mes) {
 
     if (error) throw error;
 
+    fuenteActual = (data && data[0] && data[0].fuente) ? String(data[0].fuente) : 'BASE';
+
     (data || []).forEach((r) => {
       existentesPorVendedor.set(r.id_vendedor, {
         TOPE: Number(r.tope || 0),
@@ -193,6 +196,7 @@ async function obtenerMontosExistentes(idEquipoLocal, anio, mes) {
     });
   } catch (err) {
     console.warn("No se pudieron precargar montos:", err);
+    fuenteActual = 'BASE';
   }
 }
 
@@ -268,34 +272,38 @@ async function guardarTodo() {
   const { mes, anio } = obtenerPeriodoSeguro();
   const filas = [...tbody.querySelectorAll("tr[data-id-vendedor]")];
 
-  const dirtyFilas = filas.filter((tr) => tr.dataset.dirty === "1");
-  if (!dirtyFilas.length) {
-    alert("No hay cambios para guardar.");
+  if (!filas.length) {
+    alert("No hay vendedores para guardar.");
     return;
   }
 
+  // Snapshot completo por vendedor (lo que espera el wrapper en DB)
   const ventas = [];
 
-  for (const tr of dirtyFilas) {
+  for (const tr of filas) {
     const idVendedor = tr.dataset.idVendedor;
 
-    const tf = numOrZero(tr.querySelector('input[data-tipo="BAJO"]')?.value);
+    // En la UI, estos 3 inputs están en formato ACUMULADO:
+    // - BAJO  = TF acumulado (TOPE + SOBRE + BAJO)
+    // - SOBRE = >40 acumulado (TOPE + SOBRE)
+    // - TOPE  = >70 acumulado (TOPE)
+    const tf  = numOrZero(tr.querySelector('input[data-tipo="BAJO"]')?.value);
     const g40 = numOrZero(tr.querySelector('input[data-tipo="SOBRE"]')?.value);
     const g70 = numOrZero(tr.querySelector('input[data-tipo="TOPE"]')?.value);
 
     const plan = numOrZero(tr.querySelector('input[data-tipo="PLAN"]')?.value);
-    const pv = numOrZero(tr.querySelector('input[data-tipo="PV"]')?.value);
+    const pv   = numOrZero(tr.querySelector('input[data-tipo="PV"]')?.value);
 
     const tramos = construirTramosDesdeAcumulados(tf, g40, g70);
 
-    // ✅ Mandamos SIEMPRE los 5 tipos para ese vendedor (incluye 0)
-    ventas.push(
-      { id_vendedor: idVendedor, tipo_venta: "TOPE",  monto: tramos.TOPE,  descripcion: "CIERRE_MENSUAL" },
-      { id_vendedor: idVendedor, tipo_venta: "SOBRE", monto: tramos.SOBRE, descripcion: "CIERRE_MENSUAL" },
-      { id_vendedor: idVendedor, tipo_venta: "BAJO",  monto: tramos.BAJO,  descripcion: "CIERRE_MENSUAL" },
-      { id_vendedor: idVendedor, tipo_venta: "PLAN",  monto: plan,        descripcion: "CIERRE_MENSUAL" },
-      { id_vendedor: idVendedor, tipo_venta: "PV",    monto: pv,          descripcion: "CIERRE_MENSUAL" }
-    );
+    ventas.push({
+      id_vendedor: idVendedor,
+      tope: tramos.TOPE,
+      sobre: tramos.SOBRE,
+      bajo: tramos.BAJO,
+      plan,
+      pv,
+    });
   }
 
   btnGuardarCierre.disabled = true;
@@ -325,6 +333,7 @@ async function guardarTodo() {
   }
 }
 
+
 // ======================================================
 // Carga principal
 // ======================================================
@@ -337,6 +346,7 @@ async function cargarCierre() {
 
     const vendedores = await obtenerVendedoresDelMes(idEquipo, anio, mes);
     await obtenerMontosExistentes(idEquipo, anio, mes);
+    if (btnGuardarCierre) btnGuardarCierre.title = `Fuente carga: ${fuenteActual}`;
     render(vendedores);
   } catch (err) {
     console.error("Error cargando cierre mensual:", err);
