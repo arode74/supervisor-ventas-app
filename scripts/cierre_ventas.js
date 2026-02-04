@@ -174,7 +174,7 @@ async function obtenerMontosExistentes(idEquipoLocal, anio, mes) {
   existentesPorVendedor = new Map();
 
   try {
-    const { data, error } = await supabase.rpc("rpc_cierre_ventas_mes", {
+    const { data, error } = await supabase.rpc("rpc_cierre_ventas_mes_equipo", {
       p_id_equipo: idEquipoLocal,
       p_anio: anio,
       p_mes: mes,
