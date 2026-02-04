@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Módulo Compromisos – APP Ventas</title>
-  
+
   <script src="../env.js"></script>
 
   <!-- Estilos institucionales -->
@@ -12,13 +12,116 @@
   <link rel="stylesheet" href="../styles/panel-base.css" />
   <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
 
-  <!-- Mantener el rango de semana en una línea -->
   <style>
+    /* Mantener el rango de semana en una línea */
     #labelRangoSemana {
       white-space: nowrap !important;
       display: inline-block !important;
     }
-  </style>
+
+    /* Tabs del modal */
+    .tabs-modal {
+      display:flex;
+      gap:8px;
+      margin: 10px 0 12px 0;
+    }
+    .tabs-modal .tab-btn{
+      border: 1px solid rgba(0,0,0,0.15);
+      background: #f2f4f7;
+      padding: 6px 10px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-weight:600;
+      font-size: 0.9rem;
+    }
+    .tabs-modal .tab-btn.active{
+      background: #ffffff;
+      border-color: rgba(0,0,0,0.25);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+    }
+    .sheet { display:none; }
+    .sheet.active { display:block; }
+
+    /* Marcos Mensual / Semanal (se aplican por clases inyectadas desde JS) */
+    th.grp-mensual, th.grp-semanal{
+      text-align:center;
+      font-weight:700;
+    }
+
+    /* Compactar solo columnas Mensual/Semanal */
+    th.col-mensual, td.col-mensual,
+    th.col-semanal, td.col-semanal{
+      font-size: 0.85rem;
+      padding: 4px 6px !important; line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    td.col-mensual, td.col-semanal{ text-align: center; }
+
+    /* Bordes de marco (izq/der) */
+    th.mensual-start, td.mensual-start { border-left: 2px solid rgba(33, 150, 243, 0.10) !important; }
+    th.mensual-end,   td.mensual-end   { border-right:2px solid rgba(33, 150, 243, 0.10) !important; }
+
+    th.semanal-start, td.semanal-start { border-left: 2px solid rgba(33, 150, 243, 0.10) !important; }
+    th.semanal-end,   td.semanal-end   { border-right:2px solid rgba(33, 150, 243, 0.10) !important; }
+
+    /* Bordes superiores para que se vea el marco */
+    thead tr.grp th.grp-mensual,
+    thead tr.grp th.grp-semanal{
+      border-top: 2px solid rgba(33, 150, 243, 0.10) !important;
+    }
+    thead tr.cols th.col-mensual,
+    thead tr.cols th.col-semanal{
+      border-top: 2px solid rgba(33, 150, 243, 0.10) !important;
+    }
+
+    /* Bordes inferiores (cierra el marco visual) */
+    td.col-mensual, td.col-semanal{
+      border-bottom: 2px solid rgba(33, 150, 243, 0.08);
+    }
+
+    /* Compactar alto de fila general (~80%) */
+    #tablaCompromisos tbody td{
+      padding-top: 6px !important;
+      padding-bottom: 6px !important;
+    }
+    #tablaCompromisos tbody td.col-mensual,
+    #tablaCompromisos tbody td.col-semanal{
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+    }
+  
+    /* Compactar aún más la fila del nombre del vendedor */
+    #tablaCompromisos tbody td:first-child{
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+      line-height: 1.05;
+    }
+
+
+    /* Compactar TODA la fila de vendedores (igual a Mensual/Semanal) */
+    #tablaCompromisos tbody tr.fila-vendedor td{
+      padding-top: 4px !important;
+      padding-bottom: 4px !important;
+      line-height: 1.05;
+    }
+
+
+    /* Tabs modal: celeste claro / celeste oscuro activo */
+    .tabs-modal .tab-btn{
+      background: rgba(33,150,243,0.12);
+      border: 1px solid rgba(33,150,243,0.25);
+      color: #ffffff;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .tabs-modal .tab-btn.active{
+      background: rgba(33,150,243,0.85);
+      border-color: rgba(33,150,243,0.9);
+      color: #ffffff;
+      box-shadow: none;
+    }
+
+</style>
 </head>
 
 <body>
@@ -26,27 +129,19 @@
 <section id="modulo-vendedores">
   <div class="tarjeta-principal">
 
-    <!-- ENCABEZADO -->
     <div class="modulo-header">
       <h2>Gestión de Compromisos</h2>
       <button class="btn-volver" id="btnVolver">← Volver</button>
     </div>
 
-    <!-- FILTRO DE SEMANA -->
-    <div class="acciones-vendedores"  style="justify-content:flex-start;">   
-   <div class="filtros-vendedores" style="gap:8px; justify-content:flex-start;">
-        
+    <div class="acciones-vendedores" style="justify-content:flex-start;">
+      <div class="filtros-vendedores" style="gap:8px; justify-content:flex-start;">
         <label style="font-size:0.9rem;">
           Semana de compromiso:
           <input type="date" id="inputFechaBaseSemana" style="padding:4px 6px;" />
         </label>
-  
-		<!-- Etiqueta rango de semana -->
-        <span
-          id="labelRangoSemana"
-          style="font-size:0.9rem; font-weight:600; margin-left:20px;"
-        ></span>
 
+        <span id="labelRangoSemana" style="font-size:0.9rem; font-weight:600; margin-left:20px;"></span>
       </div>
     </div>
 
@@ -54,38 +149,46 @@
     <table id="tablaCompromisos" class="tabla-vendedores">
       <thead>
         <tr>
-          <th class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>
+          <th>Vendedor</th>
           <th>Acciones</th>
         </tr>
       </thead>
-
       <tbody>
         <tr>
-          <td colspan="8" style="text-align:center;">Cargando…</td>
+          <td colspan="10" style="text-align:center;">Cargando…</td>
         </tr>
       </tbody>
     </table>
 
   </div>
 
-  <!-- MODAL COMPROMISO SEMANAL -->
-  <dialog id="modalCompromiso" class="modal">
+  <!-- MODAL ÚNICO: SEMANAL + MENSUAL -->
+  <dialog id="modalCompromisos" class="modal">
     <div class="modal-contenido">
-      <h3>
-        Compromiso semanal –
-        <span id="tituloModalCompromisoNombre">Vendedor</span>
+      <h3 id="tituloModalCompromisos">
+        Compromiso semanal – <span id="tituloModalCompromisoNombre">Vendedor</span>
       </h3>
 
-      <p id="tituloModalCompromisoSemana"
-         style="margin-top:4px; font-size:0.9rem; color:#555;">
-      </p>
+      <p id="tituloModalSubtitulo" style="margin-top:4px; font-size:0.9rem; color:#555;"></p>
 
-      <form id="formCompromiso">
-        <table class="tabla-modal" id="tablaModalTipos"></table>
+      <div class="tabs-modal">
+        <button type="button" class="tab-btn active" id="tabSemanal" data-tab="semanal">Semanal</button>
+        <button type="button" class="tab-btn" id="tabMensual" data-tab="mensual">Mensual</button>
+      </div>
+
+      <form id="formCompromisos">
+        <div class="sheet active" id="sheetSemanal">
+          <table class="tabla-modal" id="tablaModalTiposSemanal"></table>
+        </div>
+
+        <div class="sheet" id="sheetMensual">
+          <table class="tabla-modal" id="tablaModalTiposMensual"></table>
+        </div>
 
         <input type="hidden" id="idVendedorCompromiso" />
         <input type="hidden" id="fechaInicioSemana" />
         <input type="hidden" id="fechaFinSemana" />
+        <input type="hidden" id="fechaAnclaMes" />
 
         <div class="modal-botones">
           <button type="submit" class="btn-guardar">Guardar</button>

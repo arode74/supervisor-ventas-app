@@ -1,6 +1,6 @@
 // ================================
 // COMPROMISOS.JS - PANEL DE COMPROMISOS
-// Consolidado semanal por vendedor + detalle expandible tipo Excel
+// Semanal (existente) + Mensual (nuevo) con un solo modal (2 tabs)
 // ================================
 
 import { supabase } from "../config.js";
@@ -35,22 +35,11 @@ function rangoSemanaDesdeFecha(fechaISO) {
   const fin = new Date(inicio);
   fin.setDate(fin.getDate() + 6);
 
-  return {
-    inicioISO: formatoFechaLocal(inicio),
-    finISO: formatoFechaLocal(fin),
-  };
+  return { inicioISO: formatoFechaLocal(inicio), finISO: formatoFechaLocal(fin) };
 }
 
 function nombreDiaSemanaDesdeDate(dateObj) {
-  const dias = [
-    "Domingo",
-    "Lunes",
-    "Martes",
-    "Miércoles",
-    "Jueves",
-    "Viernes",
-    "Sábado",
-  ];
+  const dias = ["Domingo","Lunes","Martes","Miércoles","Jueves","Viernes","Sábado"];
   return dias[dateObj.getDay()];
 }
 
@@ -101,10 +90,25 @@ function ddmmDesdeISO(fechaISO) {
   return `${d}-${m}`;
 }
 
+// ✅ Ancla mensual (centralizado):
+// Por defecto: primer día del mes de la semana seleccionada (YYYY-MM-01)
+function anclaMesDesdeFechaISO(fechaISO) {
+  const d = new Date((fechaISO || "") + "T00:00:00");
+  if (isNaN(d.getTime())) return null;
+  d.setDate(1);
+  return formatoFechaLocal(d);
+}
+
+function etiquetaMesDesdeISO(fechaISO) {
+  const [y, m] = String(fechaISO || "").split("-");
+  if (!y || !m) return "";
+  return `${m}-${y}`;
+}
+
 // =========================
-// FERIADOS (UI ONLY, sin bloquear edición ni guardado)
+// FERIADOS (UI ONLY)
 // =========================
-let feriadosSemanaMap = new Map(); // key fechaISO => {nombre, irrenunciable}
+let feriadosSemanaMap = new Map();
 
 async function cargarFeriadosSemana(inicioISO, finISO) {
   feriadosSemanaMap = new Map();
@@ -160,13 +164,11 @@ function construirBadgeFeriadoHTML(fechaISO) {
 function headerDiaHTML(fechaISO) {
   const dia = nombreDiaSemanaDesdeDate(new Date(fechaISO + "T00:00:00"));
   const ddmm = ddmmDesdeISO(fechaISO);
-  return `<span class="lbl-dia">${escapeHtml(dia)} ${escapeHtml(ddmm)}</span>${construirBadgeFeriadoHTML(
-    fechaISO
-  )}`;
+  return `<span class="lbl-dia">${escapeHtml(dia)} ${escapeHtml(ddmm)}</span>${construirBadgeFeriadoHTML(fechaISO)}`;
 }
 
 // =========================
-// CSS INJECT (ajuste botones navegación diaria)
+// CSS INJECT (nav diaria)
 // =========================
 function inyectarEstilosNavDia() {
   if (document.getElementById("compromisos-nav-dia-style")) return;
@@ -174,7 +176,6 @@ function inyectarEstilosNavDia() {
   const style = document.createElement("style");
   style.id = "compromisos-nav-dia-style";
   style.textContent = `
-    /* NAV DIARIA: botones más chicos y sin fondo azul */
     .dia-header{
       display:flex;
       align-items:center;
@@ -213,24 +214,30 @@ function inyectarEstilosNavDia() {
 // =========================
 // SELECTORES
 // =========================
-const tablaCompromisos = document.getElementById("tablaCompromisos");
 const inputFechaBaseSemana = document.getElementById("inputFechaBaseSemana");
 const labelRangoSemana = document.getElementById("labelRangoSemana");
 
-const modal = document.getElementById("modalCompromiso");
-const form = document.getElementById("formCompromiso");
+const modal = document.getElementById("modalCompromisos");
+const form = document.getElementById("formCompromisos");
 
 const btnVolver = document.getElementById("btnVolver");
 const btnCancelar = document.getElementById("cancelarCompromiso");
 
-const spanNombreVendedor = document.getElementById(
-  "tituloModalCompromisoNombre"
-);
-const spanSemana = document.getElementById("tituloModalCompromisoSemana");
+const spanNombreVendedor = document.getElementById("tituloModalCompromisoNombre");
+const tituloModal = document.getElementById("tituloModalCompromisos");
+const subtituloModal = document.getElementById("tituloModalSubtitulo");
 
 const hiddenIdVendedor = document.getElementById("idVendedorCompromiso");
 const hiddenInicio = document.getElementById("fechaInicioSemana");
 const hiddenFin = document.getElementById("fechaFinSemana");
+const hiddenAnclaMes = document.getElementById("fechaAnclaMes");
+
+const tabSemanalBtn = document.getElementById("tabSemanal");
+const tabMensualBtn = document.getElementById("tabMensual");
+const sheetSemanal = document.getElementById("sheetSemanal");
+const sheetMensual = document.getElementById("sheetMensual");
+const tablaModalSemanal = document.getElementById("tablaModalTiposSemanal");
+const tablaModalMensual = document.getElementById("tablaModalTiposMensual");
 
 // =========================
 // ESTADO GLOBAL
@@ -250,20 +257,49 @@ function safeAlert(msg) {
   }
 }
 
-function getTablaCompromisos() {
-  return document.getElementById("tablaCompromisos");
+function norm(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .trim();
 }
 
-function getTbodyCompromisos() {
-  return getTablaCompromisos()?.querySelector("tbody") || null;
+function esTipoMensual(tipoNombre) {
+  const n = norm(tipoNombre);
+  return n.includes("mes");
 }
+
+// Label limpio para mensual: "TF", "Sobre", "Tope", "Plan"
+function labelMensual(nombreTipo) {
+  const n = norm(nombreTipo);
+  if (n.includes("tf")) return "TF";
+  if (n.includes("sobre")) return "Sobre";
+  if (n.includes("tope")) return "Tope";
+  if (n.includes("plan")) return "Plan";
+  // fallback: quita "mes"
+  return String(nombreTipo || "").replace(/\bmes\b/gi, "").trim();
+}
+// Label limpio para semanal: "Tope", "Sobre", "Bajo", "Plan"
+function labelSemanal(nombreTipo) {
+  const n = norm(nombreTipo);
+  if (n.includes("tope")) return "Tope";
+  if (n.includes("sobre")) return "Sobre";
+  if (n.includes("bajo")) return "Bajo";
+  if (n.includes("plan")) return "Plan";
+  // fallback: Title Case simple
+  const s = String(nombreTipo || "").trim().toLowerCase();
+  return s ? (s.charAt(0).toUpperCase() + s.slice(1)) : "";
+}
+
 
 // =========================
 // ESTADO TABLA
 // =========================
 let tiposCompromisos = [];
-let tiposObligatoriosCache = [];
-let columnasObligatorias = [];
+let columnasSemanales = [];
+let columnasMensuales = [];
+
 let tiposSupervisorCache = [];
 
 let semanaInicioActual = null;
@@ -271,8 +307,10 @@ let semanaFinActual = null;
 
 let datosTabla = [];
 let compromisosSemana = [];
+let compromisosMes = [];
 
-let ordenColumna = null;
+// ✅ Orden por defecto: ascendente por vendedor
+let ordenColumna = "nombre";
 let ordenAsc = true;
 
 let fechaHoyDetalleISO = null;
@@ -281,6 +319,7 @@ let fechaAyerDetalleISO = null;
 // Índices
 let idxMontoPorVendedorTipoFecha = new Map();
 let idxMontoPorVendedorTipo = new Map();
+let idxMontoMesPorVendedorTipo = new Map();
 
 // =========================
 // AUTENTICACION
@@ -323,31 +362,34 @@ async function obtenerPerfilActual() {
 async function cargarTiposCompromiso() {
   const { data, error } = await supabase
     .from("tipos_compromisos")
-    .select(
-      "id, nombre, descripcion, supervisor_id, activo, es_obligatorio, orden, visible_para_todos"
-    );
+    .select("id, nombre, descripcion, supervisor_id, activo, es_obligatorio, orden, visible_para_todos");
 
   if (error) {
     console.error("Error cargando tipos_compromisos:", error);
     tiposCompromisos = [];
-    tiposObligatoriosCache = [];
+    columnasSemanales = [];
+    columnasMensuales = [];
     tiposSupervisorCache = [];
     return;
   }
 
   tiposCompromisos = (data || []).filter((t) => t && t.activo === true);
 
-  tiposObligatoriosCache = tiposCompromisos
-    .filter((t) => t.es_obligatorio === true)
+  columnasMensuales = tiposCompromisos
+    .filter((t) => t?.es_obligatorio === true && esTipoMensual(t?.nombre))
     .sort(ordenarTipos);
 
+  columnasSemanales = tiposCompromisos
+    .filter((t) => t?.es_obligatorio === true && !esTipoMensual(t?.nombre))
+    .sort(ordenarTipos);
+
+  // Detalle diario: se mantiene como estaba (no mensual)
   tiposSupervisorCache = tiposCompromisos
     .filter((t) => {
       if (!t) return false;
       if (t.es_obligatorio !== false) return false;
 
-      const esMio =
-        String(t.supervisor_id || "") === String(usuarioActual?.id || "");
+      const esMio = String(t.supervisor_id || "") === String(usuarioActual?.id || "");
       const esVisibleParaTodos = t.visible_para_todos === true;
 
       return esMio || esVisibleParaTodos;
@@ -376,7 +418,7 @@ function inicializarSelectorSemana() {
     actualizarSemanaYDetalle(val);
 
     await cargarFeriadosSemana(semanaInicioActual, semanaFinActual);
-    cargarTablaCompromisos();
+    await cargarTablaCompromisos();
   });
 }
 
@@ -407,6 +449,11 @@ function getViernesSemanaISO() {
   return moverDiaHabil(semanaInicioActual, 4);
 }
 
+function getAnclaMesISO() {
+  const base = inputFechaBaseSemana?.value || semanaInicioActual;
+  return anclaMesDesdeFechaISO(base);
+}
+
 // =========================
 // INDEXACIÓN
 // =========================
@@ -417,7 +464,7 @@ function keyVT(idV, idT) {
   return `${idV}|${idT}`;
 }
 
-function reconstruirIndicesCompromisos() {
+function reconstruirIndicesCompromisosSemana() {
   idxMontoPorVendedorTipoFecha = new Map();
   idxMontoPorVendedorTipo = new Map();
 
@@ -428,26 +475,29 @@ function reconstruirIndicesCompromisos() {
     const m = Number(c.monto_comprometido || 0);
 
     const k1 = keyVTF(idV, idT, f);
-    idxMontoPorVendedorTipoFecha.set(
-      k1,
-      (idxMontoPorVendedorTipoFecha.get(k1) || 0) + m
-    );
+    idxMontoPorVendedorTipoFecha.set(k1, (idxMontoPorVendedorTipoFecha.get(k1) || 0) + m);
 
     const k2 = keyVT(idV, idT);
     idxMontoPorVendedorTipo.set(k2, (idxMontoPorVendedorTipo.get(k2) || 0) + m);
   }
 }
 
-function setMontoEnIndice(idV, idT, fechaISO, nuevoMonto) {
+function reconstruirIndiceMes() {
+  idxMontoMesPorVendedorTipo = new Map();
+  for (const c of compromisosMes) {
+    const idV = c.id_vendedor;
+    const idT = c.id_tipo;
+    const m = Number(c.monto_comprometido || 0);
+    const k = keyVT(idV, idT);
+    idxMontoMesPorVendedorTipo.set(k, (idxMontoMesPorVendedorTipo.get(k) || 0) + m);
+  }
+}
+
+function setMontoEnIndiceSemana(idV, idT, fechaISO, nuevoMonto) {
   const monto = Number(nuevoMonto || 0);
 
   compromisosSemana = (compromisosSemana || []).filter(
-    (c) =>
-      !(
-        c.id_vendedor === idV &&
-        c.id_tipo === idT &&
-        c.fecha_compromiso === fechaISO
-      )
+    (c) => !(c.id_vendedor === idV && c.id_tipo === idT && c.fecha_compromiso === fechaISO)
   );
 
   if (monto > 0) {
@@ -462,20 +512,44 @@ function setMontoEnIndice(idV, idT, fechaISO, nuevoMonto) {
     });
   }
 
-  reconstruirIndicesCompromisos();
+  reconstruirIndicesCompromisosSemana();
+}
+
+// =========================
+// ORDENAMIENTO (aplica sin toggle)
+// =========================
+function sortDatosTabla() {
+  if (!ordenColumna) return;
+
+  datosTabla.sort((a, b) => {
+    let v1 = a[ordenColumna];
+    let v2 = b[ordenColumna];
+
+    if (ordenColumna === "nombre") {
+      v1 = (v1 || "").toLowerCase();
+      v2 = (v2 || "").toLowerCase();
+      if (v1 < v2) return ordenAsc ? -1 : 1;
+      if (v1 > v2) return ordenAsc ? 1 : -1;
+      return 0;
+    }
+
+    v1 = Number(v1 || 0);
+    v2 = Number(v2 || 0);
+    return ordenAsc ? v1 - v2 : v2 - v1;
+  });
 }
 
 // =========================
 // CARGA PRINCIPAL TABLA
 // =========================
 async function cargarTablaCompromisos() {
-  const tbodyCompromisos = getTbodyCompromisos();
-  if (!tbodyCompromisos) return;
+  const tabla = document.getElementById("tablaCompromisos");
+  const tbody = tabla?.querySelector("tbody");
+  if (!tbody) return;
 
   const idEquipo = localStorage.getItem("idEquipoActivo");
   if (!idEquipo) {
-    tbodyCompromisos.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;">No hay equipo activo.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">No hay equipo activo.</td></tr>';
     return;
   }
 
@@ -487,78 +561,99 @@ async function cargarTablaCompromisos() {
 
   if (errV) {
     console.error("Error cargando equipo_vendedor:", errV);
-    tbodyCompromisos.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;">Error cargando vendedores.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Error cargando vendedores.</td></tr>';
     return;
   }
 
   const vendedores = (rels || []).map((r) => r.vendedores).filter(Boolean);
 
   if (vendedores.length === 0) {
-    tbodyCompromisos.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;">Sin vendedores.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Sin vendedores.</td></tr>';
     return;
   }
 
   const idsVendedores = vendedores.map((v) => v.id_vendedor);
-  const idsTiposTodos = tiposCompromisos.map((t) => t.id);
+  const idsTiposSem = columnasSemanales.map((t) => t.id);
+  const idsTiposMes = columnasMensuales.map((t) => t.id);
 
-  let comps = [];
-  if (idsTiposTodos.length > 0) {
-    const { data: compsData, error: errC } = await supabase
+  // Semanal
+  let compsSem = [];
+  if (idsTiposSem.length > 0) {
+    const { data, error } = await supabase
       .from("compromisos")
-      .select(
-        "id_vendedor, id_tipo, monto_comprometido, fecha_compromiso, comentario, id_supervisor, id_equipo"
-      )
+      .select("id_vendedor, id_tipo, monto_comprometido, fecha_compromiso, comentario, id_supervisor, id_equipo")
       .in("id_vendedor", idsVendedores)
-      .in("id_tipo", idsTiposTodos)
+      .in("id_tipo", idsTiposSem)
       .gte("fecha_compromiso", semanaInicioActual)
       .lte("fecha_compromiso", semanaFinActual);
 
-    if (errC) {
-      console.error("Error cargando compromisos:", errC);
-      comps = [];
+    if (error) {
+      console.error("Error cargando compromisos semanales:", error);
+      compsSem = [];
     } else {
-      comps = compsData || [];
+      compsSem = data || [];
     }
   }
 
-  compromisosSemana = comps;
-  reconstruirIndicesCompromisos();
+  // Mensual (ancla del mes)
+  const anclaMes = getAnclaMesISO();
+  let compsMes = [];
+  if (idsTiposMes.length > 0 && anclaMes) {
+    const { data, error } = await supabase
+      .from("compromisos")
+      .select("id_vendedor, id_tipo, monto_comprometido, fecha_compromiso, comentario, id_supervisor, id_equipo")
+      .in("id_vendedor", idsVendedores)
+      .in("id_tipo", idsTiposMes)
+      .eq("fecha_compromiso", anclaMes);
 
-  columnasObligatorias = (tiposCompromisos || [])
-    .filter((t) => t && t.es_obligatorio === true)
-    .sort(ordenarTipos);
+    if (error) {
+      console.error("Error cargando compromisos mensuales:", error);
+      compsMes = [];
+    } else {
+      compsMes = data || [];
+    }
+  }
 
-  reconstruirTheadObligatorios();
+  compromisosSemana = compsSem;
+  compromisosMes = compsMes;
+
+  reconstruirIndicesCompromisosSemana();
+  reconstruirIndiceMes();
+
+  reconstruirThead();
 
   const metricas = {};
   vendedores.forEach((v) => {
-    const row = {
-      id_vendedor: v.id_vendedor,
-      nombre: v.nombre,
-    };
-    for (const t of columnasObligatorias) row["t_" + t.id] = 0;
+    const row = { id_vendedor: v.id_vendedor, nombre: v.nombre };
+    for (const t of columnasMensuales) row["m_" + t.id] = 0;
+    for (const t of columnasSemanales) row["s_" + t.id] = 0;
     metricas[v.id_vendedor] = row;
   });
 
-  const setObl = new Set(columnasObligatorias.map((t) => String(t.id)));
+  for (const c of compromisosMes) {
+    const entry = metricas[c.id_vendedor];
+    if (!entry) continue;
+    const k = "m_" + c.id_tipo;
+    entry[k] = (Number(entry[k]) || 0) + Number(c.monto_comprometido || 0);
+  }
 
   for (const c of compromisosSemana) {
     const entry = metricas[c.id_vendedor];
     if (!entry) continue;
-    if (!setObl.has(String(c.id_tipo))) continue;
-
-    const monto = Number(c.monto_comprometido || 0);
-    entry["t_" + c.id_tipo] = (Number(entry["t_" + c.id_tipo]) || 0) + monto;
+    const k = "s_" + c.id_tipo;
+    entry[k] = (Number(entry[k]) || 0) + Number(c.monto_comprometido || 0);
   }
 
   datosTabla = Object.values(metricas);
+
+  // ✅ aplica orden por defecto (nombre asc) antes del render
+  sortDatosTabla();
+
   renderTabla();
 }
 
 // =========================
-// DETALLE EXPANDIBLE
+// DETALLE EXPANDIBLE (DIARIO) - SIN CAMBIOS
 // =========================
 function construirHtmlDetalleCompromisos(idVendedor) {
   const tiposSupervisor = tiposSupervisorCache;
@@ -601,13 +696,10 @@ function construirHtmlDetalleCompromisos(idVendedor) {
     const desc = tipo.descripcion || tipo.nombre || "";
 
     const totalAyer =
-      idxMontoPorVendedorTipoFecha.get(
-        keyVTF(idVendedor, tipo.id, fechaAyer)
-      ) || 0;
+      idxMontoPorVendedorTipoFecha.get(keyVTF(idVendedor, tipo.id, fechaAyer)) || 0;
 
     const totalHoy =
-      idxMontoPorVendedorTipoFecha.get(keyVTF(idVendedor, tipo.id, fechaHoy)) ||
-      0;
+      idxMontoPorVendedorTipoFecha.get(keyVTF(idVendedor, tipo.id, fechaHoy)) || 0;
 
     const inputId = "input-hoy-" + idVendedor + "-" + tipo.id;
 
@@ -617,31 +709,19 @@ function construirHtmlDetalleCompromisos(idVendedor) {
 
     html +=
       "<tr>" +
-      "<td>" +
-      escapeHtml(desc) +
-      "</td>" +
+      "<td>" + escapeHtml(desc) + "</td>" +
       '<td style="text-align:right;">' +
       (totalAyer ? Number(totalAyer).toLocaleString("de-DE") : "0") +
       "</td>" +
       '<td style="text-align:center;">' +
       '<div class="compromiso-dia-hoy">' +
-      '<input type="number" id="' +
-      inputId +
-      '" class="input-compromiso-dia" ' +
+      '<input type="number" id="' + inputId + '" class="input-compromiso-dia" ' +
       estiloFeriado +
-      'data-id-vendedor="' +
-      idVendedor +
-      '" data-id-tipo="' +
-      tipo.id +
-      '" min="0" step="1" value="' +
+      'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" min="0" step="1" value="' +
       (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
       '" />' +
       '<button type="button" class="btn-guardar-compromiso-dia" ' +
-      'data-id-vendedor="' +
-      idVendedor +
-      '" data-id-tipo="' +
-      tipo.id +
-      '">💾</button>' +
+      'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '">💾</button>' +
       "</div>" +
       "</td>" +
       "</tr>";
@@ -651,46 +731,137 @@ function construirHtmlDetalleCompromisos(idVendedor) {
   return html;
 }
 
-// =========================
-// RENDER TABLA PRINCIPAL
-// =========================
-function reconstruirTheadObligatorios() {
-  const tabla = document.getElementById("tablaCompromisos");
-  if (!tabla) return;
-  const thead = tabla.querySelector("thead");
-  if (!thead) return;
 
-  let html = "<tr>";
-  html +=
-    '<th class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>';
 
-  for (const t of columnasObligatorias) {
-    const key = "t_" + t.id;
-    html += `<th class="th-sortable" data-col="${key}">${escapeHtml(
-      t.nombre || ""
-    )} <span class="sort-arrow"></span></th>`;
+// =========================
+// MARCOS ROBUSTOS (no dependen del orden de columnas)
+// - Si por cualquier razón las columnas quedan intercaladas o el script se carga 2 veces,
+//   forzamos el start/end según la primera y última ocurrencia real en el DOM.
+// =========================
+function aplicarMarcosEnHeader() {
+  const colsRow = document.querySelector("#tablaCompromisos thead tr.cols");
+  if (!colsRow) return;
+
+  const ths = Array.from(colsRow.querySelectorAll("th"));
+  if (!ths.length) return;
+
+  // limpia marcas previas
+  ths.forEach((th) => th.classList.remove("mensual-start", "mensual-end", "semanal-start", "semanal-end"));
+
+  const mensuales = ths.filter((th) => th.classList.contains("col-mensual"));
+  if (mensuales.length) {
+    mensuales[0].classList.add("mensual-start");
+    mensuales[mensuales.length - 1].classList.add("mensual-end");
   }
 
-  html += "<th>Acciones</th>";
-  html += "</tr>";
-  thead.innerHTML = html;
-
-  thead
-    .querySelectorAll("th.th-sortable[data-col]")
-    .forEach((th) => (th.style.cursor = "pointer"));
-  if (ordenColumna) actualizarFlechas(ordenColumna, ordenAsc);
+  const semanales = ths.filter((th) => th.classList.contains("col-semanal"));
+  if (semanales.length) {
+    semanales[0].classList.add("semanal-start");
+    semanales[semanales.length - 1].classList.add("semanal-end");
+  }
 }
 
+function aplicarMarcosEnFila(tr) {
+  const tds = Array.from(tr?.querySelectorAll?.("td") || []);
+  if (!tds.length) return;
+
+  // limpia marcas previas
+  tds.forEach((td) => td.classList.remove("mensual-start", "mensual-end", "semanal-start", "semanal-end"));
+
+  const mensuales = tds.filter((td) => td.classList.contains("col-mensual"));
+  if (mensuales.length) {
+    mensuales[0].classList.add("mensual-start");
+    mensuales[mensuales.length - 1].classList.add("mensual-end");
+  }
+
+  const semanales = tds.filter((td) => td.classList.contains("col-semanal"));
+  if (semanales.length) {
+    semanales[0].classList.add("semanal-start");
+    semanales[semanales.length - 1].classList.add("semanal-end");
+  }
+}
+// =========================
+// THEAD (2 filas: grupal + columnas) + CLASES PARA MARCOS
+// =========================
+function reconstruirThead() {
+  const tabla = document.getElementById("tablaCompromisos");
+  const thead = tabla?.querySelector("thead");
+  if (!thead) return;
+
+  const colMens = columnasMensuales?.length || 0;
+  const colSem = columnasSemanales?.length || 0;
+
+  let html = `<tr class="grp">`;
+  html += `<th rowspan="2" class="th-sortable" data-col="nombre">Vendedor <span class="sort-arrow"></span></th>`;
+
+  // Grupo mensual
+  if (colMens > 0) {
+    html += `<th colspan="${colMens}" class="grp-mensual mensual-start mensual-end">Mensual</th>`;
+  } else {
+    html += `<th class="grp-mensual mensual-start mensual-end">Mensual</th>`;
+  }
+
+  // Grupo semanal
+  if (colSem > 0) {
+    html += `<th colspan="${colSem}" class="grp-semanal semanal-start semanal-end">Semanal</th>`;
+  } else {
+    html += `<th class="grp-semanal semanal-start semanal-end">Semanal</th>`;
+  }
+
+  html += `<th rowspan="2">Acciones</th>`;
+  html += `</tr>`;
+
+  // Fila columnas
+  html += `<tr class="cols">`;
+
+  columnasMensuales.forEach((t, idx) => {
+    const key = "m_" + t.id;
+    const isStart = idx === 0;
+    const isEnd = idx === columnasMensuales.length - 1;
+    const cls = [
+      "th-sortable",
+      "col-mensual",
+      isStart ? "mensual-start" : "",
+      isEnd ? "mensual-end" : ""
+    ].filter(Boolean).join(" ");
+    html += `<th class="${cls}" data-col="${key}">${escapeHtml(labelMensual(t.nombre || ""))} <span class="sort-arrow"></span></th>`;
+  });
+
+  columnasSemanales.forEach((t, idx) => {
+    const key = "s_" + t.id;
+    const isStart = idx === 0;
+    const isEnd = idx === columnasSemanales.length - 1;
+    const cls = [
+      "th-sortable",
+      "col-semanal",
+      isStart ? "semanal-start" : "",
+      isEnd ? "semanal-end" : ""
+    ].filter(Boolean).join(" ");
+    html += `<th class="${cls}" data-col="${key}">${escapeHtml(labelSemanal(t.nombre || ""))} <span class="sort-arrow"></span></th>`;
+  });
+
+  html += `</tr>`;
+
+  thead.innerHTML = html;
+
+  thead.querySelectorAll("th.th-sortable[data-col]").forEach((th) => (th.style.cursor = "pointer"));
+  actualizarFlechas(ordenColumna, ordenAsc);
+  aplicarMarcosEnHeader();
+}
+
+// =========================
+// RENDER TABLA PRINCIPAL (AGREGA CLASES PARA MARCOS)
+// =========================
 function renderTabla() {
-  const tbodyCompromisos = getTbodyCompromisos();
-  if (!tbodyCompromisos) return;
+  const tabla = document.getElementById("tablaCompromisos");
+  const tbody = tabla?.querySelector("tbody");
+  if (!tbody) return;
 
-  tbodyCompromisos.innerHTML = "";
+  tbody.innerHTML = "";
 
-  const totalCols = 2 + (columnasObligatorias?.length || 0);
+  const totalCols = 2 + (columnasMensuales?.length || 0) + (columnasSemanales?.length || 0);
   if (!datosTabla || datosTabla.length === 0) {
-    tbodyCompromisos.innerHTML =
-      `<tr><td colspan="${totalCols}" style="text-align:center;">Sin datos</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">Sin datos</td></tr>`;
     return;
   }
 
@@ -702,6 +873,7 @@ function renderTabla() {
     tr.dataset.idVendedor = d.id_vendedor;
 
     let html = "";
+
     html +=
       "<td>" +
       '<button type="button" class="btn-toggle-detalle" data-id-vendedor="' +
@@ -712,14 +884,35 @@ function renderTabla() {
       "</span>" +
       "</td>";
 
-    for (const t of columnasObligatorias) {
-      const key = "t_" + t.id;
-      html += "<td>" + fmt(d[key]) + "</td>";
-    }
+    // Mensual
+    columnasMensuales.forEach((t, idx) => {
+      const key = "m_" + t.id;
+      const isStart = idx === 0;
+      const isEnd = idx === columnasMensuales.length - 1;
+      const cls = [
+        "col-mensual",
+        isStart ? "mensual-start" : "",
+        isEnd ? "mensual-end" : ""
+      ].filter(Boolean).join(" ");
+      html += `<td class="${cls}">${fmt(d[key])}</td>`;
+    });
+
+    // Semanal
+    columnasSemanales.forEach((t, idx) => {
+      const key = "s_" + t.id;
+      const isStart = idx === 0;
+      const isEnd = idx === columnasSemanales.length - 1;
+      const cls = [
+        "col-semanal",
+        isStart ? "semanal-start" : "",
+        isEnd ? "semanal-end" : ""
+      ].filter(Boolean).join(" ");
+      html += `<td class="${cls}">${fmt(d[key])}</td>`;
+    });
 
     html +=
       '<td class="acciones">' +
-      '<button type="button" class="btn-compromiso-semanal" data-id-vendedor="' +
+      '<button type="button" class="btn-compromisos" data-id-vendedor="' +
       d.id_vendedor +
       '" data-nombre="' +
       escapeHtml(d.nombre || "") +
@@ -727,22 +920,24 @@ function renderTabla() {
       "</td>";
 
     tr.innerHTML = html;
-    tbodyCompromisos.appendChild(tr);
+    aplicarMarcosEnFila(tr);
+    tbody.appendChild(tr);
 
+    // fila detalle (diario)
     const trDetalle = document.createElement("tr");
     trDetalle.classList.add("fila-detalle");
     trDetalle.dataset.idVendedor = d.id_vendedor;
     trDetalle.style.display = "none";
-    trDetalle.innerHTML =
-      `<td colspan="${totalCols}"><div class="celda-detalle-compromisos"></div></td>`;
-    tbodyCompromisos.appendChild(trDetalle);
+    trDetalle.innerHTML = `<td colspan="${totalCols}"><div class="celda-detalle-compromisos"></div></td>`;
+    tbody.appendChild(trDetalle);
   });
 
-  if (ordenColumna) actualizarFlechas(ordenColumna, ordenAsc);
+  actualizarFlechas(ordenColumna, ordenAsc);
+  aplicarMarcosEnHeader();
 }
 
 // =========================
-// ORDENAMIENTO TABLA
+// ORDENAMIENTO TABLA (click)
 // =========================
 function ordenarTabla(col) {
   if (!datosTabla || datosTabla.length === 0) return;
@@ -753,23 +948,7 @@ function ordenarTabla(col) {
     ordenAsc = true;
   }
 
-  datosTabla.sort((a, b) => {
-    let v1 = a[col];
-    let v2 = b[col];
-
-    if (col === "nombre") {
-      v1 = (v1 || "").toLowerCase();
-      v2 = (v2 || "").toLowerCase();
-      if (v1 < v2) return ordenAsc ? -1 : 1;
-      if (v1 > v2) return ordenAsc ? 1 : -1;
-      return 0;
-    }
-
-    v1 = Number(v1 || 0);
-    v2 = Number(v2 || 0);
-    return ordenAsc ? v1 - v2 : v2 - v1;
-  });
-
+  sortDatosTabla();
   renderTabla();
 }
 
@@ -813,136 +992,133 @@ function inicializarOrdenamiento() {
 }
 
 // =========================
-// MODAL COMPROMISO SEMANAL
+// MODAL (UNICO) - SEMANAL + MENSUAL
 // =========================
-function abrirModal(idV, nombre) {
-  const _hiddenIdVendedor = document.getElementById("idVendedorCompromiso");
-  const _hiddenInicio = document.getElementById("fechaInicioSemana");
-  const _hiddenFin = document.getElementById("fechaFinSemana");
-  const _spanNombreVendedor = document.getElementById(
-    "tituloModalCompromisoNombre"
-  );
-  const _spanSemana = document.getElementById("tituloModalCompromisoSemana");
-  const _tabla = document.getElementById("tablaModalTipos");
-  const _modal = document.getElementById("modalCompromiso");
+let tabActiva = "semanal";
 
-  if (
-    !_hiddenIdVendedor ||
-    !_hiddenInicio ||
-    !_hiddenFin ||
-    !_spanNombreVendedor ||
-    !_spanSemana ||
-    !_tabla ||
-    !_modal
-  ) {
-    console.error(
-      "❌ Modal Compromiso: faltan elementos del DOM. Revisa compromisos.html (ids)."
-    );
-    safeAlert("No se pudo abrir el compromiso: faltan elementos del modal.");
-    return;
+function setTab(tab) {
+  tabActiva = tab;
+
+  if (tabSemanalBtn) tabSemanalBtn.classList.toggle("active", tab === "semanal");
+  if (tabMensualBtn) tabMensualBtn.classList.toggle("active", tab === "mensual");
+  if (sheetSemanal) sheetSemanal.classList.toggle("active", tab === "semanal");
+  if (sheetMensual) sheetMensual.classList.toggle("active", tab === "mensual");
+
+  const nombre = spanNombreVendedor?.textContent || "Vendedor";
+  if (tituloModal) {
+    tituloModal.textContent = (tab === "semanal" ? "Compromiso semanal – " : "Compromiso mensual – ") + nombre;
   }
 
-  if (!semanaInicioActual || !semanaFinActual) {
-    console.warn("⚠️ Semana no inicializada.");
-    safeAlert("No se pudo abrir el compromiso: semana no inicializada.");
-    return;
+  if (subtituloModal) {
+    if (tab === "semanal") {
+      const [yi, mi, di] = (hiddenInicio?.value || "").split("-");
+      const [yf, mf, df] = (hiddenFin?.value || "").split("-");
+      subtituloModal.textContent = yi ? `Semana ${di}-${mi}-${yi} / ${df}-${mf}-${yf}` : "";
+    } else {
+      const ancla = hiddenAnclaMes?.value;
+      subtituloModal.textContent = ancla ? `Mes ${etiquetaMesDesdeISO(ancla)}` : "";
+    }
   }
+}
 
-  _hiddenIdVendedor.value = idV;
-  _hiddenInicio.value = semanaInicioActual;
-  _hiddenFin.value = semanaFinActual;
-  _spanNombreVendedor.textContent = nombre || "Vendedor";
-
-  const [yi, mi, di] = semanaInicioActual.split("-");
-  const [yf, mf, df] = semanaFinActual.split("-");
-  _spanSemana.textContent =
-    "Semana " +
-    di +
-    "-" +
-    mi +
-    "-" +
-    yi +
-    " / " +
-    df +
-    "-" +
-    mf +
-    "-" +
-    yf;
-
-	const norm = (s) =>
-	  String(s || "")
-		.toLowerCase()
-		.normalize("NFD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.trim();
-
-	const prioridadObl = (nombre) => {
-	  const n = norm(nombre);
-	  if (n.includes("tope")) return 1;
-	  if (n.includes("sobre")) return 2;
-	  if (n.includes("bajo")) return 3;
-	  if (n.includes("plan")) return 4;
-	  return 99;
-	};
-
-	const tiposObl = (tiposCompromisos || [])
-	  .filter((t) => t && t.es_obligatorio === true)
-	  .sort((a, b) => {
-		const pa = prioridadObl(a?.nombre);
-		const pb = prioridadObl(b?.nombre);
-		if (pa !== pb) return pa - pb;
-		return ordenarTipos(a, b); // fallback por orden / nombre
-	  });
-
-
-  const prev = (compromisosSemana || []).filter((c) => c.id_vendedor === idV);
-  const prevMap = {};
-  for (const r of prev) prevMap[r.id_tipo] = Number(r.monto_comprometido || 0);
-
+function construirTablaInputs(tab, tipos, prevMap, inputClass, labelFn) {
   let html = "";
-  for (const t of tiposObl) {
+  for (const t of tipos) {
     const val = prevMap[t.id] ?? 0;
     const show = Number(val) > 0 ? Number(val) : "";
+    const lbl = labelFn ? labelFn(t.nombre || "") : (t.nombre || "");
     html += `
       <tr>
-        <td class="col-tipo">${escapeHtml(t.nombre || "")}</td>
+        <td class="col-tipo">${escapeHtml(lbl)}</td>
         <td class="col-monto">
-          <input type="number" class="input-compromiso-semanal"
+          <input type="number" class="${inputClass}"
                  data-id-tipo="${t.id}" min="0" step="1" value="${show}" />
         </td>
       </tr>`;
   }
   if (!html) {
-    html = `<tr><td colspan="2" style="text-align:center; color:#666;">No hay tipos obligatorios activos.</td></tr>`;
+    html = `<tr><td colspan="2" style="text-align:center; color:#666;">Sin tipos ${tab} obligatorios activos.</td></tr>`;
   }
-  _tabla.innerHTML = `<tbody>${html}</tbody>`;
-
-  const _inputs = _tabla.querySelectorAll(
-    'input.input-compromiso-semanal[data-id-tipo]'
-  );
-  _inputs.forEach((inp) => {
-    inp.addEventListener("focus", () => {
-      try {
-        inp.select();
-      } catch {}
-    });
-  });
-
-  if (typeof _modal.showModal === "function") _modal.showModal();
+  return `<tbody>${html}</tbody>`;
 }
 
+function abrirModalCompromisos(idV, nombre) {
+  if (!modal || !form || !tablaModalSemanal || !tablaModalMensual) {
+    console.error("❌ Modal: faltan elementos del DOM.");
+    safeAlert("No se pudo abrir el compromiso: faltan elementos del modal.");
+    return;
+  }
+
+  if (!semanaInicioActual || !semanaFinActual) {
+    safeAlert("No se pudo abrir el compromiso: semana no inicializada.");
+    return;
+  }
+
+  const anclaMes = getAnclaMesISO();
+
+  hiddenIdVendedor.value = idV;
+  hiddenInicio.value = semanaInicioActual;
+  hiddenFin.value = semanaFinActual;
+  hiddenAnclaMes.value = anclaMes || "";
+
+  if (spanNombreVendedor) spanNombreVendedor.textContent = nombre || "Vendedor";
+
+  const prevSemana = (compromisosSemana || []).filter((c) => c.id_vendedor === idV);
+  const prevSemanaMap = {};
+  for (const r of prevSemana) prevSemanaMap[r.id_tipo] = Number(r.monto_comprometido || 0);
+
+  const prevMes = (compromisosMes || []).filter((c) => c.id_vendedor === idV);
+  const prevMesMap = {};
+  for (const r of prevMes) prevMesMap[r.id_tipo] = Number(r.monto_comprometido || 0);
+
+  // Orden semanal (como estabas usando)
+  const prioridadObl = (nombreTipo) => {
+    const n = norm(nombreTipo);
+    if (n.includes("tope")) return 1;
+    if (n.includes("sobre")) return 2;
+    if (n.includes("bajo")) return 3;
+    if (n.includes("plan")) return 4;
+    return 99;
+  };
+
+  const tiposSem = (columnasSemanales || [])
+    .slice()
+    .sort((a, b) => {
+      const pa = prioridadObl(a?.nombre);
+      const pb = prioridadObl(b?.nombre);
+      if (pa !== pb) return pa - pb;
+      return ordenarTipos(a, b);
+    });
+
+  const tiposMes = (columnasMensuales || []).slice().sort(ordenarTipos);
+
+  tablaModalSemanal.innerHTML = construirTablaInputs("semanales", tiposSem, prevSemanaMap, "input-compromiso-semanal", labelSemanal);
+  tablaModalMensual.innerHTML = construirTablaInputs("mensuales", tiposMes, prevMesMap, "input-compromiso-mensual", labelMensual);
+
+  tablaModalSemanal.querySelectorAll("input.input-compromiso-semanal").forEach((inp) => {
+    inp.addEventListener("focus", () => { try { inp.select(); } catch {} });
+  });
+  tablaModalMensual.querySelectorAll("input.input-compromiso-mensual").forEach((inp) => {
+    inp.addEventListener("focus", () => { try { inp.select(); } catch {} });
+  });
+
+  setTab("semanal");
+  if (typeof modal.showModal === "function") modal.showModal();
+}
+
+if (tabSemanalBtn) tabSemanalBtn.addEventListener("click", () => setTab("semanal"));
+if (tabMensualBtn) tabMensualBtn.addEventListener("click", () => setTab("mensual"));
+
 // =========================
-// HELPERS UI
+// UI helpers detalle diario
 // =========================
 function rerenderDetalleAbierto(idV) {
-  const tbodyCompromisos = getTbodyCompromisos();
-  const filaDetalle = tbodyCompromisos?.querySelector(
-    'tr.fila-detalle[data-id-vendedor="' + idV + '"]'
-  );
+  const tabla = document.getElementById("tablaCompromisos");
+  const tbody = tabla?.querySelector("tbody");
+  const filaDetalle = tbody?.querySelector('tr.fila-detalle[data-id-vendedor="' + idV + '"]');
   if (!filaDetalle) return;
 
-  filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML =
-    construirHtmlDetalleCompromisos(idV);
+  filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
   filaDetalle.style.display = "";
 }
 
@@ -950,8 +1126,7 @@ function rerenderDetallesAbiertos() {
   document.querySelectorAll("tr.fila-detalle").forEach((filaDetalle) => {
     if (filaDetalle.style.display !== "none") {
       const idV = filaDetalle.dataset.idVendedor;
-      filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML =
-        construirHtmlDetalleCompromisos(idV);
+      filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
     }
   });
 }
@@ -960,27 +1135,24 @@ function rerenderDetallesAbiertos() {
 // EVENTOS GENERALES (click)
 // =========================
 async function __compromisosHandleClick(e) {
-  const btnCompSemanal = e.target.closest(".btn-compromiso-semanal");
-  if (btnCompSemanal) {
+  const btnComp = e.target.closest(".btn-compromisos");
+  if (btnComp) {
     const tr = e.target.closest("tr.fila-vendedor");
     if (!tr) return;
     const idV = tr.dataset.idVendedor;
     const nombreEl = tr.querySelector(".nombre-vendedor");
-    const nombre = nombreEl
-      ? nombreEl.textContent.trim()
-      : btnCompSemanal.dataset.nombre || "";
-    abrirModal(idV, nombre);
+    const nombre = nombreEl ? nombreEl.textContent.trim() : btnComp.dataset.nombre || "";
+    abrirModalCompromisos(idV, nombre);
     return;
   }
 
   const btnToggle = e.target.closest(".btn-toggle-detalle");
   if (btnToggle) {
-    const tbodyCompromisos = getTbodyCompromisos();
-    if (!tbodyCompromisos) return;
+    const tabla = document.getElementById("tablaCompromisos");
+    const tbody = tabla?.querySelector("tbody");
+    if (!tbody) return;
     const idV = btnToggle.dataset.idVendedor;
-    const filaDetalle = tbodyCompromisos.querySelector(
-      'tr.fila-detalle[data-id-vendedor="' + idV + '"]'
-    );
+    const filaDetalle = tbody.querySelector('tr.fila-detalle[data-id-vendedor="' + idV + '"]');
     if (!filaDetalle) return;
 
     const expandido = btnToggle.getAttribute("aria-expanded") === "true";
@@ -989,8 +1161,7 @@ async function __compromisosHandleClick(e) {
       btnToggle.textContent = "+";
       btnToggle.setAttribute("aria-expanded", "false");
     } else {
-      filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML =
-        construirHtmlDetalleCompromisos(idV);
+      filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
       filaDetalle.style.display = "";
       btnToggle.textContent = "−";
       btnToggle.setAttribute("aria-expanded", "true");
@@ -998,7 +1169,6 @@ async function __compromisosHandleClick(e) {
     return;
   }
 
-  // Navegación diaria (Lu–Vi) ◀ ▶
   const btnNavDia = e.target.closest(".btn-nav-dia");
   if (btnNavDia) {
     const dir = Number(btnNavDia.dataset.dir || "0");
@@ -1009,7 +1179,6 @@ async function __compromisosHandleClick(e) {
     if (!lunesISO || !viernesISO || !fechaHoyDetalleISO) return;
 
     const candidato = moverDiaHabil(fechaHoyDetalleISO, dir);
-
     if (candidato < lunesISO || candidato > viernesISO) return;
 
     fechaHoyDetalleISO = candidato;
@@ -1030,11 +1199,7 @@ async function __compromisosHandleClick(e) {
     }
 
     const selectorInput =
-      'input.input-compromiso-dia[data-id-vendedor="' +
-      idV +
-      '"][data-id-tipo="' +
-      idTipo +
-      '"]';
+      'input.input-compromiso-dia[data-id-vendedor="' + idV + '"][data-id-tipo="' + idTipo + '"]';
     const inputDia = document.querySelector(selectorInput);
     if (!inputDia) return;
 
@@ -1051,7 +1216,7 @@ async function __compromisosHandleClick(e) {
         p_comentario: null,
       });
 
-      setMontoEnIndice(idV, idTipo, fechaHoy, monto);
+      setMontoEnIndiceSemana(idV, idTipo, fechaHoy, monto);
       rerenderDetalleAbierto(idV);
     } catch (err) {
       console.error("Error inesperado al guardar compromiso diario:", err);
@@ -1062,9 +1227,7 @@ async function __compromisosHandleClick(e) {
 }
 
 if (window.__compromisosClickHandler) {
-  try {
-    document.removeEventListener("click", window.__compromisosClickHandler);
-  } catch {}
+  try { document.removeEventListener("click", window.__compromisosClickHandler); } catch {}
 }
 window.__compromisosClickHandler = __compromisosHandleClick;
 document.addEventListener("click", window.__compromisosClickHandler);
@@ -1072,14 +1235,12 @@ document.addEventListener("click", window.__compromisosClickHandler);
 document.addEventListener("focusin", (e) => {
   const inp = e.target;
   if (inp && inp.matches && inp.matches("input.input-compromiso-dia")) {
-    try {
-      inp.select();
-    } catch {}
+    try { inp.select(); } catch {}
   }
 });
 
 // =========================
-// FORM MODAL SEMANAL
+// FORM MODAL (GUARDAR SEGÚN TAB)
 // =========================
 if (form) {
   form.addEventListener("submit", async (e) => {
@@ -1088,6 +1249,7 @@ if (form) {
     const idV = hiddenIdVendedor?.value;
     const inicio = hiddenInicio?.value;
     const fin = hiddenFin?.value;
+    const anclaMes = hiddenAnclaMes?.value;
     const idEquipo = localStorage.getItem("idEquipoActivo");
 
     if (!idV || !idEquipo || !inicio || !fin || !usuarioActual?.id) {
@@ -1096,47 +1258,76 @@ if (form) {
     }
 
     try {
-      const tabla = document.getElementById("tablaModalTipos");
-      const inputs = tabla
-        ? Array.from(
-            tabla.querySelectorAll(
-              'input.input-compromiso-semanal[data-id-tipo]'
-            )
-          )
-        : [];
+      if (tabActiva === "semanal") {
+        const inputs = tablaModalSemanal
+          ? Array.from(tablaModalSemanal.querySelectorAll('input.input-compromiso-semanal[data-id-tipo]'))
+          : [];
 
-      const payloads = inputs
-        .map((inp) => ({
-          id_tipo: inp.getAttribute("data-id-tipo"),
-          monto: Number(inp.value || "0"),
-        }))
-        .filter((x) => x.id_tipo && x.monto >= 0);
+        const inserts = inputs
+          .map((inp) => ({
+            id_tipo: inp.getAttribute("data-id-tipo"),
+            monto: Number(inp.value || "0"),
+          }))
+          .filter((x) => x.id_tipo && x.monto > 0)
+          .map((p) => ({
+            id_tipo: p.id_tipo,
+            id_equipo: idEquipo,
+            id_vendedor: idV,
+            id_supervisor: usuarioActual.id,
+            fecha_compromiso: inicio,
+            monto_comprometido: p.monto,
+            cumplido: false,
+            comentario: null,
+          }));
 
-      const inserts = payloads
-        .filter((p) => p.monto > 0)
-        .map((p) => ({
-          id_tipo: p.id_tipo,
-          id_equipo: idEquipo,
-          id_vendedor: idV,
-          id_supervisor: usuarioActual.id,
-          fecha_compromiso: inicio,
-          monto_comprometido: p.monto,
-          cumplido: false,
-          comentario: null,
-        }));
-
-      if (inserts.length > 0) {
-        const { error: upErr } = await supabase.from("compromisos").upsert(
-          inserts,
-          {
+        if (inserts.length > 0) {
+          const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
             onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
-          }
-        );
+          });
 
-        if (upErr) {
-          console.error("Error guardando (upsert) compromisos:", upErr);
-          safeAlert("Error al guardar compromisos.");
+          if (upErr) {
+            console.error("Error guardando (upsert) compromisos semanales:", upErr);
+            safeAlert("Error al guardar compromisos semanales.");
+            return;
+          }
+        }
+      } else {
+        if (!anclaMes) {
+          safeAlert("No se pudo determinar el mes del compromiso.");
           return;
+        }
+
+        const inputs = tablaModalMensual
+          ? Array.from(tablaModalMensual.querySelectorAll('input.input-compromiso-mensual[data-id-tipo]'))
+          : [];
+
+        const inserts = inputs
+          .map((inp) => ({
+            id_tipo: inp.getAttribute("data-id-tipo"),
+            monto: Number(inp.value || "0"),
+          }))
+          .filter((x) => x.id_tipo && x.monto > 0)
+          .map((p) => ({
+            id_tipo: p.id_tipo,
+            id_equipo: idEquipo,
+            id_vendedor: idV,
+            id_supervisor: usuarioActual.id,
+            fecha_compromiso: anclaMes,
+            monto_comprometido: p.monto,
+            cumplido: false,
+            comentario: null,
+          }));
+
+        if (inserts.length > 0) {
+          const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
+            onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
+          });
+
+          if (upErr) {
+            console.error("Error guardando (upsert) compromisos mensuales:", upErr);
+            safeAlert("Error al guardar compromisos mensuales.");
+            return;
+          }
         }
       }
 
@@ -1169,11 +1360,12 @@ if (btnCancelar) {
   });
 }
 
+// =========================
+// CAMBIO EQUIPO
+// =========================
 window.addEventListener("equipoCambiado", async () => {
   Object.keys(localStorage).forEach((k) => {
-    if (k.startsWith("compromisos_bootstrap:")) {
-      localStorage.removeItem(k);
-    }
+    if (k.startsWith("compromisos_bootstrap:")) localStorage.removeItem(k);
   });
 
   const hoyISO = formatoFechaLocal(new Date());
@@ -1192,7 +1384,12 @@ window.addEventListener("equipoCambiado", async () => {
 // INIT
 // =========================
 (async function init() {
-  // ✅ Asegura estilo botones nav (sin tocar CSS base)
+  if (window.__compromisosInitDone) {
+    console.warn('⚠️ compromisos.js ya inicializado; evitando doble ejecución');
+    return;
+  }
+  window.__compromisosInitDone = true;
+
   inyectarEstilosNavDia();
 
   await obtenerUsuarioActual();
@@ -1200,16 +1397,13 @@ window.addEventListener("equipoCambiado", async () => {
   await cargarTiposCompromiso();
 
   inicializarSelectorSemana();
-
   await cargarFeriadosSemana(semanaInicioActual, semanaFinActual);
 
   inicializarOrdenamiento();
   await cargarTablaCompromisos();
 
   if (window.__compromisosIntervalId) {
-    try {
-      clearInterval(window.__compromisosIntervalId);
-    } catch {}
+    try { clearInterval(window.__compromisosIntervalId); } catch {}
   }
   window.__compromisosIntervalId = setInterval(verificarCambioEquipo, 500);
 })();
