@@ -1,0 +1,215 @@
+:root{
+  /* Colores AFP (barra debe igualar el rojo del logo) */
+  --afp-red:#9e1c32;
+  --afp-blue:#123b6d;
+  --afp-blue-soft:#1e4d8f;
+
+  /* UI */
+  --afp-sky:#dff0f8;         /* recuadro celeste */
+  --afp-bg:#f3f5f7;          /* fondo app */
+  --afp-card:#ffffff;
+  --afp-border:#e6e9ee;
+
+  --afp-radius:14px;
+  --afp-radius-lg:18px;
+
+  --afp-shadow:0 10px 26px rgba(0,0,0,.08);
+  --afp-shadow-soft:0 6px 18px rgba(0,0,0,.06);
+
+  --afp-max:520px;
+}
+
+/* Reset mínimo (sin institucional/panel-base) */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:var(--afp-bg);
+  color:#0f172a;
+}
+
+/* “Marco” centrado como en tus capturas */
+.m-shell{
+  max-width:var(--afp-max);
+  margin:0 auto;
+  min-height:100vh;
+  padding:18px 14px 28px;
+}
+
+/* Topbar (mismo ancho que el shell) */
+.m-topbar{
+  width:100%;
+  height:64px;
+  background:var(--afp-red);
+  border-radius:var(--afp-radius-lg);
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  padding:0 14px;
+  box-shadow:var(--afp-shadow-soft);
+}
+
+/* Logo */
+.m-topbar__logo{
+  width:34px;
+  height:34px;
+  display:block;
+  border-radius:8px;
+}
+
+/* Título centrado y más grande que “Panel móvil” */
+.m-topbar__title{
+  text-align:center;
+  font-weight:800;
+  letter-spacing:.2px;
+  color:#fff;
+  font-size:22px;
+}
+
+/* Botón power */
+.m-topbar__logout{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  border:none;
+  background:var(--afp-blue-soft);
+  color:#fff;
+  font-size:18px;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+}
+
+/* Página */
+.m-page{
+  margin-top:14px;
+}
+
+/* Recuadro celeste (mismo ancho que topbar y bordes redondeados) */
+.m-hero{
+  width:100%;
+  background:var(--afp-sky);
+  border:1px solid rgba(18,59,109,.10);
+  border-radius:var(--afp-radius-lg);
+  padding:16px 14px;
+  box-shadow:var(--afp-shadow-soft);
+}
+
+/* Centrados */
+.m-center{text-align:center}
+.m-hero__title{
+  margin:0 0 6px;
+  font-size:20px;
+  font-weight:800;
+}
+.m-hero__sub{
+  margin:0 0 10px;
+  font-weight:700;
+}
+
+/* Select dentro del hero */
+.m-select{
+  width:min(280px, 100%);
+  height:40px;
+  border-radius:12px;
+  border:1px solid var(--afp-border);
+  padding:0 12px;
+  background:#fff;
+  font-size:14px;
+}
+
+/* Botones principales grandes (Ventas/Compromisos) */
+.m-actions{
+  width:100%;
+  margin-top:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+.m-btn{
+  width:100%;
+  height:52px;
+  border:none;
+  border-radius:16px;
+  background:var(--afp-blue);
+  color:#fff;
+  font-size:16px;
+  font-weight:800;
+  letter-spacing:.2px;
+  box-shadow:var(--afp-shadow-soft);
+  cursor:pointer;
+}
+
+/* Tarjeta blanca */
+.m-card{
+  width:100%;
+  background:var(--afp-card);
+  border:1px solid var(--afp-border);
+  border-radius:var(--afp-radius-lg);
+  box-shadow:var(--afp-shadow-soft);
+  padding:14px;
+}
+
+/* Barra de herramientas de Ventas (volver / fecha / etc) */
+.m-toolbar{
+  width:100%;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  align-items:center;
+  margin-top:14px;
+}
+
+.m-toolbar__right{
+  display:flex;
+  justify-content:flex-end;
+}
+
+.m-backbtn{
+  height:44px;
+  padding:0 14px;
+  border-radius:14px;
+  background:var(--afp-blue);
+  color:#fff;
+  font-weight:800;
+  border:none;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  box-shadow:var(--afp-shadow-soft);
+}
+
+.m-field{
+  width:100%;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:#fff;
+  border:1px solid var(--afp-border);
+  border-radius:14px;
+  padding:10px 12px;
+  box-shadow:var(--afp-shadow-soft);
+}
+
+.m-field__icon{
+  width:22px;
+  height:22px;
+  display:grid;
+  place-items:center;
+  opacity:.75;
+}
+
+.m-input{
+  border:none;
+  outline:none;
+  width:100%;
+  font-size:14px;
+  background:transparent;
+}
+
+/* Espaciados */
+.m-gap-10{margin-top:10px}
+.m-gap-14{margin-top:14px}

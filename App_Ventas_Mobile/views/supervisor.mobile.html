@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>APP Ventas — Supervisor (Móvil)</title>
+
+  <link rel="stylesheet" href="/styles/mobile-afp.css" />
+  <link rel="stylesheet" href="/styles/mobile.css" />
+
+  <script src="/env.js"></script>
+  <script>
+    try {
+      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
+      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+    } catch (e) {}
+  </script>
+</head>
+
+<body class="page-supervisor">
+  <div class="m-shell">
+
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="/assets/logo_app_ventas.png" alt="APP Ventas" />
+      <div class="m-topbar__title">APP Ventas</div>
+      <button class="m-topbar__logout" id="btnLogout" type="button" aria-label="Cerrar sesión">⏻</button>
+    </header>
+
+    <main class="m-page">
+
+      <section class="m-hero m-center">
+        <h2 class="m-hero__title">Panel móvil</h2>
+        <div class="m-hero__sub" id="nombreSupervisor">—</div>
+
+        <!-- ✅ SOLO SELECTOR WEB (NO <select>) -->
+        <div class="equipo-selector-wrapper">
+          <button id="equipoBtn" class="equipo-btn" type="button">
+            <span id="equipoSeleccionado">Seleccionar equipo</span>
+            <span class="chevron">▾</span>
+          </button>
+
+          <!-- ✅ arranca oculto SIEMPRE -->
+          <div id="equipoDropdown" class="equipo-dropdown hidden" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="m-actions">
+        <button class="m-btn" id="btnVentas" type="button">Ventas</button>
+        <button class="m-btn" id="btnCompromisos" type="button">Compromisos</button>
+      </section>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/scripts/supervisor.mobile.js"></script>
+  </div>
+</body>
+</html>

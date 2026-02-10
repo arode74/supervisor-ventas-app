@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Ventas — Móvil</title>
+
+  <link rel="stylesheet" href="/styles/mobile-afp.css"/>
+  <link rel="stylesheet" href="/styles/mobile.css"/>
+
+  <script src="/env.js"></script>
+  <script>
+    try {
+      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
+      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+    } catch (e) {}
+  </script>
+</head>
+
+<body>
+  <div class="ventas-screen">
+
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="/assets/logo_app_ventas.png" alt="APP Ventas"/>
+      <div class="m-topbar__title">Ventas</div>
+      <button class="m-topbar__logout" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+    </header>
+
+    <div class="ventas-top">
+      <div class="m-toolbar">
+        <div class="m-field">
+          <div class="m-field__icon">📅</div>
+          <input class="m-input" id="dt-dia" type="date"/>
+        </div>
+
+        <div class="m-toolbar__right">
+          <button class="m-backbtn" type="button" id="btn-volver">‹ Volver</button>
+        </div>
+      </div>
+
+      <div class="m-field m-gap-10">
+        <div class="m-field__icon">🔎</div>
+        <input class="m-input" id="txt-buscar" type="search" placeholder="Buscar vendedor…" autocomplete="off"/>
+      </div>
+    </div>
+
+    <!-- SOLO ESTE BLOQUE SCROLLEA -->
+    <main class="ventas-scroll">
+      <section class="ventas-layout">
+        <aside id="abcBar" class="ventas-abc" aria-label="Índice alfabético"></aside>
+
+        <section class="m-card ventas-lista" aria-label="Lista de vendedores">
+          <div class="m-list" id="lista-vendedores"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/scripts/mobile_shared.js"></script>
+    <script src="/scripts/ventas.mobile.js"></script>
+
+    <script>
+      document.getElementById("btn-volver")?.addEventListener("click", () => {
+        window.location.href = "/views/supervisor.mobile.html";
+      });
+    </script>
+
+  </div>
+</body>
+</html>

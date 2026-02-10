@@ -1,0 +1,295 @@
+/* ============================================================
+   Layout: Top fijo (hasta buscar vendedor), scroll solo en lista
+   ============================================================ */
+
+html, body{
+  height:100%;
+}
+
+.ventas-screen{
+  height:100vh;
+  display:grid;
+  grid-template-rows: auto auto 1fr; /* header, top-controls, scroll-area */
+}
+
+.ventas-top{
+  padding: 0 0 10px 0;
+}
+
+.ventas-scroll{
+  overflow:auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 16px;
+}
+
+/* ============================================================
+   Cards / inputs
+   ============================================================ */
+
+.m-list{
+  margin-top:14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.v-card{
+  background:#fff;
+  border:1px solid #e6e9ee;
+  border-radius:18px;
+  box-shadow:0 8px 20px rgba(0,0,0,.06);
+  padding:12px;
+  overflow:hidden;
+}
+
+.v-card, .v-card *{
+  box-sizing:border-box;
+}
+
+.v-row{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:10px;
+  align-items:center;
+}
+
+.v-avatar{
+  width:40px;
+  height:40px;
+  border-radius:999px;
+  background:rgba(18,59,109,.14);
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  color:#123b6d;
+}
+
+.v-namebtn{
+  text-align:left;
+  font-size:18px;
+  font-weight:900;
+  border:none;
+  background:transparent;
+  padding:0;
+  margin:0;
+  color:#0f172a;
+}
+
+.v-plus{
+  width:44px;
+  height:44px;
+  border-radius:999px;
+  border:none;
+  background:#123b6d;
+  color:#fff;
+  font-size:22px;
+  font-weight:900;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(0,0,0,.10);
+}
+
+/* ============================================================
+   EXPANDIDO: reducir sección (70% + 20% adicional => ~56%)
+   ============================================================ */
+
+.v-inputs{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid #eef1f5;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  width:100%;
+}
+
+/* total ≈ 56% del original */
+.v-inputs,
+.v-inputs *{
+  font-size: 56%;
+}
+
+.v-sale-row{
+  display:grid;
+  grid-template-columns: 46px 1fr;
+  gap:8px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+}
+
+.v-sale-label{
+  font-weight:900;
+  font-size:14px;
+  line-height:1;
+}
+
+.v-ctrl{
+  display:grid;
+  grid-template-columns: 28px 1fr 28px;
+  gap:6px;
+  align-items:center;
+  width:100%;
+  min-width:0;
+}
+
+.v-minus,
+.v-plus2{
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  border:none;
+  background:#123b6d;
+  color:#fff;
+  font-size:15px;
+  font-weight:900;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  box-shadow:0 4px 10px rgba(0,0,0,.10);
+}
+
+.v-in{
+  width:100%;
+  min-width:0;
+  height:28px;
+  border-radius:12px;
+  border:1px solid #e6e9ee;
+  padding:0 8px;
+  font-size:14px;
+  text-align:center;
+  outline:none;
+  background:#fff;
+}
+
+.v-actions{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:8px;
+  margin-top:4px;
+  width:100%;
+}
+
+.v-act{
+  width:100%;
+  height:30px;
+  border-radius:12px;
+  border:none;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+}
+
+.v-act--primary{
+  background:#123b6d;
+  color:#fff;
+}
+
+.v-act--secondary{
+  background:#e9eef6;
+  color:#123b6d;
+  border:1px solid #d6deea;
+}
+
+/* ============================================================
+   ABC + lista
+   ============================================================ */
+
+.ventas-layout{
+  display:grid;
+  grid-template-columns: 34px 1fr;
+  gap:10px;
+  align-items: start;
+  padding: 0 0 12px 0;
+}
+
+.ventas-lista{
+  padding: 8px;
+  position: relative;
+}
+
+.ventas-abc{
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+  padding: 6px 0;
+  border-radius: 14px;
+  background: rgba(255,255,255,.75);
+  border: 1px solid #e6e9ee;
+}
+
+.ventas-abc button{
+  width: 100%;
+  height: 26px;
+  border: none;
+  background: transparent;
+  font-weight: 900;
+  font-size: 12px;
+  color: #123b6d;
+  cursor: pointer;
+}
+
+.ventas-abc button.is-off{
+  opacity: .25;
+  cursor: default;
+}
+
+@media (max-width: 360px){
+  .v-sale-row{ grid-template-columns: 44px 1fr; }
+}
+
+/* ============================================================
+   SUPERVISOR (SCOPED) — NO TOCA VENTAS
+   Aplica solo si <body class="page-supervisor">
+   ============================================================ */
+
+.page-supervisor .equipo-selector-wrapper{
+  position: relative;
+  margin-top: 12px;
+}
+
+.page-supervisor .equipo-btn{
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-supervisor .chevron{
+  font-size: 14px;
+  opacity: .9;
+}
+
+.page-supervisor .equipo-dropdown{
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+}
+
+.page-supervisor .equipo-dropdown button{
+  width: 100%;
+  padding: 14px 16px;
+  background: #fff;
+  border: none;
+  text-align: left;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.page-supervisor .equipo-dropdown button:hover{
+  background: #e6f4f8;
+}
+
+.page-supervisor .hidden{
+  display: none;
+}
