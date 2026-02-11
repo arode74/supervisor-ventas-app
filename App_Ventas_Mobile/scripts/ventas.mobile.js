@@ -358,45 +358,72 @@
     }
   }
 
-  // ---------------------------
-  // Guardar: DELETE día + INSERT filas por tipo (>0)
-  // ---------------------------
-  async function saveVentasToDB(idVendedor) {
-    const fecha = getSelectedDate();
-    if (!fecha) return;
+// ---------------------------
+// Guardar: UPSERT por tipo (sin DELETE)
+// ---------------------------
+async function saveVentasToDB(idVendedor) {
+  const fecha = getSelectedDate();
+  if (!fecha) return;
 
-    const bucket = ensureVentasBucket(fecha, idVendedor);
+  const bucket = ensureVentasBucket(fecha, idVendedor);
 
-    const del = await sb
-      .from("ventas")
-      .delete()
-      .eq("id_vendedor", idVendedor)
-      .eq("fecha_venta", fecha);
+  const rows = [];
+  for (const t of TIPOS) {
+    const qty = parseNonNegInt(bucket[t.key]);
+    if (qty <= 0) continue;
 
-    if (del.error) {
-      console.error("[Ventas][WRITE] Error borrando:", del.error);
-      return;
-    }
-
-    const rows = [];
-    for (const t of TIPOS) {
-      const qty = parseNonNegInt(bucket[t.key]);
-      if (qty <= 0) continue;
-
-      rows.push({
-        id_vendedor: idVendedor,
-        fecha_venta: fecha,
-        tipo_venta: TIPO_TO_DB[t.key],
-        monto: qty,
-        descripcion: null
-      });
-    }
-
-    if (rows.length === 0) return;
-
-    const ins = await sb.from("ventas").insert(rows);
-    if (ins.error) console.error("[Ventas][WRITE] Error insertando:", ins.error);
+    rows.push({
+      id_vendedor: idVendedor,
+      fecha_venta: fecha,
+      tipo_venta: TIPO_TO_DB[t.key],
+      monto: qty,
+      descripcion: null
+    });
   }
+
+  if (rows.length === 0) return;
+
+  const { error } = await sb
+    .from("ventas")
+    .upsert(rows, { onConflict: "id_vendedor,fecha_venta,tipo_venta" });
+
+  if (error) {
+    console.error("[Ventas][WRITE] Error grabando:", error);
+  }
+}
+// ---------------------------
+// Guardar: UPSERT por tipo (sin DELETE)
+// ---------------------------
+async function saveVentasToDB(idVendedor) {
+  const fecha = getSelectedDate();
+  if (!fecha) return;
+
+  const bucket = ensureVentasBucket(fecha, idVendedor);
+
+  const rows = [];
+  for (const t of TIPOS) {
+    const qty = parseNonNegInt(bucket[t.key]);
+    if (qty <= 0) continue;
+
+    rows.push({
+      id_vendedor: idVendedor,
+      fecha_venta: fecha,
+      tipo_venta: TIPO_TO_DB[t.key],
+      monto: qty,
+      descripcion: null
+    });
+  }
+
+  if (rows.length === 0) return;
+
+  const { error } = await sb
+    .from("ventas")
+    .upsert(rows, { onConflict: "id_vendedor,fecha_venta,tipo_venta" });
+
+  if (error) {
+    console.error("[Ventas][WRITE] Error grabando:", error);
+  }
+}
 
   // ---------------------------
   // ABC
