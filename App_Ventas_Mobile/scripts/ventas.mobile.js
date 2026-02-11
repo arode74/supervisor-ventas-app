@@ -359,7 +359,7 @@
   }
 
 // ---------------------------
-// Guardar: UPSERT por tipo (sin DELETE)
+// Guardar: RPC editar_ventas_dia (misma lógica que ventas normal)
 // ---------------------------
 async function saveVentasToDB(idVendedor) {
   const fecha = getSelectedDate();
@@ -367,64 +367,31 @@ async function saveVentasToDB(idVendedor) {
 
   const bucket = ensureVentasBucket(fecha, idVendedor);
 
-  const rows = [];
+  // Arma p_registros con el mismo formato que usa ventas.js
+  const registros = [];
   for (const t of TIPOS) {
     const qty = parseNonNegInt(bucket[t.key]);
     if (qty <= 0) continue;
 
-    rows.push({
+    registros.push({
       id_vendedor: idVendedor,
       fecha_venta: fecha,
-      tipo_venta: TIPO_TO_DB[t.key],
+      tipo_venta: TIPO_TO_DB[t.key], // TOPE/SOBRE/BAJO/PLAN/PV
       monto: qty,
-      descripcion: null
+      descripcion: ""
     });
   }
 
-  if (rows.length === 0) return;
-
-  const { error } = await sb
-    .from("ventas")
-    .upsert(rows, { onConflict: "id_vendedor,fecha_venta,tipo_venta" });
-
-  if (error) {
-    console.error("[Ventas][WRITE] Error grabando:", error);
-  }
-}
-// ---------------------------
-// Guardar: UPSERT por tipo (sin DELETE)
-// ---------------------------
-async function saveVentasToDB(idVendedor) {
-  const fecha = getSelectedDate();
-  if (!fecha) return;
-
-  const bucket = ensureVentasBucket(fecha, idVendedor);
-
-  const rows = [];
-  for (const t of TIPOS) {
-    const qty = parseNonNegInt(bucket[t.key]);
-    if (qty <= 0) continue;
-
-    rows.push({
-      id_vendedor: idVendedor,
-      fecha_venta: fecha,
-      tipo_venta: TIPO_TO_DB[t.key],
-      monto: qty,
-      descripcion: null
-    });
-  }
-
-  if (rows.length === 0) return;
-
-  const { error } = await sb
-    .from("ventas")
-    .upsert(rows, { onConflict: "id_vendedor,fecha_venta,tipo_venta" });
+  const { error } = await sb.rpc("editar_ventas_dia", {
+    p_id_vendedor: idVendedor,
+    p_fecha_venta: fecha,
+    p_registros: registros
+  });
 
   if (error) {
-    console.error("[Ventas][WRITE] Error grabando:", error);
+    console.error("[Ventas][WRITE] Error grabando (RPC editar_ventas_dia):", error);
   }
 }
-
   // ---------------------------
   // ABC
   // ---------------------------
