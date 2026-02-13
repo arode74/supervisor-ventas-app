@@ -547,9 +547,11 @@ async function cargarTablaCompromisos() {
   const tbody = tabla?.querySelector("tbody");
   if (!tbody) return;
 
+  const totalCols = 3 + (columnasMensuales?.length || 0) + (columnasSemanales?.length || 0);
+
   const idEquipo = localStorage.getItem("idEquipoActivo");
   if (!idEquipo) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">No hay equipo activo.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">No hay equipo activo.</td></tr>';
     return;
   }
 
@@ -561,14 +563,14 @@ async function cargarTablaCompromisos() {
 
   if (errV) {
     console.error("Error cargando equipo_vendedor:", errV);
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Error cargando vendedores.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">Error cargando vendedores.</td></tr>';
     return;
   }
 
   const vendedores = (rels || []).map((r) => r.vendedores).filter(Boolean);
 
   if (vendedores.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;">Sin vendedores.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">Sin vendedores.</td></tr>';
     return;
   }
 
@@ -622,9 +624,12 @@ async function cargarTablaCompromisos() {
 
   reconstruirThead();
 
+  // Reales TF40 del mes (Sobre + Tope)
+  const realesMes = await cargarRealesMes(idsVendedores, anclaMes);
+
   const metricas = {};
   vendedores.forEach((v) => {
-    const row = { id_vendedor: v.id_vendedor, nombre: v.nombre };
+    const row = { id_vendedor: v.id_vendedor, nombre: v.nombre, real_tf40: 0, real_sobre: 0, real_tope: 0 };
     for (const t of columnasMensuales) row["m_" + t.id] = 0;
     for (const t of columnasSemanales) row["s_" + t.id] = 0;
     metricas[v.id_vendedor] = row;
@@ -644,12 +649,88 @@ async function cargarTablaCompromisos() {
     entry[k] = (Number(entry[k]) || 0) + Number(c.monto_comprometido || 0);
   }
 
+    // aplica reales
+  for (const id of Object.keys(metricas)) {
+    metricas[id].real_tf40 = Number(realesMes?.[id]?.tf40 || 0);
+    metricas[id].real_sobre = Number(realesMes?.[id]?.sobre || 0);
+    metricas[id].real_tope  = Number(realesMes?.[id]?.tope  || 0);
+  }
+
   datosTabla = Object.values(metricas);
 
   // ✅ aplica orden por defecto (nombre asc) antes del render
   sortDatosTabla();
 
   renderTabla();
+}
+
+
+// =========================
+// REALES TF40 DEL MES (Sobre + Tope)
+// =========================
+async function cargarRealesMes(idsVendedores, anclaMesISO) {
+  const out = {};
+  (idsVendedores || []).forEach((id) => (out[id] = { tf40: 0, sobre: 0, tope: 0 }));
+  if (!idsVendedores?.length || !anclaMesISO) return out;
+
+  // mes: [ancla, siguiente_mes)
+  const dt = new Date(anclaMesISO + "T00:00:00");
+  if (Number.isNaN(dt.getTime())) return out;
+
+  const inicio = anclaMesISO;
+  const fin = new Date(dt.getFullYear(), dt.getMonth() + 1, 1);
+  const finISO = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, "0")}-01`;
+
+  // Leemos ventas (detalle) y calculamos TF40 real = Sobre + Tope
+  // Nota: usamos select('*') para no fallar por columnas no existentes (cantidad/monto/etc).
+  const { data, error } = await supabase
+    .from("ventas")
+    .select("*")
+    .in("id_vendedor", idsVendedores)
+    .gte("fecha_venta", inicio)
+    .lt("fecha_venta", finISO);
+
+  if (error) {
+    console.error("No se pudo leer ventas para Reales TF40:", error);
+    return out; // dejamos 0 para no romper UI
+  }
+
+  const pickQty = (row) => {
+    // prioridad de posibles campos numéricos (si existen)
+    const cands = [
+      "cantidad",
+      "unidades",
+      "qty",
+      "cantidad_venta",
+      "n_ventas",
+      "num_ventas",
+      "monto", // a veces lo usan como cantidad (no plata) en modelos simples
+    ];
+    for (const k of cands) {
+      const v = row?.[k];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v))) return Number(v);
+    }
+    return 1;
+  };
+
+  (data || []).forEach((row) => {
+    const id = row?.id_vendedor;
+    if (!id) return;
+
+    const tv = String(row?.tipo_venta || "").toLowerCase();
+    const esSobre = tv.includes("sobre");
+    const esTope = tv.includes("tope");
+
+    if (!esSobre && !esTope) return;
+
+    const q = pickQty(row);
+    if (esSobre) out[id].sobre = (Number(out[id].sobre) || 0) + q;
+    if (esTope)  out[id].tope  = (Number(out[id].tope)  || 0) + q;
+    out[id].tf40 = (Number(out[id].sobre) || 0) + (Number(out[id].tope) || 0);
+  });
+
+  return out;
 }
 
 // =========================
@@ -808,6 +889,7 @@ function reconstruirThead() {
     html += `<th class="grp-semanal semanal-start semanal-end">Semanal</th>`;
   }
 
+  html += `<th colspan="3" class="grp-real real-start real-end">Real</th>`;
   html += `<th rowspan="2">Acciones</th>`;
   html += `</tr>`;
 
@@ -839,6 +921,11 @@ function reconstruirThead() {
     ].filter(Boolean).join(" ");
     html += `<th class="${cls}" data-col="${key}">${escapeHtml(labelSemanal(t.nombre || ""))} <span class="sort-arrow"></span></th>`;
   });
+
+    // Subcolumnas Real
+  html += `<th class="th-sortable col-real real-start" data-col="real_tf40">TF40 <span class="sort-arrow"></span></th>`;
+  html += `<th class="th-sortable col-real" data-col="real_sobre">Sobre <span class="sort-arrow"></span></th>`;
+  html += `<th class="th-sortable col-real real-end" data-col="real_tope">Tope <span class="sort-arrow"></span></th>`;
 
   html += `</tr>`;
 
@@ -909,6 +996,11 @@ function renderTabla() {
       ].filter(Boolean).join(" ");
       html += `<td class="${cls}">${fmt(d[key])}</td>`;
     });
+
+    // Real (Sobre + Tope del mes)
+    html += `<td class="col-real real-start">${fmt(d.real_tf40)}</td>`;
+    html += `<td class="col-real">${fmt(d.real_sobre)}</td>`;
+    html += `<td class="col-real real-end">${fmt(d.real_tope)}</td>`;
 
     html +=
       '<td class="acciones">' +
@@ -1384,11 +1476,9 @@ window.addEventListener("equipoCambiado", async () => {
 // INIT
 // =========================
 (async function init() {
-  if (window.__compromisosInitDone) {
-    console.warn('⚠️ compromisos.js ya inicializado; evitando doble ejecución');
-    return;
-  }
+  const reentry = !!window.__compromisosInitDone;
   window.__compromisosInitDone = true;
+  if (reentry) console.warn('⚠️ compromisos.js ya inicializado; rehidratando vista');
 
   inyectarEstilosNavDia();
 

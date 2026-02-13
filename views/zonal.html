@@ -48,6 +48,29 @@
       width:10px;
     }
   </style>
+
+  <style>
+    /* Ajuste: alinear encabezados y contenido embebido dentro del mismo ancho del panel */
+    #contenedor-modulos.modulo-dinamico{
+      width: 100%;
+      max-width: 900px;
+      margin: 18px auto 0;
+      padding: 0 24px;
+      box-sizing: border-box;
+    }
+    /* Si el módulo trae un título suelto (ej: "Dashboard"), lo mantenemos dentro del margen */
+    #contenedor-modulos.modulo-dinamico > h1,
+    #contenedor-modulos.modulo-dinamico > h2,
+    #contenedor-modulos.modulo-dinamico > h3{
+      margin-left: 0;
+      margin-right: 0;
+    }
+    /* Evita que iframes se salgan del contenedor */
+    #contenedor-modulos.modulo-dinamico iframe{
+      max-width: 100%;
+    }
+  </style>
+
 </head>
 
 <body class="panel-container">

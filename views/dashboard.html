@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard – APP Ventas</title>
+
+  <!-- En la app ya existe env.js, acá no molesta si queda -->
+  <script src="../env.js"></script>
+
+  <!-- estilos base de la app -->
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+
+  <style>
+    /* Asegura que el embed tenga altura real aunque el contenedor padre no la tenga */
+    #dashboard-container {
+      width: 100%;
+      min-height: calc(100vh - 260px);
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    #dashboard-loading {
+      padding: 14px;
+      color: #444;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #eee;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="panel-modulo">
+    <div class="titulo-seccion">
+      <h2>Dashboard</h2>
+    </div>
+
+    <div id="dashboard-loading">Cargando dashboard…</div>
+    <div id="dashboard-container"></div>
+  </section>
+
+  <!-- En la app, zonal.js inyecta este script igual. Si lo abres directo también sirve. -->
+  <script src="../scripts/dashboard.js"></script>
+</body>
+</html>

@@ -262,7 +262,7 @@ async function initZonal() {
 
   // Dashboard (tu ruta actual)
   btnDashboard?.addEventListener("click", () =>
-    abrirModulo("./dashboard-zonal.html", "../scripts/dashboard-zonal.js")
+    abrirModulo("./dashboard.html", "../scripts/dashboard.js")
   );
 
   // ✅ Reportes embebido IGUAL que Supervisor

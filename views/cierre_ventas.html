@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cierre Mensual de Ventas – APP Ventas</title>
 
-  <!-- Variables de entorno -->
   <script src="../env.js"></script>
 
   <!-- CSS base (NO TOCADOS) -->
@@ -13,65 +12,179 @@
   <link rel="stylesheet" href="../styles/panel-base.css" />
   <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
 
-  <!-- Ajustes específicos SOLO para cierre (override controlado) -->
+  <!-- Ajustes específicos SOLO para cierre -->
   <style>
-    /* ===== Layout estándar del módulo (clonado de ventas) ===== */
-    #modulo-cierre-ventas {
+    /* ===== Layout estándar del módulo (NO rompe supervisor) ===== */
+    #modulo-cierre-ventas{
       width: 100%;
-      max-width: 880px;
+      max-width: 1100px !important;
       margin: 15px auto 0 auto;
       background: #fff;
       border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.10);
       padding: 20px;
-      box-sizing: border-box;
+      box-sizing: border-box !important;
+      overscroll-behavior: contain;
     }
 
-    /* ===== Vendedor en una sola línea ===== */
-    #modulo-cierre-ventas th:first-child,
-    #modulo-cierre-ventas td:first-child,
-    #modulo-cierre-ventas .nombre-vendedor {
+    /* Contenedor principal en columna para dejar fija la parte superior */
+    #modulo-cierre-ventas .tarjeta-principal{
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden; /* clave: el scroll NO sale hacia arriba */
+    }
+
+    /* Scroll SOLO en lista (tabla) */
+    #modulo-cierre-ventas .contenedor-tabla{
+      flex: 1 1 auto;
+      max-height: 56vh;        /* ajustable */
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.08);
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      min-width: 100%;
+      display: block;
+      overscroll-behavior: contain;
+      position: relative;
+    }
+
+    /* Tabla ocupa el ancho completo */
+    #modulo-cierre-ventas #tablaCierre{
+      width: 100% !important;
+      border-collapse: collapse;
+      table-layout: fixed; /* clave: respeta colgroup */
+    }
+
+    /* Columnas (más anchas para 2-3 dígitos; PV ancho) */
+    #modulo-cierre-ventas #tablaCierre col.col-vendedor{ width: 32%; }
+    #modulo-cierre-ventas #tablaCierre col.col-tf{      width: 9%;  }
+    #modulo-cierre-ventas #tablaCierre col.col-g40{     width: 10%; }
+    #modulo-cierre-ventas #tablaCierre col.col-g70{     width: 9%;  }
+    #modulo-cierre-ventas #tablaCierre col.col-plan{    width: 9%;  }
+    #modulo-cierre-ventas #tablaCierre col.col-pv{      width: 31%; }
+
+    /* Encabezados SIEMPRE en una sola línea */
+    #modulo-cierre-ventas #tablaCierre thead th{
+      background: #cfe2f3;
+      white-space: nowrap;
+      overflow: visible;
+      text-overflow: clip;
+    }
+
+    /* Fila TOTAL (fija porque está en tabla head) */
+    #modulo-cierre-ventas #tablaCierreHead thead tr.fila-total td{
+      background: #e8f1fb;
+      font-weight: 700;
+    }
+/* Primera columna con ellipsis para no romper layout */
+    #modulo-cierre-ventas #tablaCierre td:first-child,
+    #modulo-cierre-ventas #tablaCierre th:first-child{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Asegura ellipsis aunque haya spans internos */
+    #modulo-cierre-ventas .cv-vendedor{
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    /* Inputs: ancho real para ver 2-3 dígitos */
+    #modulo-cierre-ventas input.input-cierre{
+      width: 92px !important;
+      min-width: 92px !important;
+      max-width: 92px !important;
+      height: 30px;
+      text-align: center !important;
+      padding: 4px 6px !important;
+      font-size: 14px !important;
+      box-sizing: border-box !important;
+      overscroll-behavior: contain;
+    }
+
+    /* PV ancho, acepta 999.999.999 */
+    #modulo-cierre-ventas input.input-cierre-pv{
+      width: 100% !important;
+      min-width: 240px !important;
+      height: 30px;
+      text-align: right;
+      padding: 4px 10px;
+      font-size: 14px !important;
+      box-sizing: border-box !important;
+      overscroll-behavior: contain;
+    }
+
+    /* Alineación numérica en TOTAL */
+    #modulo-cierre-ventas .celda-total{
+      text-align: center !important;
+    }
+    #modulo-cierre-ventas .celda-total-pv{
+      text-align: right;
+      padding-right: 10px;
+    }
+  
+    /* === AV: Ellipsis vendedor (asegura que no se salga del campo) === */
+    #modulo-cierre-ventas #tablaCierre td.col-vendedor,
+    #modulo-cierre-ventas #tablaCierre td:first-child{
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    /* ===== Tabla contenida y responsive ===== */
-    #modulo-cierre-ventas .contenedor-tabla {
+  
+    /* === AV: Header fijo separado del scroll === */
+    #modulo-cierre-ventas .contenedor-tabla-head{
       width: 100%;
-      overflow-x: auto;
+      min-width: 100%;
+      border-radius: 10px 10px 0 0;
+      border: 1px solid rgba(0,0,0,0.08);
+      border-bottom: none;
+      overflow: hidden;
+    }
+    #modulo-cierre-ventas .contenedor-tabla{
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+    }
+    #modulo-cierre-ventas table.tabla-cierre{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
     }
 
-    #modulo-cierre-ventas #tablaCierre {
-      width: 100%;
+  
+    /* === AV: Alineación exacta head vs body (compensa ancho de scrollbar) === */
+    #modulo-cierre-ventas{
+      --av-sbw: 0px;
+    }
+    #modulo-cierre-ventas .contenedor-tabla-head{
+      padding-right: var(--av-sbw);
       box-sizing: border-box;
     }
-
-    /* Inputs compactos como en Ventas */
-    #modulo-cierre-ventas input.input-cierre {
-      width: 70px;
-      text-align: right;
-      padding: 4px 6px;
+    #modulo-cierre-ventas .contenedor-tabla{
+      scrollbar-gutter: stable; /* reserva espacio del scrollbar */
     }
-	
-	#modulo-cierre-ventas input.input-cierre-pv{
-		width: 120px;
-		text-align: right;
-		font-size: 12px;
-		padding: 4px 6px;
-		box-sizing: border-box;
-	}
 
-	/* Evita que PV empuje el layout en pantallas angostas */
-	#modulo-cierre-ventas td:last-child{ min-width: 130px; }
-	#modulo-cierre-ventas th:last-child{ min-width: 130px; }
+  
+    /* === AV: Sincronización de anchos entre tabla head y tabla body === */
+    #modulo-cierre-ventas .contenedor-tabla-head{ width: 100%; }
+    #modulo-cierre-ventas .contenedor-tabla{ width: 100%; }
+    #modulo-cierre-ventas #tablaCierreHead, 
+    #modulo-cierre-ventas #tablaCierre{
+      width: 100%;
+      table-layout: fixed;
+    }
 
   </style>
 </head>
 
 <body>
-
-  <!-- ===========================================================
-       CIERRE MENSUAL DE VENTAS
-       =========================================================== -->
   <section id="modulo-cierre-ventas">
     <div class="tarjeta-principal">
 
@@ -84,7 +197,6 @@
       <!-- FILTROS + GUARDAR -->
       <div class="acciones-vendedores">
         <div class="filtros-vendedores" style="justify-content: space-between; width:100%; gap:12px;">
-
           <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <label style="margin:0;">
               Mes:
@@ -110,41 +222,70 @@
             </label>
           </div>
 
-          <!-- ÚNICO botón Guardar -->
-          <button id="btnGuardarCierre" class="btn-volver" type="button">
-            💾 Guardar
-          </button>
-
+          <button id="btnGuardarCierre" class="btn-volver" type="button">💾 Guardar</button>
         </div>
       </div>
 
-      <!-- TABLA -->
-      <div class="contenedor-tabla">
-        <table id="tablaCierre" class="tabla-listado">
-          <thead>
+      <!-- TABLA (solo aquí se hace scroll) -->
+      <div class="contenedor-tabla" id="scrollCierre">
+        
+    <!-- Header fijo (NO scrollea) -->
+    <div class="contenedor-tabla-head">
+      <table id="tablaCierreHead" class="tabla-cierre">
+        <colgroup>
+            <col class="col-vendedor">
+            <col class="col-tf">
+            <col class="col-g40">
+            <col class="col-g70">
+            <col class="col-plan">
+            <col class="col-pv">
+          </colgroup>
+        <thead>
             <tr>
               <th id="thVendedor" style="cursor:pointer; user-select:none;">Vendedor <span id="triVendedor">▲</span></th>
               <th>TF</th>
               <th id="thVentas" style="cursor:pointer; user-select:none;">&gt;40 <span id="triVentas">▼</span></th>
-              <th>>70</th>
+              <th>&gt;70</th>
               <th>Plan</th>
               <th>Producto Voluntario</th>
             </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colspan="6" style="text-align:center;">Cargando…</td>
+
+            <tr class="fila-total">
+              <td>TOTAL</td>
+              <td class="celda-total"><span id="totTF">0</span></td>
+              <td class="celda-total"><span id="totG40">0</span></td>
+              <td class="celda-total"><span id="totG70">0</span></td>
+              <td class="celda-total"><span id="totPLAN">0</span></td>
+              <td class="celda-total-pv"><span id="totPV">0</span></td>
             </tr>
+          </thead>
+      </table>
+    </div>
+
+    <!-- Solo esta zona scrollea -->
+    <div class="contenedor-tabla">
+      <table id="tablaCierre" class="tabla-cierre">
+        <colgroup>
+            <col class="col-vendedor">
+            <col class="col-tf">
+            <col class="col-g40">
+            <col class="col-g70">
+            <col class="col-plan">
+            <col class="col-pv">
+          </colgroup>
+        <tbody>
+            <tr><td colspan="6" style="text-align:center;">Cargando…</td></tr>
           </tbody>
-        </table>
+      </table>
+    </div>
+
       </div>
 
     </div>
   </section>
 
-  <!-- Scripts (si supervisor.js no los inyecta, déjalos; si los inyecta, puedes quitarlos) -->
+  <!-- Scripts -->
   <script type="module" src="../scripts/cierre_ventas.js"></script>
   <script type="module" src="../scripts/ui_modales.js"></script>
-
 </body>
 </html>

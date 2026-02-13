@@ -7,6 +7,17 @@ import { enforceMustChangePassword } from "./guard-must-change-password.js";
 import { initVelocimetroTF40 } from "./widgets/velocimetro_tf40.js";
 import { startSessionManager } from "../scripts/session-manager.js";
 
+
+// === AV: Helpers de layout para Cierre Ventas (solo agrega/quita clase, NO toca body/html) ===
+function avSetCierreVentasActivo(isActivo) {
+  try {
+    const cont = document.querySelector("#contenedor-modulos");
+    if (!cont) return;
+    cont.classList.toggle("av-cierreventas-activo", !!isActivo);
+  } catch (_) {}
+}
+
+
 // Guard global: si falla, no tumba el módulo
 try {
   await enforceMustChangePassword();
@@ -245,6 +256,7 @@ async function initSupervisor() {
         contenedorModulos.style.display = "none";
       }
       if (panelBotones) panelBotones.style.display = "flex";
+      avSetCierreVentasActivo(false);
       window.dispatchEvent(new CustomEvent("modulo:volver"));
     },
     true
@@ -270,6 +282,9 @@ async function initSupervisor() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
       contenedorModulos.innerHTML = await resp.text();
+
+      // AV: centra Cierre Ventas dentro del margen
+      avSetCierreVentasActivo(String(viewPath||"").includes("cierre_ventas"));
       contenedorModulos.style.display = "block";
       panelBotones.style.display = "none";
 

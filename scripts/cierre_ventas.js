@@ -1,3 +1,104 @@
+
+function avSyncCierreVentasHeadWidths() {
+  const root = document.querySelector("#modulo-cierre-ventas");
+  if (!root) return;
+
+  const scroller = root.querySelector(".contenedor-tabla");
+  const headWrap = root.querySelector(".contenedor-tabla-head");
+  const headTable = root.querySelector("#tablaCierreHead");
+  const bodyTable = root.querySelector("#tablaCierre");
+
+  if (!scroller || !headWrap || !headTable || !bodyTable) return;
+
+  // 1) Asegura que el header use el mismo ancho visible que el body (sin scrollbar)
+  const visibleW = scroller.clientWidth; // excluye scrollbar
+  headWrap.style.width = visibleW + "px";
+
+  // 2) Sincroniza colgroup si existe (recomendado)
+  const bodyCols = bodyTable.querySelectorAll("colgroup col");
+  const headCols = headTable.querySelectorAll("colgroup col");
+
+  if (bodyCols.length && headCols.length && bodyCols.length === headCols.length) {
+    // Medimos ancho real de cada columna usando los TH/TD del body en la primera fila visible
+    // Preferimos medir por col->getBoundingClientRect no funciona bien; medimos celdas.
+    const firstRow = bodyTable.querySelector("tbody tr");
+    if (firstRow) {
+      const bodyCells = Array.from(firstRow.children);
+      const widths = bodyCells.map(td => Math.round(td.getBoundingClientRect().width));
+
+      // Fallback si por alguna razón no hay celdas (tabla vacía)
+      if (widths.length === headCols.length) {
+        widths.forEach((w, i) => {
+          headCols[i].style.width = w + "px";
+          bodyCols[i].style.width = w + "px";
+        });
+      }
+    }
+  }
+
+  // 3) Forzar reflow del head table al nuevo ancho
+  headTable.style.width = visibleW + "px";
+}
+
+
+// ===========================================================
+// AV Scroll Trap (módulo): evita scroll chaining al contenedor padre
+// - Captura wheel/touchmove en CAPTURE + passive:false dentro del módulo
+// - Redirige el delta a .contenedor-tabla
+// ===========================================================
+function avCierreVentasInstallScrollTrap() {
+  const root = document.querySelector("#modulo-cierre-ventas");
+  const scroller = root?.querySelector(".contenedor-tabla");
+  if (!root || !scroller) return () => {};
+
+  const onWheel = (e) => {
+    if (!root.contains(e.target)) return;
+    const dy = e.deltaY || 0;
+    if (Math.abs(dy) < 0.01) return;
+    e.preventDefault();
+    e.stopPropagation();
+    scroller.scrollTop += dy;
+  };
+
+  let touchY = 0;
+  const onTouchStart = (e) => {
+    if (!root.contains(e.target)) return;
+    touchY = e.touches?.[0]?.clientY ?? 0;
+  };
+  const onTouchMove = (e) => {
+    if (!root.contains(e.target)) return;
+    const y = e.touches?.[0]?.clientY ?? 0;
+    const dy = touchY - y;
+    if (Math.abs(dy) < 0.5) return;
+    e.preventDefault();
+    e.stopPropagation();
+    scroller.scrollTop += dy;
+    touchY = y;
+  };
+
+  document.addEventListener("wheel", onWheel, { capture: true, passive: false });
+  document.addEventListener("touchstart", onTouchStart, { capture: true, passive: false });
+  document.addEventListener("touchmove", onTouchMove, { capture: true, passive: false });
+
+  return () => {
+    document.removeEventListener("wheel", onWheel, { capture: true });
+    document.removeEventListener("touchstart", onTouchStart, { capture: true });
+    document.removeEventListener("touchmove", onTouchMove, { capture: true });
+  };
+}
+
+
+function avSetScrollbarWidthVar() {
+  const root = document.querySelector("#modulo-cierre-ventas");
+  const scroller = root?.querySelector(".contenedor-tabla");
+  if (!root || !scroller) return;
+
+  // create measurement using scroller itself
+  const sbw = scroller.offsetWidth - scroller.clientWidth; // includes scrollbar
+  root.style.setProperty("--av-sbw", (sbw > 0 ? sbw : 0) + "px");
+}
+
+
 import { supabase } from "../config.js";
 
 const ROOT_ID = "modulo-cierre-ventas";
@@ -7,6 +108,14 @@ let tbody = null;
 let btnGuardarCierre = null;
 let selectMes = null;
 let selectAnio = null;
+
+let totTFEl = null;
+let totG40El = null;
+let totG70El = null;
+let totPLANEl = null;
+let totPVEl = null;
+let scrollCierreEl = null;
+
 
 let idEquipo = null;
 
@@ -21,6 +130,143 @@ let fuenteActual = 'BASE';
 
 // ======================================================
 // Utilidades base
+
+
+// ======================================================
+// Helpers UI (totales, sticky, PV, scroll aislado)
+// ======================================================
+const fmtCL = new Intl.NumberFormat("es-CL");
+
+function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function formatMiles(n) {
+  const x = Number(n);
+  if (!Number.isFinite(x)) return "0";
+  return fmtCL.format(Math.max(0, Math.trunc(x)));
+}
+
+function ajustarStickyTop() {
+  try {
+    const thead = tabla?.querySelector("thead");
+    if (!thead || !thead.rows?.length) return;
+    const h = Math.ceil(thead.rows[0].getBoundingClientRect().height || 44);
+    tabla.style.setProperty("--thead-h", `${h}px`);
+  } catch (_) {}
+}
+
+function setPVValue(inp, rawValue) {
+  if (!inp) return;
+  const raw = String(rawValue ?? "").replace(/\D/g, "").slice(0, 9); // 999.999.999
+  inp.dataset.raw = raw;
+  inp.value = raw ? formatMiles(Number(raw)) : "";
+}
+
+function formatearPVEnVivo(inp) {
+  if (!inp) return;
+
+  const start = inp.selectionStart ?? inp.value.length;
+  const before = inp.value.slice(0, start);
+  const digitsBefore = before.replace(/\D/g, "").length;
+
+  const raw = inp.value.replace(/\D/g, "").slice(0, 9);
+  inp.dataset.raw = raw;
+
+  const formatted = raw ? formatMiles(Number(raw)) : "";
+  inp.value = formatted;
+
+  let pos = 0;
+  let seen = 0;
+  while (pos < inp.value.length && seen < digitsBefore) {
+    if (/[0-9]/.test(inp.value[pos])) seen++;
+    pos++;
+  }
+  try { inp.setSelectionRange(pos, pos); } catch (_) {}
+}
+
+function recalcularTotales() {
+  if (!tbody) return;
+
+  let sumTF = 0, sumG40 = 0, sumG70 = 0, sumPLAN = 0, sumPV = 0;
+
+  const filas = [...tbody.querySelectorAll("tr[data-id-vendedor]")];
+  for (const tr of filas) {
+    sumTF   += numOrZero(tr.querySelector('input[data-tipo="BAJO"]')?.value);
+    sumG40  += numOrZero(tr.querySelector('input[data-tipo="SOBRE"]')?.value);
+    sumG70  += numOrZero(tr.querySelector('input[data-tipo="TOPE"]')?.value);
+    sumPLAN += numOrZero(tr.querySelector('input[data-tipo="PLAN"]')?.value);
+
+    const pvInp = tr.querySelector('input[data-tipo="PV"]');
+    sumPV += numOrZero(pvInp?.dataset?.raw ?? pvInp?.value);
+  }
+
+  if (totTFEl) totTFEl.textContent = formatMiles(sumTF);
+  if (totG40El) totG40El.textContent = formatMiles(sumG40);
+  if (totG70El) totG70El.textContent = formatMiles(sumG70);
+  if (totPLANEl) totPLANEl.textContent = formatMiles(sumPLAN);
+  if (totPVEl) totPVEl.textContent = formatMiles(sumPV);
+}
+
+function aislarScrollSoloEnTabla() {
+  if (!scrollCierreEl) return;
+  const root = document.getElementById(ROOT_ID);
+  if (!root) return;
+
+  const canScroll = () => scrollCierreEl && (scrollCierreEl.scrollHeight > scrollCierreEl.clientHeight + 2);
+  const scrollBy = (dy) => { scrollCierreEl.scrollTop += dy; };
+
+  // Captura GLOBAL: si el gesto ocurre dentro del módulo, el scroll se redirige a la lista.
+  // Esto evita que el trackpad “escape” y scrollee el contenedor padre (supervisor).
+  const onWheel = (e) => {
+    if (!root.contains(e.target)) return;
+    if (!canScroll()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    scrollBy(e.deltaY);
+  };
+
+  if (window.__av_cierre_wheel_handler) {
+    window.removeEventListener('wheel', window.__av_cierre_wheel_handler, true);
+  }
+  window.__av_cierre_wheel_handler = onWheel;
+  window.addEventListener('wheel', onWheel, { passive: false, capture: true });
+
+  // Touch (móvil)
+  let lastY = null;
+  const onTouchStart = (e) => {
+    if (!root.contains(e.target)) return;
+    if (!e.touches?.length) return;
+    lastY = e.touches[0].clientY;
+  };
+  const onTouchMove = (e) => {
+    if (!root.contains(e.target)) return;
+    if (!e.touches?.length || lastY === null) return;
+  };
+
+  // Implementación touch real (sin 'None')
+  root.addEventListener('touchstart', (e) => {
+    if (!e.touches?.length) return;
+    lastY = e.touches[0].clientY;
+  }, { passive: true, capture: true });
+
+  root.addEventListener('touchmove', (e) => {
+    if (!e.touches?.length || lastY === null) return;
+    if (!canScroll()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const y = e.touches[0].clientY;
+    const dy = lastY - y;
+    lastY = y;
+    scrollBy(dy);
+  }, { passive: false, capture: true });
+}
+
 // ======================================================
 function mesActualPorDefecto() {
   const d = new Date();
@@ -57,7 +303,10 @@ function leerEquipoActivo() {
 // input vacío => 0
 function numOrZero(v) {
   if (v === null || v === undefined) return 0;
-  const s = String(v).trim();
+  const s0 = String(v).trim();
+  if (!s0) return 0;
+  // permite "1.234.567" o "$ 1.234"
+  const s = s0.replace(/[^0-9-]/g, "");
   if (!s) return 0;
   const n = Number(s);
   return Number.isFinite(n) ? Math.max(n, 0) : 0;
@@ -75,6 +324,13 @@ function bindDOM() {
   btnGuardarCierre = scope.querySelector("#btnGuardarCierre");
   selectMes = scope.querySelector("#selectMes");
   selectAnio = scope.querySelector("#selectAnio");
+
+  totTFEl = scope.querySelector("#totTF");
+  totG40El = scope.querySelector("#totG40");
+  totG70El = scope.querySelector("#totG70");
+  totPLANEl = scope.querySelector("#totPLAN");
+  totPVEl = scope.querySelector("#totPV");
+  scrollCierreEl = scope.querySelector("#scrollCierre");
 
   return !!(tabla && tbody && btnGuardarCierre && selectMes && selectAnio);
 }
@@ -212,6 +468,8 @@ function render(vendedores) {
 
   if (!vendedores.length) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Sin vendedores</td></tr>`;
+    ajustarStickyTop();
+    recalcularTotales();
     return;
   }
 
@@ -221,23 +479,42 @@ function render(vendedores) {
     tr.dataset.idVendedor = v.id_vendedor;
     tr.dataset.dirty = "0";
 
+    const tfVal  = (ex.TOPE + ex.SOBRE + ex.BAJO) || "";
+    const g40Val = (ex.TOPE + ex.SOBRE) || "";
+    const g70Val = ex.TOPE || "";
+    const planVal= ex.PLAN || "";
+    const pvRaw  = ex.PV || "";
+
     tr.innerHTML = `
-      <td>${v.nombre}</td>
-      <td><input class="input-cierre" data-tipo="BAJO"  type="number" value="${(ex.TOPE + ex.SOBRE + ex.BAJO) || ""}"></td>
-      <td><input class="input-cierre" data-tipo="SOBRE" type="number" value="${(ex.TOPE + ex.SOBRE) || ""}"></td>
-      <td><input class="input-cierre" data-tipo="TOPE"  type="number" value="${ex.TOPE || ""}"></td>
-      <td><input class="input-cierre" data-tipo="PLAN"  type="number" value="${ex.PLAN || ""}"></td>
-      <td><input class="input-cierre" data-tipo="PV"    type="number" value="${ex.PV || ""}"></td>
+      <td class="nombre-vendedor" title="${escapeHtml(v.nombre)}"><span class="cv-vendedor">${escapeHtml(v.nombre)}</span></td>
+      <td><input class="input-cierre" data-tipo="BAJO"  type="number" inputmode="numeric" min="0" step="1" value="${tfVal}"></td>
+      <td><input class="input-cierre" data-tipo="SOBRE" type="number" inputmode="numeric" min="0" step="1" value="${g40Val}"></td>
+      <td><input class="input-cierre" data-tipo="TOPE"  type="number" inputmode="numeric" min="0" step="1" value="${g70Val}"></td>
+      <td><input class="input-cierre" data-tipo="PLAN"  type="number" inputmode="numeric" min="0" step="1" value="${planVal}"></td>
+      <td><input class="input-cierre-pv" data-tipo="PV" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"></td>
     `;
 
-    // Al cambiar cualquier input, la fila queda dirty
-    tr.querySelectorAll("input.input-cierre").forEach((inp) => {
-      inp.addEventListener("input", () => marcarFilaDirty(tr));
-      inp.addEventListener("change", () => marcarFilaDirty(tr));
+    const pvInp = tr.querySelector('input[data-tipo="PV"]');
+    setPVValue(pvInp, pvRaw);
+
+    tr.querySelectorAll("input").forEach((inp) => {
+      inp.addEventListener("input", () => {
+        if (inp.dataset.tipo === "PV") formatearPVEnVivo(inp);
+        marcarFilaDirty(tr);
+        recalcularTotales();
+      });
+      inp.addEventListener("change", () => {
+        if (inp.dataset.tipo === "PV") formatearPVEnVivo(inp);
+        marcarFilaDirty(tr);
+        recalcularTotales();
+      });
     });
 
     tbody.appendChild(tr);
   }
+
+  ajustarStickyTop();
+  recalcularTotales();
 }
 
 // ======================================================
@@ -292,7 +569,8 @@ async function guardarTodo() {
     const g70 = numOrZero(tr.querySelector('input[data-tipo="TOPE"]')?.value);
 
     const plan = numOrZero(tr.querySelector('input[data-tipo="PLAN"]')?.value);
-    const pv   = numOrZero(tr.querySelector('input[data-tipo="PV"]')?.value);
+    const pvInp = tr.querySelector('input[data-tipo="PV"]');
+    const pv   = numOrZero(pvInp?.dataset?.raw ?? pvInp?.value);
 
     const tramos = construirTramosDesdeAcumulados(tf, g40, g70);
 
@@ -324,6 +602,10 @@ async function guardarTodo() {
 
     // recarga y limpia dirty
     await cargarCierre();
+
+  window.addEventListener('resize', () => {
+    ajustarStickyTop();
+  });
   } catch (err) {
     console.error("Error guardando cierre mensual:", err);
     alert("No se pudo guardar el cierre mensual. Revisa la consola.");
@@ -363,9 +645,36 @@ async function cargarCierre() {
 
   setearDefaultsMesAnio();
 
+  aislarScrollSoloEnTabla();
+  ajustarStickyTop();
+  recalcularTotales();
+
   btnGuardarCierre.addEventListener("click", guardarTodo);
   selectMes.addEventListener("change", cargarCierre);
   selectAnio.addEventListener("change", cargarCierre);
 
   await cargarCierre();
+
+  window.addEventListener('resize', () => {
+    ajustarStickyTop();
+  });
 })();
+
+try { avSetScrollbarWidthVar(); } catch(_) {}
+  try { avSyncCierreVentasHeadWidths(); } catch(_) {}
+
+window.addEventListener("resize", () => { try { avSetScrollbarWidthVar(); } catch(_) {}
+  try { avSyncCierreVentasHeadWidths(); } catch(_) {} });
+
+// Re-sincroniza cuando cambia el tamaño del scroller (por layout, fonts, etc.)
+try {
+  const root = document.querySelector("#modulo-cierre-ventas");
+  const scroller = root?.querySelector(".contenedor-tabla");
+  if (scroller && window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      try { avSetScrollbarWidthVar(); } catch(_) {}
+      try { avSyncCierreVentasHeadWidths(); } catch(_) {}
+    });
+    ro.observe(scroller);
+  }
+} catch(_) {}

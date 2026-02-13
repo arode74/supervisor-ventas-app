@@ -121,7 +121,122 @@
       box-shadow: none;
     }
 
-</style>
+
+    /* ===== DIMENSIONES DEFINITIVAS SOLICITADAS (CORREGIDO) =====
+       Objetivo:
+       - SOLO Vendedor = 40% (no afectar el resto como %)
+       - Acciones = 40px
+       - El resto (11 columnas numéricas) se reparte automático dentro del margen
+    */
+
+    #tablaCompromisos{
+      width:100%;
+      max-width:100%;
+      table-layout:fixed;
+      font-size:0.78rem;
+      font-variant-numeric:tabular-nums;
+
+      /* Variables de layout */
+      --w-vendedor: 38%;
+      --w-acciones: 44px;
+      --n-cols-num: 11; /* 4 mensual + 4 semanal + 3 real */
+      --w-num: calc((100% - var(--w-vendedor) - var(--w-acciones)) / var(--n-cols-num));
+    }
+
+    /* Headers centrados */
+    #tablaCompromisos thead th{
+      text-align:center !important;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    /* Subtítulos (TF/Sobre/Tope/Plan...) un poco más chicos para que no se pisen */
+    #tablaCompromisos thead tr:nth-child(2) th{
+      font-size:0.70rem;
+      letter-spacing:0.2px;
+      overflow:visible;
+      text-overflow:clip;
+    }
+
+    /* Body centrado (números) */
+    #tablaCompromisos tbody td{
+      text-align:center !important;
+      white-space:nowrap;
+    }
+
+    /* ===== VENDEDOR (SOLO esta columna en %) ===== */
+    #tablaCompromisos thead th:first-child{
+      text-align:left !important;
+      width: var(--w-vendedor);
+    }
+
+    #tablaCompromisos tbody td:first-child{
+      text-align:left !important;
+      font-weight:600;
+      white-space:normal;
+      overflow:visible;
+      text-overflow:clip;
+      width: var(--w-vendedor);
+    }
+
+    /* ===== ACCIONES (px fijo) ===== */
+    #tablaCompromisos thead th:last-child,
+    #tablaCompromisos tbody td:last-child{
+      width: var(--w-acciones);
+      min-width: var(--w-acciones);
+      max-width: var(--w-acciones);
+      text-align:center !important;
+      overflow:visible;      /* que el título “Acciones” no se corte raro */
+      text-overflow:clip;
+      white-space:nowrap;
+    }
+
+    /* ===== COLUMNAS NUMÉRICAS (auto dentro del margen) ===== */
+    #tablaCompromisos thead th:not(:first-child):not(:last-child),
+    #tablaCompromisos tbody td:not(:first-child):not(:last-child){
+      width: var(--w-num);
+      min-width: 52px;       /* piso para que se lean 2 dígitos */
+      max-width: 90px;       /* techo para que no se desbalancee */
+      text-align:center !important;
+    }
+
+    /* ===== Líneas divisorias por grupo (Mensual / Semanal / Real) =====
+       Estructura esperada:
+       1 Vendedor
+       2-5 Mensual (4)
+       6-9 Semanal (4)
+       10-12 Real (3)
+       13 Acciones
+    */
+    #tablaCompromisos th:nth-child(2),
+    #tablaCompromisos td:nth-child(2),
+    #tablaCompromisos th:nth-child(6),
+    #tablaCompromisos td:nth-child(6),
+    #tablaCompromisos th:nth-child(10),
+    #tablaCompromisos td:nth-child(10),
+    #tablaCompromisos th:nth-child(13),
+    #tablaCompromisos td:nth-child(13){
+      border-left:2px solid rgba(25,84,140,0.18);
+    }
+
+    #tablaCompromisos th:nth-child(5),
+    #tablaCompromisos td:nth-child(5),
+    #tablaCompromisos th:nth-child(9),
+    #tablaCompromisos td:nth-child(9),
+    #tablaCompromisos th:nth-child(12),
+    #tablaCompromisos td:nth-child(12){
+      border-right:2px solid rgba(25,84,140,0.18);
+    }
+
+    /* Real: título centrado */
+    #tablaCompromisos thead th.grp-real,
+    #tablaCompromisos thead th[colspan="3"]{
+      text-align:center !important;
+    }
+
+
+  </style>
 </head>
 
 <body>
