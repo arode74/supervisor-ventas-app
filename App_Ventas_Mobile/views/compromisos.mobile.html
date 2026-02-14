@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Compromisos — Móvil</title>
+
+  <!-- Mantener rutas relativas consistentes desde /views/ -->
+  <link rel="stylesheet" href="../styles/mobile-afp.css"/>
+  <link rel="stylesheet" href="../styles/mobile.css"/>
+
+  <!-- env.js suele vivir en raíz; desde /views/ es ../env.js -->
+  <script src="../env.js"></script>
+  <script>
+    // Compat: algunos builds exponen SUPABASE_URL/SUPABASE_ANON_KEY como globals
+    try {
+      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
+      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+    } catch (e) {}
+  </script>
+</head>
+
+<body>
+  <div class="ventas-screen">
+
+    <!-- Topbar (alineada al patrón mobile) -->
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="../assets/logo_app_ventas.png" alt="APP Ventas"/>
+      <div class="m-topbar__title">Compromisos</div>
+      <button class="m-topbar__logout" id="btnSalir" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+    </header>
+
+    <!-- Toolbar -->
+    <div class="ventas-top">
+      <div class="m-toolbar">
+        <div class="m-field">
+          <div class="m-field__icon">📅</div>
+          <input class="m-input" id="dtDia" type="date"/>
+        </div>
+
+        <div class="m-toolbar__right">
+          <button class="m-backbtn" type="button" id="btnVolver">‹ Volver</button>
+        </div>
+      </div>
+
+      <!-- Equipo (solo lectura) -->
+      <div class="m-field m-gap-10">
+        <div class="m-field__icon">👥</div>
+        <input class="m-input" id="txtEquipo" type="text" value="" readonly/>
+      </div>
+
+      <!-- Buscar vendedor -->
+      <div class="m-field m-gap-10">
+        <div class="m-field__icon">🔎</div>
+        <input class="m-input" id="txtBuscar" type="search" placeholder="Buscar vendedor…" autocomplete="off"/>
+      </div>
+    </div>
+
+    <!-- SOLO ESTE BLOQUE SCROLLEA -->
+    <main class="ventas-scroll">
+      <section class="ventas-layout">
+
+        <!-- Índice alfabético (si lo activas desde JS) -->
+        <aside id="abcBar" class="ventas-abc" aria-label="Índice alfabético" style="display:none;"></aside>
+
+        <!-- Lista de vendedores (cards) -->
+        <section class="m-card ventas-lista" aria-label="Lista de vendedores">
+          <div class="m-list" id="listaVendedores">
+            <!-- Render dinámico por JS -->
+          </div>
+        </section>
+
+      </section>
+    </main>
+
+    <!-- Bottom sheet: editar compromiso -->
+    <div id="sheetEditar" class="m-sheet" hidden>
+      <div class="m-sheet__backdrop" data-close></div>
+      <div class="m-sheet__panel" role="dialog" aria-modal="true" aria-label="Editar compromiso">
+        <div class="m-sheet__head">
+          <div class="m-sheet__title" id="sheetTitulo">Editar compromiso</div>
+          <button class="m-sheet__close" type="button" data-close aria-label="Cerrar">✕</button>
+        </div>
+
+        <div class="m-sheet__tabs">
+          <button class="m-tab is-active" type="button" id="tabSemanal">Semanal</button>
+          <button class="m-tab" type="button" id="tabMensual">Mensual</button>
+        </div>
+
+        <div class="m-sheet__body">
+          <div id="sheetContenido"><!-- Render dinámico por JS --></div>
+        </div>
+
+        <div class="m-sheet__footer">
+          <button class="m-btn" type="button" id="btnCancelarSheet">Cancelar</button>
+          <button class="m-btn m-btn--primary" type="button" id="btnGuardarSheet">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../scripts/mobile_shared.js"></script>
+    <script src="../scripts/compromisos.mobile.js"></script>
+
+  </div>
+</body>
+</html>
