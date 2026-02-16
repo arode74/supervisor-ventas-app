@@ -1,101 +1,80 @@
 // ============================================================
-//  CONFIG.JS — Cliente Supabase único + sesión (NORMALIZADA)
+//  CONFIG.JS — Cliente Supabase único + sesión (NO MODULES)
 // ============================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
-// Mantén versión fija para evitar sorpresas en runtime.
+(function () {
+  "use strict";
 
-// ------------------------------------------------------------
-//  Variables desde env.js (OBLIGATORIO)
-// ------------------------------------------------------------
-const SUPABASE_URL = window.__ENV__?.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY;
+  // Requiere que env.js esté cargado antes y defina window.__ENV__
+  const SUPABASE_URL = window.__ENV__?.SUPABASE_URL;
+  const SUPABASE_ANON_KEY = window.__ENV__?.SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error(
-    "❌ Faltan SUPABASE_URL o SUPABASE_ANON_KEY. Revisa env.js y que esté cargado antes de config.js."
-  );
-}
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("❌ Faltan SUPABASE_URL o SUPABASE_ANON_KEY en window.__ENV__ (env.js).");
+  }
 
-// ------------------------------------------------------------
-//  Cliente ÚNICO de Supabase para toda la APP
-// ------------------------------------------------------------
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // OJO: window.supabase DEBE ser la LIBRERÍA (supabase-js). No la pises.
+  if (!window.supabase?.createClient) {
+    throw new Error("❌ Falta cargar supabase-js antes de config.js.");
+  }
 
-// Export ES Modules
-export { supabase };
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Para módulos legacy que usan window.supabase
-window.supabase = supabase;
+  // Exponer cliente sin romper compatibilidad
+  window.sb = sb;                 // recomendado
+  window.supabaseClient = sb;     // alias por si acaso
 
-// ------------------------------------------------------------
-//  Helpers de sesión
-// ------------------------------------------------------------
-export function limpiarSesion() {
-  localStorage.removeItem("appVentasUser");
-  localStorage.removeItem("usuarioActivo");
-  localStorage.removeItem("idSupervisorActivo");
+  function limpiarSesion() {
+    localStorage.removeItem("appVentasUser");
+    localStorage.removeItem("usuarioActivo");
+    localStorage.removeItem("idSupervisorActivo");
+    sb.auth.signOut().catch((err) => console.error("Error cerrando sesión Supabase:", err));
+  }
 
-  supabase.auth.signOut().catch((err) => {
-    console.error("Error cerrando sesión Supabase:", err);
-  });
-}
+  function guardarUsuarioNormalizado(user, perfil) {
+    if (!user) return null;
+    const payload = {
+      id: user.id,
+      email: user.email ?? null,
+      nombre: perfil?.nombre ?? null,
+      genero: perfil?.genero ?? null,
+    };
+    localStorage.setItem("appVentasUser", JSON.stringify(payload));
+    return payload;
+  }
 
-export function guardarUsuarioNormalizado(user, perfil) {
-  if (!user) return null;
+  async function obtenerUsuarioActivo() {
+    try {
+      const { data, error } = await sb.auth.getUser();
+      if (error || !data?.user) {
+        limpiarSesion();
+        return null;
+      }
 
-  const payload = {
-    id: user.id,
-    email: user.email ?? null,
-nombre: perfil?.nombre ?? null,
-    genero: perfil?.genero ?? null,
-  };
+      const user = data.user;
 
-  localStorage.setItem("appVentasUser", JSON.stringify(payload));
-  return payload;
-}
+      let perfil = null;
+      try {
+        const { data: p, error: errP } = await sb
+          .from("profiles")
+          .select("nombre, genero")
+          .eq("id", user.id)
+          .single();
+        if (!errP) perfil = p;
+      } catch (e) {
+        console.warn("No se pudo leer profiles:", e);
+      }
 
-// ------------------------------------------------------------
-//  Obtener usuario activo (AUTH + PROFILES)
-//  Retorna: {id, email, nombre, genero}
-// ------------------------------------------------------------
-export async function obtenerUsuarioActivo() {
-  try {
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error || !data?.user) {
+      return guardarUsuarioNormalizado(user, perfil);
+    } catch (err) {
+      console.error("Error reconstruyendo usuario desde Supabase:", err);
       limpiarSesion();
       return null;
     }
-
-    const user = data.user;
-
-    // Intentar enriquecer con profiles
-    let perfil = null;
-    try {
-      const { data: p, error: errP } = await supabase
-        .from("profiles")
-        .select("nombre, genero")
-        .eq("id", user.id)
-        .single();
-
-      if (!errP) perfil = p;
-    } catch (e) {
-      console.warn("No se pudo leer profiles:", e);
-    }
-
-    const payload = guardarUsuarioNormalizado(user, perfil);
-
-    // (RBAC) No persistimos identidad en storage: supervisor = auth.uid()
-    return payload;
-  } catch (err) {
-    console.error("Error reconstruyendo usuario desde Supabase:", err);
-    limpiarSesion();
-    return null;
   }
-}
 
-// Exponer helpers globales (compatibilidad legacy)
-window.obtenerUsuarioActivo = obtenerUsuarioActivo;
-window.guardarUsuarioNormalizado = guardarUsuarioNormalizado;
-window.limpiarSesion = limpiarSesion;
+  // Helpers globales
+  window.limpiarSesion = limpiarSesion;
+  window.guardarUsuarioNormalizado = guardarUsuarioNormalizado;
+  window.obtenerUsuarioActivo = obtenerUsuarioActivo;
+})();
