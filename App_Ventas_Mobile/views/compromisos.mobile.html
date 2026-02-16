@@ -3,50 +3,52 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-  <title>Compromisos — Móvil</title>
+  <title>Compromiso — Móvil</title>
 
-  <!-- Mantener rutas relativas consistentes desde /views/ -->
-  <link rel="stylesheet" href="../styles/mobile-afp.css"/>
-  <link rel="stylesheet" href="../styles/mobile.css"/>
+  <link rel="stylesheet" href="/styles/mobile-afp.css"/>
+  <link rel="stylesheet" href="/styles/mobile.css"/>
 
-  <script src="../env.js"></script>
-  <script>
-    try {
-      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
-      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
-    } catch (e) {}
-  </script>
+  <!-- Config en raíz (según tu estructura) -->
+  <script src="/config.js"></script>
 
   <style>
-    /* Ajustes mínimos, encapsulados para esta vista */
-    .cmp-row { display:flex; gap:10px; align-items:center; }
-    .cmp-row > * { flex:1; }
-    .cmp-week { font-size:12px; opacity:.85; padding:8px 10px; border:1px solid rgba(0,0,0,.1); border-radius:10px; }
-    .cmp-card { border:1px solid rgba(0,0,0,.12); border-radius:14px; padding:12px; margin:10px 0; background:#fff; }
-    .cmp-card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .cmp-name { font-weight:700; font-size:16px; }
-    .cmp-kpi { font-weight:700; font-size:14px; white-space:nowrap; }
-    .cmp-sub { font-size:12px; opacity:.85; margin-top:6px; }
-    .cmp-bar { height:6px; border-radius:999px; background:rgba(0,0,0,.08); overflow:hidden; margin-top:10px; }
-    .cmp-bar > div { height:100%; width:0%; background:#1f6feb; }
-    .cmp-btn { border:0; border-radius:10px; padding:8px 12px; font-weight:700; cursor:pointer; background:#1f6feb; color:#fff; }
-    .cmp-btn:disabled { opacity:.6; cursor:not-allowed; }
-    .cmp-sheet-grid { display:grid; grid-template-columns: 1fr 110px; gap:10px; align-items:center; }
-    .cmp-input { width:100%; padding:10px; border:1px solid rgba(0,0,0,.16); border-radius:10px; font-size:14px; }
-    .cmp-hint { font-size:12px; opacity:.75; }
-    .cmp-tabs { display:flex; gap:8px; margin:10px 0 6px; }
-    .cmp-tab { flex:1; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,.16); background:#fff; font-weight:800; cursor:pointer; }
-    .cmp-tab.is-active { background:#1f6feb; color:#fff; border-color:#1f6feb; }
-    .cmp-sheet { position:fixed; inset:0; display:none; z-index:50; }
-    .cmp-sheet.is-open { display:block; }
-    .cmp-sheet .bd { position:absolute; inset:0; background:rgba(0,0,0,.35); }
-    .cmp-sheet .pn { position:absolute; left:0; right:0; bottom:0; background:#fff; border-top-left-radius:18px; border-top-right-radius:18px; padding:14px; max-height:80vh; overflow:auto; }
-    .cmp-sheet .hd { display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .cmp-sheet .ttl { font-weight:900; font-size:16px; }
-    .cmp-x { border:0; background:transparent; font-size:18px; cursor:pointer; }
-    .cmp-actions { display:flex; gap:10px; margin-top:12px; }
-    .cmp-actions button { flex:1; padding:12px; border-radius:12px; font-weight:900; border:1px solid rgba(0,0,0,.16); background:#fff; cursor:pointer; }
-    .cmp-actions .primary { background:#1f6feb; color:#fff; border-color:#1f6feb; }
+    /* Ajustes puntuales solicitados */
+    .cmp-name{font-size:14px;font-weight:900;line-height:1.1}
+    .cmp-kpi{font-size:12px;font-weight:800;opacity:.9;display:flex;gap:10px;flex-wrap:wrap}
+    .cmp-card{padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.06)}
+    .cmp-card-top{display:flex;align-items:flex-start;gap:10px}
+    .cmp-edit{margin-left:auto;border:0;border-radius:10px;padding:6px 10px;font-weight:900}
+    .cmp-progress{margin-top:8px;height:10px;border-radius:999px;background:rgba(0,0,0,.08);position:relative;overflow:hidden}
+    .cmp-bar{height:100%}
+    .cmp-pct{position:absolute;right:8px;top:-18px;font-size:11px;font-weight:900;opacity:.8}
+
+    /* Modal bottom sheet (simple y estable) */
+    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999}
+    #sheet{position:fixed;left:0;right:0;bottom:0;transform:translateY(110%);transition:transform .18s ease;background:#fff;border-top-left-radius:18px;border-top-right-radius:18px;z-index:1000;max-height:86vh;overflow:auto}
+    #sheet .grab{width:44px;height:5px;border-radius:99px;background:rgba(0,0,0,.15);margin:10px auto}
+    #sheet .sheetHeader{padding:0 14px 10px}
+    #sheet .sheetTitle{font-size:15px;font-weight:900}
+    #sheet .sheetSub{font-size:12px;font-weight:800;opacity:.75;margin-top:2px}
+    #sheet .tabs{display:flex;gap:8px;padding:0 14px 10px}
+    #sheet .tab{flex:1;border:0;border-radius:12px;padding:10px 8px;font-weight:900}
+    #sheet .tab.active{outline:2px solid rgba(0,0,0,.08)}
+    #sheet .sheetBody{padding:0 14px 12px}
+    #sheet .cmp-tr{display:grid;grid-template-columns:1.2fr .9fr 1fr;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+    #sheet .cmp-th{font-size:12px;font-weight:900;opacity:.7}
+    #sheet .cmp-tag{font-size:12px;font-weight:900}
+    #sheet .cmp-cell input{width:100%;padding:8px;border-radius:10px;border:1px solid rgba(0,0,0,.15);font-weight:900}
+    #sheet .diarioTop{display:flex;align-items:center;gap:10px;margin:8px 0 10px}
+    #sheet .diarioTop .sp{margin-left:auto;display:flex;gap:8px}
+    #sheet .navbtn{border:0;border-radius:10px;padding:8px 10px;font-weight:900}
+    #sheet .cmp-drow{padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06)}
+    #sheet .cmp-dtop{display:flex;gap:10px;align-items:center}
+    #sheet .cmp-dname{font-weight:900}
+    #sheet .cmp-damt{margin-left:auto;width:110px;padding:8px;border-radius:10px;border:1px solid rgba(0,0,0,.15);font-weight:900;text-align:right}
+    #sheet .cmp-dcom{width:100%;padding:8px;border-radius:10px;border:1px solid rgba(0,0,0,.15);font-weight:700}
+    #sheet .cmp-char-counter{font-size:11px;font-weight:900;opacity:.7;margin-top:6px}
+    #sheet .sheetFooter{display:flex;gap:10px;padding:10px 14px 14px}
+    #sheet .btn{flex:1;border:0;border-radius:12px;padding:12px 10px;font-weight:900}
+    #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:rgba(0,0,0,.85);color:#fff;padding:10px 12px;border-radius:12px;font-weight:900;opacity:0;transition:opacity .15s;z-index:2000}
   </style>
 </head>
 
@@ -54,75 +56,99 @@
   <div class="ventas-screen">
 
     <header class="m-topbar">
-      <img class="m-topbar__logo" src="../assets/logo_app_ventas.png" alt="APP Ventas"/>
+      <img class="m-topbar__logo" src="/assets/logo_app_ventas.png" alt="APP Ventas"/>
       <div class="m-topbar__title">Compromisos</div>
-      <button class="m-topbar__logout" id="btnSalir" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+      <button class="m-topbar__logout" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
     </header>
 
     <div class="ventas-top">
       <div class="m-toolbar">
         <div class="m-field">
           <div class="m-field__icon">📅</div>
-          <input class="m-input" id="dtDia" type="date"/>
+          <input class="m-input" id="dt-dia" type="date"/>
         </div>
 
         <div class="m-toolbar__right">
-          <button class="m-backbtn" type="button" id="btnVolver">‹ Volver</button>
-        </div>
-      </div>
-
-      <div class="cmp-row" style="margin-top:10px;">
-        <div class="cmp-week" id="lblSemana">Semana: —</div>
-        <div class="m-field" style="margin:0;">
-          <div class="m-field__icon">👥</div>
-          <input class="m-input" id="txtEquipo" type="text" value="" readonly/>
+          <button class="m-backbtn" type="button" id="btn-volver">‹ Volver</button>
         </div>
       </div>
 
       <div class="m-field m-gap-10">
         <div class="m-field__icon">🔎</div>
-        <input class="m-input" id="txtBuscar" type="search" placeholder="Buscar vendedor…" autocomplete="off"/>
+        <input class="m-input" id="txt-buscar" type="search" placeholder="Buscar vendedor…" autocomplete="off"/>
       </div>
     </div>
 
+    <!-- SOLO ESTE BLOQUE SCROLLEA -->
     <main class="ventas-scroll">
       <section class="ventas-layout">
+        <aside id="abcBar" class="ventas-abc" aria-label="Índice alfabético"></aside>
+
         <section class="m-card ventas-lista" aria-label="Lista de vendedores">
-          <div id="listaVendedores">
-            <!-- Render dinámico por JS -->
-          </div>
+          <div class="m-list" id="lista-vendedores"></div>
         </section>
       </section>
     </main>
 
-    <!-- Bottom sheet -->
-    <div id="sheet" class="cmp-sheet" aria-hidden="true">
-      <div class="bd" data-close></div>
-      <div class="pn" role="dialog" aria-modal="true" aria-label="Editar compromiso">
-        <div class="hd">
-          <div class="ttl" id="sheetTitulo">Editar Compromiso</div>
-          <button class="cmp-x" type="button" data-close aria-label="Cerrar">✕</button>
+    <!-- Modal -->
+    <div id="overlay"></div>
+    <div id="sheet" role="dialog" aria-modal="true" aria-label="Editar compromisos">
+      <div class="grab"></div>
+
+      <div class="sheetHeader">
+        <div class="sheetTitle">Editar</div>
+        <div class="sheetSub" id="modalSub"></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" id="tabMensual" type="button">Mensual</button>
+        <button class="tab" id="tabSemanal" type="button">Semanal</button>
+        <button class="tab" id="tabDiario" type="button">Diario</button>
+      </div>
+
+      <div class="sheetBody">
+        <div id="formMensual">
+          <div id="tblMensual"></div>
         </div>
 
-        <div class="cmp-hint" id="sheetSub">—</div>
-
-        <div class="cmp-tabs">
-          <button class="cmp-tab is-active" id="tabSemanal" type="button">Semanal</button>
-          <button class="cmp-tab" id="tabMensual" type="button">Mensual</button>
+        <div id="formSemanal" style="display:none">
+          <div id="tblSemanal"></div>
         </div>
 
-        <div id="sheetContenido"></div>
+        <div id="formDiario" style="display:none">
+          <div class="diarioTop">
+            <div style="font-weight:900" id="diaLabel"></div>
+            <div style="font-size:12px;font-weight:900;opacity:.75" id="lblSemana"></div>
+            <div class="sp">
+              <button class="navbtn" id="diaPrev" type="button">‹</button>
+              <button class="navbtn" id="diaNext" type="button">›</button>
+              <button class="navbtn" id="diarioAdd" type="button">＋</button>
+            </div>
+          </div>
+          <div id="diarioLista"></div>
 
-        <div class="cmp-actions">
-          <button type="button" id="btnCancelar">Cancelar</button>
-          <button type="button" class="primary" id="btnGuardar">Guardar</button>
+          <div id="diarioPicker" style="display:none;margin-top:10px">
+            <select id="diarioTipoSelect" class="m-input"></select>
+            <div style="display:flex;gap:10px;margin-top:10px">
+              <button class="btn" id="diarioTipoOk" type="button">OK</button>
+              <button class="btn" id="diarioTipoCancel" type="button">Cancelar</button>
+            </div>
+          </div>
         </div>
+      </div>
+
+      <div class="sheetFooter">
+        <button class="btn" id="btnCancelar" type="button">Cerrar</button>
+        <button class="btn" id="btnGuardar" type="button" style="display:none">Guardar</button>
+        <button class="btn" id="btnCerrar" type="button" style="display:none">Listo</button>
       </div>
     </div>
 
+    <div id="toast"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="../scripts/mobile_shared.js"></script>
-    <script src="../scripts/compromisos.mobile.js"></script>
+    <script src="/scripts/mobile_shared.js"></script>
+    <script src="/scripts/compromiso_mobile.js" defer></script>
 
   </div>
 </body>

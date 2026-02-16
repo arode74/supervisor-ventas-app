@@ -229,12 +229,204 @@
       border-right:2px solid rgba(25,84,140,0.18);
     }
 
-    /* Real: título centrado */
+    
+    /* Cierre visual del grupo REAL (faltaba el borde derecho) */
+    #tablaCompromisos th.real-start,
+    #tablaCompromisos td.real-start{
+      border-left:2px solid rgba(25,84,140,0.18);
+    }
+    #tablaCompromisos th.real-end,
+    #tablaCompromisos td.real-end{
+      border-right:2px solid rgba(25,84,140,0.18);
+    }
+
+/* Real: título centrado */
     #tablaCompromisos thead th.grp-real,
     #tablaCompromisos thead th[colspan="3"]{
       text-align:center !important;
     }
 
+
+  
+    /* ===============================
+       DETALLE DIARIO (NUEVO LAYOUT)
+       - Compromiso 65%
+       - Ayer mínimo (lu 16/02)
+       - Hoy: header "lunes 16/02" + [NN] + observación (1000) + 🎙 + 💾
+       - Alto autoajustable, compacto
+       =============================== */
+
+    /* La fila detalle no debe "comerse" ancho con padding */
+    #tablaCompromisos tbody tr.fila-detalle > td{
+      padding: 0 !important;
+    }
+
+    #tablaCompromisos .celda-detalle-compromisos{
+      width: 100%;
+      padding: 0;
+    }
+
+    #tablaCompromisos table.tabla-detalle-compromisos{
+      width: 100% !important;
+      max-width: 100% !important;
+      table-layout: fixed;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+
+    #tablaCompromisos table.tabla-detalle-compromisos th,
+    #tablaCompromisos table.tabla-detalle-compromisos td{
+      padding: 6px 8px;
+      vertical-align: middle;
+    }
+
+    /* Columna Compromiso 35% del ancho total del detalle */
+    #tablaCompromisos table.tabla-detalle-compromisos th:nth-child(1),
+    #tablaCompromisos table.tabla-detalle-compromisos td:nth-child(1){
+      width: 35%;
+      text-align: left;
+      white-space: normal;      /* permite wrap */
+      overflow-wrap: anywhere;  /* evita overflow por palabras largas */
+      line-height: 1.1;
+    }
+
+    /* Columna Ayer: lo más angosta posible */
+    #tablaCompromisos table.tabla-detalle-compromisos th:nth-child(2),
+    #tablaCompromisos table.tabla-detalle-compromisos td:nth-child(2){
+      width: 92px;              /* mínimo razonable para "lu 16/02" */
+      text-align: center;
+      white-space: nowrap;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    /* Columna Hoy: resto del ancho (100% - compromiso - ayer) */
+    #tablaCompromisos table.tabla-detalle-compromisos th:nth-child(3),
+    #tablaCompromisos table.tabla-detalle-compromisos td:nth-child(3){
+      width: calc(65% - 92px);
+      text-align: left;
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    /* Header de día: compacto */
+    #tablaCompromisos .dia-header{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding: 0 !important;
+    }
+
+    #tablaCompromisos .dia-header .lbl-dia{
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    /* Contenido Hoy: [NN] + textarea + botones */
+    #tablaCompromisos .compromiso-dia-hoy{
+      display:flex;
+      align-items:flex-start;
+      gap:6px;
+    }
+
+    #tablaCompromisos input.input-compromiso-dia{
+      width: 34px;              /* aprox [12] */
+      min-width: 34px;
+      max-width: 34px;
+      padding: 4px 4px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #tablaCompromisos textarea.input-compromiso-comentario{
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 120px;
+      resize: none;             /* auto por JS */
+      padding: 5px 6px;
+      line-height: 1.15;
+      max-height: 4.6em;        /* ~4 líneas; si excede, scroll */
+      overflow: auto;
+    }
+
+    #tablaCompromisos .btn-mic-compromiso-dia,
+    #tablaCompromisos .btn-guardar-compromiso-dia{
+      width: 34px;
+      min-width: 34px;
+      height: 30px;
+      line-height: 1;
+      padding: 0;
+      border-radius: 8px;
+    }
+
+    #tablaCompromisos .btn-mic-compromiso-dia.listening{
+      outline: 2px solid rgba(220, 53, 69, 0.35);
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.10);
+    }
+
+    /* ===== Detalle diario: altura mínima consistente (numérico vs observación) ===== */
+    #tablaCompromisos input.input-compromiso-dia{
+      height: 44px;
+      padding: 2px 6px;
+      line-height: 1.1;
+      box-sizing: border-box;
+    }
+
+    #tablaCompromisos textarea.input-compromiso-comentario{
+      min-height: 44px;   /* mínimo = alto del numérico */
+      height: 30px;       /* arranca igual de compacto */
+      padding: 4px 6px;
+      line-height: 1.2;
+      box-sizing: border-box;
+      resize: none;       /* autosize por JS */
+      overflow-y: hidden; /* luego JS lo cambia si supera max */
+    }
+
+    /* ===== Quitar flechas (spinner) del input numérico ===== */
+    #tablaCompromisos input.input-compromiso-dia::-webkit-outer-spin-button,
+    #tablaCompromisos input.input-compromiso-dia::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    #tablaCompromisos input.input-compromiso-dia {
+      -moz-appearance: textfield; /* Firefox */
+      appearance: textfield;
+    }
+
+    /* Compat: si queda el class anterior en algún lado */
+    #tablaCompromisos textarea.input-compromiso-obs{
+      height: 44px;
+      min-height: 44px;
+      box-sizing: border-box;
+      resize: none;
+    }
+
+    /* ===== Botón micrófono (dictado) minimalista: sin fondo azul ===== */
+    #tablaCompromisos .btn-mic-compromiso-dia{
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 6px 10px;
+    }
+    #tablaCompromisos .btn-mic-compromiso-dia:hover{
+      background: rgba(0,0,0,0.06) !important;
+      border-radius: 10px;
+    }
+    #tablaCompromisos .btn-mic-compromiso-dia.listening{
+      background: rgba(220, 53, 69, 0.10) !important; /* feedback suave */
+      border-radius: 10px;
+    }
+
+    /* ===== DIVISOR DEFINITIVO AYER | HOY (visible sí o sí) =====
+       Se aplica por estructura (2da columna del detalle), no por clases.
+       Usamos box-shadow inset para evitar que border-collapse "se la coma".
+    */
+    #tablaCompromisos table.tabla-detalle-compromisos th:nth-child(2),
+    #tablaCompromisos table.tabla-detalle-compromisos td:nth-child(2){
+      box-shadow: inset -2px 0 0 rgba(25,84,140,0.18) !important;
+    }
 
   </style>
 </head>

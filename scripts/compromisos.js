@@ -1,3 +1,4 @@
+// build: compromisos.web.fixed.v2 | sha256:6057e1aa605dbed4b7d913ecad0b49c69ed2010be3ac67988ff752ef82591de6
 // ================================
 // COMPROMISOS.JS - PANEL DE COMPROMISOS
 // Semanal (existente) + Mensual (nuevo) con un solo modal (2 tabs)
@@ -89,6 +90,37 @@ function ddmmDesdeISO(fechaISO) {
   if (!y || !m || !d) return "";
   return `${d}-${m}`;
 }
+
+function ddmmSlashDesdeISO(fechaISO) {
+  const [y, m, d] = String(fechaISO || "").split("-");
+  if (!y || !m || !d) return "";
+  return `${d}/${m}`;
+}
+function abrevDiaSemanaDesdeDate(dateObj) {
+  const dias = ["do","lu","ma","mi","ju","vi","sa"];
+  return dias[dateObj.getDay()];
+}
+function nombreDiaSemanaLowerDesdeDate(dateObj){
+  // "Lunes" -> "lunes"
+  return String(nombreDiaSemanaDesdeDate(dateObj) || "").toLowerCase();
+}
+
+// Headers de detalle diario:
+// - Ayer: "lu 16/02"
+// - Hoy:  "lunes 16/02" (+ badge feriado si corresponde)
+function headerAyerHTML(fechaISO) {
+  const d = new Date(fechaISO + "T00:00:00");
+  const ab = abrevDiaSemanaDesdeDate(d);
+  const ddmm = ddmmSlashDesdeISO(fechaISO);
+  return `<span class="lbl-dia">${escapeHtml(ab)} ${escapeHtml(ddmm)}</span>${construirBadgeFeriadoHTML(fechaISO)}`;
+}
+function headerHoyHTML(fechaISO) {
+  const d = new Date(fechaISO + "T00:00:00");
+  const full = nombreDiaSemanaLowerDesdeDate(d);
+  const ddmm = ddmmSlashDesdeISO(fechaISO);
+  return `<span class="lbl-dia">${escapeHtml(full)} ${escapeHtml(ddmm)}</span>${construirBadgeFeriadoHTML(fechaISO)}`;
+}
+
 
 // ✅ Ancla mensual (centralizado):
 // Por defecto: primer día del mes de la semana seleccionada (YYYY-MM-01)
@@ -252,7 +284,7 @@ function safeAlert(msg) {
   try {
     if (typeof window.mostrarAlerta === "function") window.mostrarAlerta(msg);
     else alert(msg);
-  } catch {
+  } catch (e) {
     alert(msg);
   }
 }
@@ -320,6 +352,7 @@ let fechaAyerDetalleISO = null;
 let idxMontoPorVendedorTipoFecha = new Map();
 let idxMontoPorVendedorTipo = new Map();
 let idxMontoMesPorVendedorTipo = new Map();
+let idxComentarioPorVendedorTipoFecha = new Map();
 
 // =========================
 // AUTENTICACION
@@ -353,7 +386,7 @@ async function obtenerPerfilActual() {
       localStorage.setItem("perfil_actual", rolActual);
       sessionStorage.setItem("perfil_actual", rolActual);
     }
-  } catch {}
+  } catch (e) {}
 }
 
 // =========================
@@ -467,15 +500,24 @@ function keyVT(idV, idT) {
 function reconstruirIndicesCompromisosSemana() {
   idxMontoPorVendedorTipoFecha = new Map();
   idxMontoPorVendedorTipo = new Map();
+  idxComentarioPorVendedorTipoFecha = new Map();
 
   for (const c of compromisosSemana) {
     const idV = c.id_vendedor;
     const idT = c.id_tipo;
     const f = c.fecha_compromiso;
     const m = Number(c.monto_comprometido || 0);
+    const com = (c.comentario ?? "");
 
     const k1 = keyVTF(idV, idT, f);
     idxMontoPorVendedorTipoFecha.set(k1, (idxMontoPorVendedorTipoFecha.get(k1) || 0) + m);
+
+    // comentario: guardamos el último no vacío (si existe)
+    if (String(com).trim() !== "") {
+      idxComentarioPorVendedorTipoFecha.set(k1, String(com));
+    } else if (!idxComentarioPorVendedorTipoFecha.has(k1)) {
+      idxComentarioPorVendedorTipoFecha.set(k1, "");
+    }
 
     const k2 = keyVT(idV, idT);
     idxMontoPorVendedorTipo.set(k2, (idxMontoPorVendedorTipo.get(k2) || 0) + m);
@@ -493,20 +535,22 @@ function reconstruirIndiceMes() {
   }
 }
 
-function setMontoEnIndiceSemana(idV, idT, fechaISO, nuevoMonto) {
+function setDiaEnIndiceSemana(idV, idT, fechaISO, nuevoMonto, nuevoComentario) {
   const monto = Number(nuevoMonto || 0);
+  const comentario = String(nuevoComentario ?? "").trim();
 
   compromisosSemana = (compromisosSemana || []).filter(
     (c) => !(c.id_vendedor === idV && c.id_tipo === idT && c.fecha_compromiso === fechaISO)
   );
 
-  if (monto > 0) {
+  // Persistimos registro si hay monto > 0 o comentario no vacío
+  if (monto > 0 || comentario !== "") {
     compromisosSemana.push({
       id_vendedor: idV,
       id_tipo: idT,
       monto_comprometido: monto,
       fecha_compromiso: fechaISO,
-      comentario: null,
+      comentario: comentario || null,
       id_supervisor: usuarioActual.id,
       id_equipo: localStorage.getItem("idEquipoActivo"),
     });
@@ -547,7 +591,9 @@ async function cargarTablaCompromisos() {
   const tbody = tabla?.querySelector("tbody");
   if (!tbody) return;
 
-  const totalCols = 3 + (columnasMensuales?.length || 0) + (columnasSemanales?.length || 0);
+  const colMens = (columnasMensuales?.length || 0);
+  const colSem  = (columnasSemanales?.length || 0);
+  const totalCols = 1 + colMens + colSem + 3 + 1; // vendedor + mensual + semanal + real(3) + acciones
 
   const idEquipo = localStorage.getItem("idEquipoActivo");
   if (!idEquipo) {
@@ -752,8 +798,8 @@ function construirHtmlDetalleCompromisos(idVendedor) {
 
   const fechaAyer = obtenerDiaHabilAnterior(fechaHoy);
 
-  const hoyHeader = headerDiaHTML(fechaHoy);
-  const ayerHeader = headerDiaHTML(fechaAyer);
+  const ayerHeader = headerAyerHTML(fechaAyer);
+  const hoyHeader = headerHoyHTML(fechaHoy);
 
   const esFeriadoHoy = !!getFeriado(fechaHoy);
 
@@ -782,7 +828,11 @@ function construirHtmlDetalleCompromisos(idVendedor) {
     const totalHoy =
       idxMontoPorVendedorTipoFecha.get(keyVTF(idVendedor, tipo.id, fechaHoy)) || 0;
 
-    const inputId = "input-hoy-" + idVendedor + "-" + tipo.id;
+    const comentarioHoy =
+      idxComentarioPorVendedorTipoFecha.get(keyVTF(idVendedor, tipo.id, fechaHoy)) || "";
+
+    const inputMontoId = "input-hoy-monto-" + idVendedor + "-" + tipo.id;
+    const inputComId = "input-hoy-com-" + idVendedor + "-" + tipo.id;
 
     const estiloFeriado = esFeriadoHoy
       ? 'style="background:#e9ecef; border-color:#b8bfc6; color:#495057;"'
@@ -791,18 +841,31 @@ function construirHtmlDetalleCompromisos(idVendedor) {
     html +=
       "<tr>" +
       "<td>" + escapeHtml(desc) + "</td>" +
-      '<td style="text-align:right;">' +
+      '<td style="text-align:center;">' +
       (totalAyer ? Number(totalAyer).toLocaleString("de-DE") : "0") +
       "</td>" +
-      '<td style="text-align:center;">' +
+      '<td style="text-align:left;">' +
       '<div class="compromiso-dia-hoy">' +
-      '<input type="number" id="' + inputId + '" class="input-compromiso-dia" ' +
-      estiloFeriado +
-      'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" min="0" step="1" value="' +
-      (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
-      '" />' +
-      '<button type="button" class="btn-guardar-compromiso-dia" ' +
-      'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '">💾</button>' +
+        // monto (2 dígitos)
+        '<input type="number" id="' + inputMontoId + '" class="input-compromiso-dia" ' +
+          estiloFeriado +
+          'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" ' +
+          'min="0" max="99" step="1" inputmode="numeric" value="' +
+          (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
+        '" />' +
+        // comentario (1000)
+        '<textarea id="' + inputComId + '" class="input-compromiso-comentario" ' +
+          estiloFeriado +
+          'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" ' +
+          'maxlength="1000" rows="1" placeholder="Observación (máx. 1000)">' +
+          escapeHtml(String(comentarioHoy || "")) +
+        '</textarea>' +
+        // mic
+        '<button type="button" class="btn-mic-compromiso-dia" ' +
+          'data-target="' + inputComId + '" title="Dictar">🎙</button>' +
+        // guardar
+        '<button type="button" class="btn-guardar-compromiso-dia" ' +
+          'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" title="Guardar">💾</button>' +
       "</div>" +
       "</td>" +
       "</tr>";
@@ -946,7 +1009,9 @@ function renderTabla() {
 
   tbody.innerHTML = "";
 
-  const totalCols = 2 + (columnasMensuales?.length || 0) + (columnasSemanales?.length || 0);
+  const colMens = (columnasMensuales?.length || 0);
+  const colSem  = (columnasSemanales?.length || 0);
+  const totalCols = 1 + colMens + colSem + 3 + 1; // vendedor + mensual + semanal + real(3) + acciones
   if (!datosTabla || datosTabla.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">Sin datos</td></tr>`;
     return;
@@ -1188,10 +1253,10 @@ function abrirModalCompromisos(idV, nombre) {
   tablaModalMensual.innerHTML = construirTablaInputs("mensuales", tiposMes, prevMesMap, "input-compromiso-mensual", labelMensual);
 
   tablaModalSemanal.querySelectorAll("input.input-compromiso-semanal").forEach((inp) => {
-    inp.addEventListener("focus", () => { try { inp.select(); } catch {} });
+    inp.addEventListener("focus", () => { try { inp.select(); } catch (e) {} });
   });
   tablaModalMensual.querySelectorAll("input.input-compromiso-mensual").forEach((inp) => {
-    inp.addEventListener("focus", () => { try { inp.select(); } catch {} });
+    inp.addEventListener("focus", () => { try { inp.select(); } catch (e) {} });
   });
 
   setTab("semanal");
@@ -1200,6 +1265,20 @@ function abrirModalCompromisos(idV, nombre) {
 
 if (tabSemanalBtn) tabSemanalBtn.addEventListener("click", () => setTab("semanal"));
 if (tabMensualBtn) tabMensualBtn.addEventListener("click", () => setTab("mensual"));
+
+
+// =========================
+// AUTOSIZE OBSERVACIONES (detalle diario)
+// =========================
+function autosizeObs(textarea) {
+  if (!textarea) return;
+  const MIN_H = 44;
+  const MAX_H = 120; // ~4 líneas compactas
+  textarea.style.height = "auto";
+  const h = Math.max(MIN_H, Math.min(MAX_H, textarea.scrollHeight || MIN_H));
+  textarea.style.height = h + "px";
+  textarea.style.overflowY = (textarea.scrollHeight > MAX_H) ? "auto" : "hidden";
+}
 
 // =========================
 // UI helpers detalle diario
@@ -1211,6 +1290,14 @@ function rerenderDetalleAbierto(idV) {
   if (!filaDetalle) return;
 
   filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
+      
+  
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));// autosize textareas
+      filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
+  // autosize textareas
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
   filaDetalle.style.display = "";
 }
 
@@ -1219,6 +1306,14 @@ function rerenderDetallesAbiertos() {
     if (filaDetalle.style.display !== "none") {
       const idV = filaDetalle.dataset.idVendedor;
       filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
+      
+  
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));// autosize textareas
+      filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
+  // autosize textareas
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
     }
   });
 }
@@ -1254,6 +1349,14 @@ async function __compromisosHandleClick(e) {
       btnToggle.setAttribute("aria-expanded", "false");
     } else {
       filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
+      
+  
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>autosizeObs(ta));
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>ta.addEventListener("input", ()=>autosizeObs(ta)));// autosize textareas
+      filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
+  // autosize textareas
+  filaDetalle.querySelectorAll("textarea.input-compromiso-comentario").forEach((ta)=>{ try{ __autoResizeTextArea(ta);}catch (e) {} });
       filaDetalle.style.display = "";
       btnToggle.textContent = "−";
       btnToggle.setAttribute("aria-expanded", "true");
@@ -1290,6 +1393,43 @@ async function __compromisosHandleClick(e) {
       return;
     }
 
+    const selMonto =
+      'input.input-compromiso-dia[data-id-vendedor="' + idV + '"][data-id-tipo="' + idTipo + '"]';
+    const selCom =
+      'textarea.input-compromiso-comentario[data-id-vendedor="' + idV + '"][data-id-tipo="' + idTipo + '"]';
+
+    const inputMonto = document.querySelector(selMonto);
+    const inputCom = document.querySelector(selCom);
+    if (!inputMonto) return;
+
+    // monto: 0..99 (2 dígitos)
+    let monto = Number(inputMonto.value || "0");
+    if (!Number.isFinite(monto) || monto < 0) monto = 0;
+    if (monto > 99) monto = 99;
+
+    const comentario = inputCom ? String(inputCom.value || "").trim() : "";
+
+    const fechaHoy = fechaHoyDetalleISO;
+
+    try {
+      await supabase.rpc("upsert_compromiso", {
+        p_id_equipo: idEquipo,
+        p_id_vendedor: idV,
+        p_id_tipo: idTipo,
+        p_fecha: fechaHoy,
+        p_monto: monto,
+        p_comentario: comentario || null,
+      });
+
+      setDiaEnIndiceSemana(idV, idTipo, fechaHoy, monto, comentario);
+      rerenderDetalleAbierto(idV);
+    } catch (err) {
+      console.error("Error inesperado al guardar compromiso diario:", err);
+      alert("Error inesperado al guardar compromiso diario.");
+    }
+    return;
+  }
+
     const selectorInput =
       'input.input-compromiso-dia[data-id-vendedor="' + idV + '"][data-id-tipo="' + idTipo + '"]';
     const inputDia = document.querySelector(selectorInput);
@@ -1316,10 +1456,9 @@ async function __compromisosHandleClick(e) {
     }
     return;
   }
-}
 
 if (window.__compromisosClickHandler) {
-  try { document.removeEventListener("click", window.__compromisosClickHandler); } catch {}
+  try { document.removeEventListener("click", window.__compromisosClickHandler); } catch (e) {}
 }
 window.__compromisosClickHandler = __compromisosHandleClick;
 document.addEventListener("click", window.__compromisosClickHandler);
@@ -1327,9 +1466,145 @@ document.addEventListener("click", window.__compromisosClickHandler);
 document.addEventListener("focusin", (e) => {
   const inp = e.target;
   if (inp && inp.matches && inp.matches("input.input-compromiso-dia")) {
-    try { inp.select(); } catch {}
+    try { inp.select(); } catch (e) {}
   }
 });
+
+// =========================
+// DETALLE DIARIO - INPUTS (2 dígitos + textarea autosize) + DICTADO
+// =========================
+function __autoResizeTextArea(ta) {
+  try {
+    ta.style.height = "auto";
+    // límite visual (~4 líneas); si supera, quedará con scroll
+    const maxH = parseFloat(getComputedStyle(ta).lineHeight || "16") * 4.2 + 12;
+    ta.style.height = Math.min(ta.scrollHeight, maxH) + "px";
+  } catch (e) {}
+}
+
+document.addEventListener("input", (e) => {
+  const el = e.target;
+
+  // fuerza 0..99 y no más de 2 dígitos
+  if (el && el.matches && el.matches("input.input-compromiso-dia")) {
+    const raw = String(el.value || "").replace(/[^0-9]/g, "");
+    const clipped = raw.slice(0, 2);
+    if (String(el.value || "") !== clipped) el.value = clipped;
+    return;
+  }
+
+  // textarea autosize
+  if (el && el.matches && el.matches("textarea.input-compromiso-comentario")) {
+    __autoResizeTextArea(el);
+  }
+});
+
+// al renderizar detalle, ajustamos altura inicial de textareas
+document.addEventListener("focusin", (e) => {
+  const el = e.target;
+  if (el && el.matches && el.matches("textarea.input-compromiso-comentario")) {
+    __autoResizeTextArea(el);
+  }
+});
+
+// Dictado (Speech-to-Text)
+let __avSpeechRec = null;
+let __avSpeechActiveTa = null;
+let __avSpeechBase = "";
+let __avSpeechFinal = "";
+
+function __getSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+
+  const rec = new SR();
+  rec.lang = "es-CL";
+  rec.interimResults = true;
+  rec.continuous = true;
+
+  rec.onresult = (event) => {
+    if (!__avSpeechActiveTa) return;
+
+    let interimText = "";
+    // Acumula solo finales NUEVOS desde resultIndex
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const t = (event.results[i][0]?.transcript || "").trim();
+      if (!t) continue;
+      if (event.results[i].isFinal) {
+        __avSpeechFinal = (__avSpeechFinal ? (__avSpeechFinal + " " + t) : t);
+      } else {
+        interimText += (interimText ? (" " + t) : t);
+      }
+    }
+
+    const base = String(__avSpeechBase || "").trim();
+    const parts = [];
+    if (base) parts.push(base);
+    if (__avSpeechFinal) parts.push(__avSpeechFinal.trim());
+    if (interimText) parts.push(interimText.trim());
+
+    __avSpeechActiveTa.value = parts.join(" ").slice(0, 1000);
+    __autoResizeTextArea(__avSpeechActiveTa);
+  };
+
+  rec.onerror = () => {
+    // silencioso; UI se apaga al finalizar
+  };
+
+  rec.onend = () => {
+    // limpia estado visual
+    document.querySelectorAll(".btn-mic-compromiso-dia.listening").forEach((b) => b.classList.remove("listening"));
+    __avSpeechActiveTa = null;
+    __avSpeechBase = "";
+    __avSpeechFinal = "";
+  };
+
+  return rec;
+}
+
+function __toggleDictado(btn) {
+  const targetId = btn?.dataset?.target;
+  if (!targetId) return;
+
+  const ta = document.getElementById(targetId);
+  if (!ta) return;
+
+  if (!__avSpeechRec) __avSpeechRec = __getSpeechRecognition();
+  if (!__avSpeechRec) {
+    safeAlert("Dictado no disponible en este navegador.");
+    return;
+  }
+
+  const yaEscuchando = btn.classList.contains("listening");
+
+  // detener si estaba activo
+  if (yaEscuchando) {
+    try { __avSpeechRec.stop(); } catch (e) {}
+    btn.classList.remove("listening");
+    __avSpeechActiveTa = null;
+    __avSpeechBase = "";
+    __avSpeechFinal = "";
+    return;
+  }
+
+  // detener otros botones
+  document.querySelectorAll(".btn-mic-compromiso-dia.listening").forEach((b) => b.classList.remove("listening"));
+
+  __avSpeechActiveTa = ta;
+  __avSpeechBase = String(ta.value || "");
+  __avSpeechFinal = "";
+  __autoResizeTextArea(ta);
+
+  btn.classList.add("listening");
+  try { __avSpeechRec.start(); } catch (e) {}
+}
+
+document.addEventListener("click", (e) => {
+  const btnMic = e.target.closest(".btn-mic-compromiso-dia");
+  if (!btnMic) return;
+  __toggleDictado(btnMic);
+});
+
 
 // =========================
 // FORM MODAL (GUARDAR SEGÚN TAB)
@@ -1493,7 +1768,7 @@ window.addEventListener("equipoCambiado", async () => {
   await cargarTablaCompromisos();
 
   if (window.__compromisosIntervalId) {
-    try { clearInterval(window.__compromisosIntervalId); } catch {}
+    try { clearInterval(window.__compromisosIntervalId); } catch (e) {}
   }
   window.__compromisosIntervalId = setInterval(verificarCambioEquipo, 500);
 })();
