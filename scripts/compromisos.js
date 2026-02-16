@@ -338,6 +338,59 @@ let semanaInicioActual = null;
 let semanaFinActual = null;
 
 let datosTabla = [];
+
+// =========================
+// PERF: Cache + precarga de Detalle (Ayer/Hoy)
+// =========================
+const __detalleHtmlCache = new Map(); // key: `${idVendedor}|${fechaHoyDetalleISO}` => html
+let __detallePreloadToken = 0;
+
+function __detalleCacheKey(idVendedor) {
+  return `${idVendedor}|${fechaHoyDetalleISO || ""}`;
+}
+
+function __invalidateDetalleCache() {
+  __detalleHtmlCache.clear();
+  __detallePreloadToken++;
+}
+
+function __idle(fn, timeout = 800) {
+  const ric = window.requestIdleCallback;
+  if (typeof ric === "function") return ric(fn, { timeout });
+  return setTimeout(() => fn({ timeRemaining: () => 0, didTimeout: true }), 0);
+}
+
+/**
+ * Precarga SOLO HTML (sin insertar DOM) para que al expandir sea instantáneo.
+ * No bloquea: 1 vendedor por idle slice.
+ */
+function precargarDetalleAyerHoyEnBackground() {
+  if (!Array.isArray(datosTabla) || datosTabla.length === 0) return;
+
+  const token = ++__detallePreloadToken;
+  const ids = datosTabla.map((d) => d.id_vendedor).filter(Boolean);
+
+  let i = 0;
+  const step = () => {
+    if (token !== __detallePreloadToken) return; // invalidado
+    const start = i;
+    // procesa 1 por slice para no congelar
+    const idV = ids[i++];
+    if (idV) {
+      const k = __detalleCacheKey(idV);
+      if (!__detalleHtmlCache.has(k)) {
+        try {
+          __detalleHtmlCache.set(k, __construirHtmlDetalleCompromisos_base(idV));
+        } catch (e) {
+          // si falla, no cachea (no rompe UI)
+        }
+      }
+    }
+    if (i < ids.length) __idle(step);
+  };
+
+  __idle(step);
+}
 let compromisosSemana = [];
 let compromisosMes = [];
 
@@ -708,6 +761,8 @@ async function cargarTablaCompromisos() {
   sortDatosTabla();
 
   renderTabla();
+  // PERF: precarga de detalle (Ayer/Hoy) en background
+  precargarDetalleAyerHoyEnBackground();
 }
 
 
@@ -782,7 +837,7 @@ async function cargarRealesMes(idsVendedores, anclaMesISO) {
 // =========================
 // DETALLE EXPANDIBLE (DIARIO) - SIN CAMBIOS
 // =========================
-function construirHtmlDetalleCompromisos(idVendedor) {
+function __construirHtmlDetalleCompromisos_base(idVendedor) {
   const tiposSupervisor = tiposSupervisorCache;
 
   if (!tiposSupervisor || tiposSupervisor.length === 0) {
@@ -874,6 +929,15 @@ function construirHtmlDetalleCompromisos(idVendedor) {
   html += "</tbody></table>";
   return html;
 }
+
+function construirHtmlDetalleCompromisos(idVendedor) {
+  const k = __detalleCacheKey(idVendedor);
+  if (__detalleHtmlCache.has(k)) return __detalleHtmlCache.get(k);
+  const html = __construirHtmlDetalleCompromisos_base(idVendedor);
+  __detalleHtmlCache.set(k, html);
+  return html;
+}
+
 
 
 
@@ -1378,8 +1442,11 @@ async function __compromisosHandleClick(e) {
 
     fechaHoyDetalleISO = candidato;
     fechaAyerDetalleISO = obtenerDiaHabilAnterior(fechaHoyDetalleISO);
+    __invalidateDetalleCache();
 
     rerenderDetallesAbiertos();
+    // PERF: precarga para el nuevo 'hoy'
+    precargarDetalleAyerHoyEnBackground();
     return;
   }
 

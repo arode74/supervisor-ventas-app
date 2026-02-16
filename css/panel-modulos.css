@@ -945,3 +945,430 @@ dialog.modal .modal-contenido{
 #modalNuevoTipo .modal-checkline input[type="checkbox"]{
   margin: 0;
 }
+
+/* =========================================================
+   Reporte Ventas Semanal - Encabezado tipo Excel (2 niveles)
+   ========================================================= */
+
+.rvs-table th,
+.rvs-table td {
+  border: 1px solid rgba(0,0,0,0.12);
+  padding: 6px 8px;
+}
+
+.rvs-table .rvs-th {
+  background: #cfe3f7;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.rvs-table .rvs-th-left { text-align: left; }
+.rvs-table .rvs-th-center { text-align: center; }
+.rvs-table .rvs-th-right { text-align: right; }
+
+.rvs-table .rvs-th-group {
+  font-size: 12px;
+}
+
+.rvs-table .rvs-td-left { text-align: left; }
+.rvs-table .rvs-td-right { text-align: right; white-space: nowrap; }
+
+/* APP más ancho para que el nombre quede máximo en 2 líneas */
+.rvs-table .rvs-col-aapp {
+  width: 240px;          /* ajusta si quieres: 220-280 */
+  max-width: 240px;
+}
+
+/* Equipo un poquito más controlado */
+.rvs-table .rvs-col-equipo {
+  width: 140px;
+  max-width: 160px;
+  white-space: nowrap;
+}
+
+/* Forzar máximo 2 líneas (corta el resto) */
+.rvs-table .rvs-aapp-wrap {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+/* Fila TOTAL */
+.rvs-table .rvs-tr-total {
+  background: #f2f6fb;
+  font-weight: 900;
+}
+
+/* ===================== Reporte Ventas Semana - Modal fullscreen ===================== */
+.rvw-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+}
+
+.rvw-modal.is-open {
+  display: block;
+}
+
+.rvw-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+}
+
+.rvw-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0,0,0,0.10);
+  background: #cfe3f7;
+}
+
+.rvw-modal__titlewrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rvw-modal__title {
+  font-weight: 800;
+  font-size: 14px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rvw-modal__sub {
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rvw-modal__close {
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #fff;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rvw-modal__body {
+  padding: 12px 14px;
+  overflow: auto;
+  height: 100%;
+}
+
+.rvw-modal__footer {
+  padding: 10px 14px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  background: #f7fbff;
+}
+
+.rvw-btn {
+  border: 1px solid rgba(0,0,0,0.18);
+  background: #cfe3f7;
+  color: #000;
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* ===================== Sticky header + sticky TOTAL dentro del modal ===================== */
+/* Aplica a la tabla detallada que inyectas dentro de #rvwModalContent */
+#rvwModalContent table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Header fijo */
+#rvwModalContent thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* Total fijo abajo: asigna clase a la fila total en JS: tr.classList.add('rvw-total-row') */
+#rvwModalContent tr.rvw-total-row td {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: #f2f6fb !important;
+  font-weight: 800;
+}
+
+/* === Reporte Ventas Semanal (por equipo + modal detalle) === */
+
+/* Contenedor general */
+.modulo-reporte-ventas-semana .rv-head{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding:10px 0 14px 0;
+}
+.modulo-reporte-ventas-semana .rv-title{
+  font-weight:800;
+  font-size:18px;
+  text-align:center;
+}
+.modulo-reporte-ventas-semana .rv-controls{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.modulo-reporte-ventas-semana .rv-label{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  white-space:nowrap;
+}
+.modulo-reporte-ventas-semana .rv-rango{
+  font-size:13px;
+  opacity:.85;
+  white-space:nowrap;
+}
+.modulo-reporte-ventas-semana .rv-estado{
+  font-size:13px;
+  text-align:center;
+  min-height:18px;
+}
+
+/* Card resumen */
+.rvs-card{
+  border:1px solid rgba(0,0,0,.08);
+  border-radius:10px;
+  padding:12px;
+  background:rgba(255,255,255,.7);
+}
+.rvs-card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.rvs-card-title{
+  font-weight:800;
+  font-size:14px;
+}
+.rvs-card-subtitle{
+  font-size:12px;
+  opacity:.85;
+}
+
+/* Tabla resumen (ajustada al marco) */
+.rvs-table-scroller{
+  width:100%;
+  overflow:auto;
+  margin-top:10px;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.rvs-table{
+  width:100%;
+  min-width:960px; /* fuerza scroll si no cabe */
+  border-collapse:separate;
+  border-spacing:0;
+  font-size:12px;
+}
+.rvs-table th, .rvs-table td{
+  border:1px solid rgba(0,0,0,.12);
+  padding:6px 8px;
+  white-space:nowrap;
+}
+.rvs-table thead th{
+  background:#cfe3f7;
+  text-align:center;
+  position:sticky;
+  top:0;
+  z-index:3;
+}
+.rvs-table thead th.group-head{
+  font-weight:800;
+}
+.rvs-table td.num{ text-align:right; }
+.rvs-table td.col-equipo, .rvs-table th.col-equipo{ text-align:left; }
+
+/* Sticky primera columna */
+.rvs-table .sticky-col{
+  position:sticky;
+  left:0;
+  z-index:4;
+  background:inherit;
+}
+
+/* Fila TOTAL sticky abajo */
+.rvs-table tfoot td{
+  background:#f2f6fb;
+  position:sticky;
+  bottom:0;
+  z-index:5;
+}
+.rvs-table tr.clickable:hover td{
+  background:rgba(0,123,255,.06);
+  cursor:pointer;
+}
+
+/* === Modal === */
+.av-modal-overlay{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.45);
+  z-index:9999;
+  padding:14px;
+}
+
+.av-modal-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  background:#0a4a86;
+  color:#fff;
+}
+.av-modal-title{
+  font-weight:800;
+  font-size:14px;
+}
+.av-modal-close{
+  border:none;
+  background:#ffffff;
+  color:#0a4a86;
+  font-weight:800;
+  padding:6px 12px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.av-modal-body{
+  padding:12px;
+  overflow:auto;
+}
+
+/* Tabla detalle en modal */
+.rvs-detalle-meta{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  font-size:12px;
+  margin-bottom:10px;
+}
+.rvs-detalle-scroller{
+  width:100%;
+  overflow:auto;
+  border-radius:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,.06);
+}
+.rvs-detalle-table{
+  width:100%;
+  min-width:1100px;
+  border-collapse:separate;
+  border-spacing:0;
+  font-size:12px;
+}
+.rvs-detalle-table th, .rvs-detalle-table td{
+  border:1px solid rgba(0,0,0,.12);
+  padding:6px 8px;
+  white-space:nowrap;
+}
+.rvs-detalle-table thead th{
+  background:#cfe3f7;
+  text-align:center;
+  position:sticky;
+  top:0;
+  z-index:3;
+}
+.rvs-detalle-table td.num{ text-align:right; }
+
+/* Sticky col AAPP + Equipo en detalle */
+.rvs-detalle-table .sticky-col{
+  position:sticky;
+  left:0;
+  z-index:4;
+  background:inherit;
+}
+.rvs-detalle-table .col-aapp{
+  min-width:240px;   /* 2 líneas máx en desktop */
+  white-space:normal;
+  line-height:1.15;
+}
+.rvs-detalle-table .col-equipo{
+  min-width:140px;
+}
+
+/* TOTAL en detalle sticky abajo */
+.rvs-detalle-table tfoot td{
+  background:#f2f6fb;
+  position:sticky;
+  bottom:0;
+  z-index:5;
+}
+
+/* =========================================================
+   FIX DEFINITIVO: Reporte Ventas Semanal modal = 80% del contenedor APP
+   (gana contra dialog.modal[open]{max-width:96vw} y contra estilos fullscreen)
+   ========================================================= */
+
+/* 1) Si el modal del reporte es un <dialog> (el caso más probable) */
+#modalDetalleVentasSemana[open],
+#modal-detalle-ventas-semana[open],
+#rvwModal[open]{
+  width: 80% !important;
+  max-width: 80% !important;
+}
+
+/* Evita que el max-width global 96vw lo “re-infla” */
+#modalDetalleVentasSemana[open].modal,
+#modal-detalle-ventas-semana[open].modal,
+#rvwModal[open].modal{
+  max-width: 80% !important;
+}
+
+/* 2) Si el modal del reporte es DIV/overlay con caja interna */
+.av-modal-overlay .av-modal-box,
+.av-modal-overlay .modal-contenido{
+  width: 80% !important;
+  max-width: 80% !important;
+}
+
+/* 3) Si por tu flujo se usa el panel tipo rvw */
+.rvw-modal__panel{
+  width: 80% !important;
+  max-width: 80% !important;
+  inset: auto !important;     /* mata fullscreen */
+  margin: 0 auto !important;
+}
+
+/* 4) Scroll vertical asegurado */
+#modalDetalleVentasSemana .av-modal-body,
+#modal-detalle-ventas-semana .av-modal-body,
+#rvwModal .av-modal-body,
+.rvw-modal__body{
+  max-height: 80vh !important;
+  overflow-y: auto !important;
+}
