@@ -14,19 +14,13 @@
 
   /* ----------------------------- Supabase --------------------------------- */
   function getSupabase() {
-    try {
-      if (window.supabaseClient) return window.supabaseClient;
-      if (window.supabase?.createClient) {
-        return window.supabase.createClient(
-          window.SUPABASE_URL,
-          window.SUPABASE_ANON_KEY
-        );
-      }
-      return null;
-    } catch {
-      return null;
-    }
+  // Fuente única: el cliente creado en config.js
+  try {
+    return window.sb || window.supabaseClient || null;
+  } catch {
+    return null;
   }
+}
 
   async function ensureSessionOrRedirect(loginUrl = "../views/login.html") {
     const supabase = getSupabase();

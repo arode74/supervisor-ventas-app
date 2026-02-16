@@ -13,18 +13,15 @@
   const btnLogout = $("#btnLogout");
 
   function createSbClient() {
-    if (!window.supabase || typeof window.supabase.createClient !== "function") {
-      throw new Error("Supabase SDK no está cargado. Falta el script CDN.");
-    }
-    if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
-      throw new Error("Faltan SUPABASE_URL / SUPABASE_ANON_KEY (env.js).");
-    }
-    return window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-  }
+  // Fuente única: el cliente creado en config.js
+  const sb = window.sb || window.supabaseClient || null;
+  if (!sb) throw new Error("Supabase client no inicializado. Falta cargar config.js.");
+  return sb;
+}
 
-  const sb = createSbClient();
-
-  function setEquipoActivo(idEquipo) {
+  const sb = window.sb || window.supabaseClient;
+if (!sb) throw new Error("Supabase client no inicializado. Falta cargar config.js.");
+function setEquipoActivo(idEquipo) {
     try { localStorage.setItem("av_mobile_equipo_id", String(idEquipo || "")); } catch {}
   }
   function getEquipoActivo() {

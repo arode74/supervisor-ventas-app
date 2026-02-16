@@ -164,24 +164,20 @@
   }
 
   function getSupabase() {
-    if (state.sb) return state.sb;
+  if (state.sb) return state.sb;
 
-    const url = window.SUPABASE_URL || window.__SUPABASE_URL__ || window.env?.SUPABASE_URL;
-    const key =
-      window.SUPABASE_ANON_KEY ||
-      window.SUPABASE_KEY ||
-      window.__SUPABASE_ANON_KEY__ ||
-      window.env?.SUPABASE_ANON_KEY;
+  // Usar cliente único creado en config.js (NO crear otro client aquí)
+  const sb = window.sb || window.supabaseClient || null;
 
-    if (!url || !key || !window.supabase) {
-      console.error("Supabase env no disponible (SUPABASE_URL / SUPABASE_ANON_KEY).");
-      showToast("Falta configuración Supabase");
-      return null;
-    }
-
-    state.sb = window.supabase.createClient(url, key);
-    return state.sb;
+  if (!sb) {
+    console.error("Supabase client no inicializado. Falta cargar config.js antes.");
+    showToast("Falta configuración Supabase");
+    return null;
   }
+
+  state.sb = sb;
+  return state.sb;
+}
 
   async function requireUser(sb) {
     const { data, error } = await sb.auth.getUser();

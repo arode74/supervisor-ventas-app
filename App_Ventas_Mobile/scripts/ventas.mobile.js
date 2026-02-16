@@ -118,14 +118,11 @@
   // Supabase
   // ---------------------------
   function requireSupabase() {
-    if (!window.supabase || typeof window.supabase.createClient !== "function") {
-      throw new Error("Supabase JS no está cargado.");
-    }
-    const url = window.SUPABASE_URL;
-    const anon = window.SUPABASE_ANON_KEY;
-    if (!url || !anon) throw new Error("Faltan SUPABASE_URL / SUPABASE_ANON_KEY.");
-    return window.supabase.createClient(url, anon);
-  }
+  // Fuente única: el cliente creado en config.js
+  const sb = window.sb || window.supabaseClient || null;
+  if (!sb) throw new Error("Supabase client no inicializado. Falta cargar config.js.");
+  return sb;
+}
 
   let sb;
   try {
