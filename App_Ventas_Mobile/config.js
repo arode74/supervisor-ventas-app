@@ -6,9 +6,9 @@
 (function () {
   "use strict";
 
-  // Soporta ambos formatos de env.js:
-  // 1) window.__ENV__ = { SUPABASE_URL, SUPABASE_ANON_KEY }
-  // 2) window.SUPABASE_URL / window.SUPABASE_ANON_KEY (legacy)
+  // Marca env cargado si existe
+  try { if (window.__av_diag__) window.__av_diag__.envLoaded = !!window.__ENV__; } catch {}
+
   const SUPABASE_URL =
     window.__ENV__?.SUPABASE_URL ||
     window.SUPABASE_URL ||
@@ -23,22 +23,24 @@
     window.env?.SUPABASE_ANON_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.error("ENV NO ENCONTRADO:", {
+    console.error("[config.js] ENV NO ENCONTRADO:", {
       __ENV__: window.__ENV__,
       SUPABASE_URL: window.SUPABASE_URL,
       SUPABASE_ANON_KEY: window.SUPABASE_ANON_KEY,
     });
-    throw new Error("Faltan credenciales Supabase (env.js).");
+    // No reventar silencioso: dejar flag y salir
+    try { if (window.__av_diag__) window.__av_diag__.configError = "missing_env"; } catch {}
+    return;
   }
 
   if (!window.supabase?.createClient) {
-    throw new Error("Falta cargar supabase-js antes de config.js.");
+    console.error("[config.js] Falta supabase-js antes de config.js.");
+    try { if (window.__av_diag__) window.__av_diag__.configError = "missing_supabase_js"; } catch {}
+    return;
   }
 
-  // Evitar múltiples clientes
   if (!window.sb) {
     window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
-
   window.supabaseClient = window.sb;
 })();
