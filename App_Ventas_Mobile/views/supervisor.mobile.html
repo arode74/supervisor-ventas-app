@@ -1,229 +1,60 @@
-// supervisor.mobile.js — HOTFIX ESTABLE (no revienta si config.js no cargó)
-// - Usa window.sb/window.supabaseClient si existen (config.js)
-// - Fallback: crea client una sola vez si existe supabase-js + env vars
-// - Nunca lanza error en top-level; si falta Supabase, muestra mensaje y redirige a login
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>APP Ventas — Supervisor (Mobile)</title>
 
-(() => {
-  "use strict";
+  <!-- Styles (ajusta si tus rutas difieren) -->
+  <link rel="stylesheet" href="../styles/mobile-afp.css" />
+  <link rel="stylesheet" href="../styles/mobile.css" />
 
-  const $ = (s) => document.querySelector(s);
+  <!-- ENV primero -->
+  <script src="../env.js"></script>
+</head>
 
-  const nombreSupervisorEl = $("#nombreSupervisor");
-  const equipoBtn = $("#equipoBtn");
-  const equipoDropdown = $("#equipoDropdown");
-  const equipoLabel = $("#equipoSeleccionado");
+<body class="page-supervisor">
+  <div class="m-shell">
 
-  const btnVentas = $("#btnVentas");
-  const btnCompromisos = $("#btnCompromisos");
-  const btnLogout = $("#btnLogout");
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="../assets/logo_app_ventas.png" alt="APP Ventas" />
+      <div class="m-topbar__title">APP Ventas</div>
+      <button class="m-topbar__logout" id="btnLogout" type="button" aria-label="Cerrar sesión">⏻</button>
+    </header>
 
-  function showStatus(msg) {
-    try {
-      if (nombreSupervisorEl) nombreSupervisorEl.textContent = msg;
-    } catch {}
-  }
+    <main class="m-page">
 
-  function getEnv() {
-    const url =
-      window.__ENV__?.SUPABASE_URL ||
-      window.SUPABASE_URL ||
-      window.__SUPABASE_URL__ ||
-      window.env?.SUPABASE_URL;
+      <section class="m-hero m-center">
+        <h2 class="m-hero__title">Supervisor</h2>
+        <div class="m-hero__sub" id="nombreSupervisor">—</div>
 
-    const key =
-      window.__ENV__?.SUPABASE_ANON_KEY ||
-      window.SUPABASE_ANON_KEY ||
-      window.SUPABASE_KEY ||
-      window.__SUPABASE_ANON_KEY__ ||
-      window.env?.SUPABASE_ANON_KEY;
+        <div class="equipo-selector-wrapper">
+          <button id="equipoBtn" class="equipo-btn" type="button">
+            <span id="equipoSeleccionado">Seleccionar equipo</span>
+            <span class="chevron">▾</span>
+          </button>
 
-    return { url, key };
-  }
+          <div id="equipoDropdown" class="equipo-dropdown hidden" aria-hidden="true"></div>
+        </div>
+      </section>
 
-  function getSupabaseClient() {
-    // 1) preferir client único de config.js
-    if (window.sb) return window.sb;
-    if (window.supabaseClient) return window.supabaseClient;
+      <section class="m-actions">
+        <button class="m-btn" id="btnVentas" type="button">Ventas</button>
+        <button class="m-btn" id="btnCompromisos" type="button">Compromisos</button>
+      </section>
 
-    // 2) fallback: si existe supabase-js y env, crear UNA sola vez
-    const lib = window.supabase;
-    if (!lib?.createClient) return null;
+    </main>
 
-    const { url, key } = getEnv();
-    if (!url || !key) return null;
+    <!-- ORDEN CORRECTO DE SCRIPTS -->
+    <!-- 1) Supabase JS (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    if (!window.__sb_fallback__) {
-      window.__sb_fallback__ = lib.createClient(url, key);
-    }
-    return window.__sb_fallback__;
-  }
+    <!-- 2) Config (crea window.sb) -->
+    <script src="../config.js"></script>
 
-  function setEquipoActivo(idEquipo) {
-    try { localStorage.setItem("av_mobile_equipo_id", String(idEquipo || "")); } catch {}
-  }
-  function getEquipoActivo() {
-    try { return localStorage.getItem("av_mobile_equipo_id") || ""; } catch { return ""; }
-  }
+    <!-- 3) JS de Supervisor -->
+    <script src="../scripts/supervisor.mobile.js" defer></script>
 
-  function bindDropdownUI() {
-    equipoBtn?.addEventListener("click", (e) => {
-      e.preventDefault();
-      equipoDropdown?.classList.toggle("hidden");
-    });
-
-    document.addEventListener("click", (e) => {
-      const wrap = e.target?.closest?.(".equipo-selector-wrapper");
-      if (!wrap) equipoDropdown?.classList.add("hidden");
-    });
-  }
-
-  function renderEquipos(rows) {
-    if (!equipoDropdown) return;
-    equipoDropdown.innerHTML = "";
-
-    const selected = getEquipoActivo();
-    const first = rows[0];
-
-    for (const r of rows) {
-      const id = r.id_equipo;
-      const nombre = r.equipos?.nombre_equipo || id;
-
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = nombre;
-
-      b.onclick = () => {
-        if (equipoLabel) equipoLabel.textContent = nombre;
-        setEquipoActivo(id);
-        equipoDropdown.classList.add("hidden");
-      };
-
-      equipoDropdown.appendChild(b);
-    }
-
-    const found = selected ? rows.find((r) => String(r.id_equipo) === String(selected)) : null;
-    const pick = found || first;
-
-    if (equipoLabel) equipoLabel.textContent = pick.equipos?.nombre_equipo || pick.id_equipo;
-    setEquipoActivo(pick.id_equipo);
-  }
-
-  async function bootstrap() {
-    const sb = getSupabaseClient();
-    if (!sb) {
-      showStatus("Error: Supabase no inicializado");
-      try { if (equipoLabel) equipoLabel.textContent = "—"; } catch {}
-      setTimeout(() => (window.location.href = "/index.html"), 400);
-      return;
-    }
-
-    // sesión
-    let session = null;
-    try {
-      const { data, error } = await sb.auth.getSession();
-      if (error) console.warn("[Supervisor] getSession error:", error);
-      session = data?.session || null;
-    } catch (e) {
-      console.warn("[Supervisor] getSession exception:", e);
-      session = null;
-    }
-
-    if (!session) {
-      showStatus("Sin sesión");
-      try { if (equipoLabel) equipoLabel.textContent = "Seleccionar equipo"; } catch {}
-      try { if (equipoDropdown) equipoDropdown.innerHTML = ""; } catch {}
-      return;
-    }
-
-    const userId = session.user.id;
-
-    // Nombre supervisor
-    try {
-      const { data: prof, error: eProf } = await sb
-        .from("profiles")
-        .select("nombre")
-        .eq("id", userId)
-        .single();
-
-      if (!eProf && prof?.nombre) showStatus(prof.nombre);
-      else showStatus(session.user.email || "Supervisor");
-    } catch {
-      showStatus(session.user.email || "Supervisor");
-    }
-
-    // Equipos
-    const hoy = new Date().toISOString().slice(0, 10);
-
-    const { data: equipos, error: eEq } = await sb
-      .from("equipo_supervisor")
-      .select(`
-        id_equipo,
-        es_principal,
-        fecha_inicio,
-        fecha_fin,
-        equipos (
-          id_equipo,
-          nombre_equipo
-        )
-      `)
-      .eq("id_supervisor", userId)
-      .lte("fecha_inicio", hoy)
-      .or(`fecha_fin.is.null,fecha_fin.gte.${hoy}`)
-      .order("es_principal", { ascending: false })
-      .order("nombre_equipo", { foreignTable: "equipos", ascending: true });
-
-    if (eEq) {
-      console.error("[Supervisor] Error cargando equipos:", eEq);
-      if (equipoLabel) equipoLabel.textContent = "Equipo no disponible";
-      if (equipoDropdown) equipoDropdown.innerHTML = "";
-      return;
-    }
-
-    if (!equipos || equipos.length === 0) {
-      if (equipoLabel) equipoLabel.textContent = "Sin equipos asignados";
-      if (equipoDropdown) equipoDropdown.innerHTML = "";
-      return;
-    }
-
-    renderEquipos(equipos);
-  }
-
-  async function doLogout() {
-    const sb = getSupabaseClient();
-    try { btnLogout && (btnLogout.disabled = true); } catch {}
-
-    try { await sb?.auth?.signOut?.({ scope: "global" }); } catch {}
-
-    // Limpieza tokens supabase
-    try {
-      const keys = [];
-      for (let i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
-      for (const k of keys) {
-        const lk = String(k || "").toLowerCase();
-        if (
-          (lk.includes("supabase") && lk.includes("auth")) ||
-          (lk.startsWith("sb-") && lk.endsWith("-auth-token")) ||
-          lk.includes("auth-token") ||
-          lk.includes("access_token") ||
-          lk.includes("refresh_token")
-        ) {
-          localStorage.removeItem(k);
-        }
-      }
-    } catch {}
-
-    window.location.replace("/index.html");
-  }
-
-  function bindNav() {
-    btnVentas?.addEventListener("click", () => (window.location.href = "/views/ventas.mobile.html"));
-    btnCompromisos?.addEventListener("click", () => (window.location.href = "/views/compromisos.mobile.html"));
-    btnLogout?.addEventListener("click", doLogout);
-  }
-
-  document.addEventListener("DOMContentLoaded", async () => {
-    bindDropdownUI();
-    bindNav();
-    await bootstrap();
-  });
-})();
+  </div>
+</body>
+</html>
