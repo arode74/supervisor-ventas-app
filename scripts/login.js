@@ -7,7 +7,8 @@ import {
 
 import { startSessionManager } from "./session-manager.js";
 
-const supabasePromise = import("../config.js");
+// Import ESM del config en raíz
+import { supabase } from "../config.js";
 
 /* ============================================================================
    LOGIN (index.html)
@@ -26,8 +27,8 @@ function esEmail(valor) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((valor || "").trim());
 }
 
-async function obtenerPerfil(supabase, userId) {
-  const { data: prof, error: profErr } = await supabase
+async function obtenerPerfil(supabaseClient, userId) {
+  const { data: prof, error: profErr } = await supabaseClient
     .from("profiles")
     .select("id, activo, must_change_password")
     .eq("id", userId)
@@ -36,7 +37,7 @@ async function obtenerPerfil(supabase, userId) {
   if (profErr) throw profErr;
   if (!prof) return null;
 
-  const { data: perfil_actual, error: rolErr } = await supabase.rpc(
+  const { data: perfil_actual, error: rolErr } = await supabaseClient.rpc(
     "get_perfil_actual",
     { p_user_id: userId }
   );
@@ -83,11 +84,11 @@ function redirectPostLogin(perfil_actual) {
 /**
  * Resolver email desde usuario vía RPC
  */
-async function resolverEmailDesdeUsuarioRPC(supabase, usuario) {
+async function resolverEmailDesdeUsuarioRPC(supabaseClient, usuario) {
   const u = (usuario || "").trim();
   if (!u) return null;
 
-  const { data, error } = await supabase.rpc("get_email_by_username", {
+  const { data, error } = await supabaseClient.rpc("get_email_by_username", {
     p_usuario: u,
   });
 
@@ -109,14 +110,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!form || !inputUsuario || !inputPassword) return;
 
-  let supabase;
-  try {
-    ({ supabase } = await supabasePromise);
-  } catch {
-    toast("No se pudo iniciar Supabase.");
-    return;
-  }
-
   // Session Manager transversal (auth + sesión expirada)
   try {
     startSessionManager({
@@ -127,13 +120,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.warn("⚠️ Session Manager no inició:", e);
   }
 
-  // Sesión existente (evita 403 por timing / sesión vieja)
+  // Sesión existente
   try {
     const { data } = await supabase.auth.getSession();
     const sess = data?.session;
 
     if (sess?.user?.id) {
-      // Asegura que el cliente quede “hidratado” con el JWT antes de consultar PostgREST
+      // hidrata JWT
       try {
         await supabase.auth.setSession(sess);
       } catch (_) {}
@@ -143,7 +136,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         perfil = await obtenerPerfil(supabase, sess.user.id);
       } catch (e) {
-        // Si falla (403 incluido), limpia la sesión y deja el login operativo
         await supabase.auth.signOut().catch(() => {});
         perfil = null;
       }
@@ -157,7 +149,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         redirectPostLogin(perfil.perfil_actual);
         return;
       }
-      // si perfil quedó null (por error o no existe), queda en login normal
     }
   } catch {}
 

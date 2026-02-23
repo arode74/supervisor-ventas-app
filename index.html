@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>APP Ventas Mobile - Ingreso</title>
 
+  <!-- ENV primero (script normal) -->
   <script src="./env.js"></script>
 
   <link rel="stylesheet" href="styles/institucional.css" />
@@ -30,8 +31,10 @@
     <footer>© APP Ventas</footer>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./config.js"></script>
-  <script src="scripts/login.js" defer></script>
+  <!-- IMPORTANTÍSIMO:
+       - NO cargar supabase CDN
+       - NO cargar config.js por script normal
+       - login.js debe ser module -->
+  <script type="module" src="./scripts/login.js"></script>
 </body>
 </html>
