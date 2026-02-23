@@ -7,13 +7,14 @@ import {
 
 import { startSessionManager } from "./session-manager.js";
 
-// Import ESM del config en raíz
+// Config en raíz (publicado como /config.js)
 import { supabase } from "../config.js";
 
 /* ============================================================================
    LOGIN (index.html)
    - Login por email o usuario
    - RBAC vía get_perfil_actual (user_roles → perfiles)
+   - Redirección robusta (evita 404 por base path)
    ============================================================================ */
 
 let __navLock = false;
@@ -25,6 +26,41 @@ function navegarUnaVez(url) {
 
 function esEmail(valor) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((valor || "").trim());
+}
+
+function esMobile() {
+  return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+}
+
+/**
+ * Detecta si tu sitio está publicado dentro de una subcarpeta (ej: /App_Ventas_Mobile)
+ * y arma rutas correctas para evitar 404.
+ */
+function basePrefix() {
+  const p = window.location.pathname || "/";
+  return p.includes("/App_Ventas_Mobile/") ? "/App_Ventas_Mobile" : "";
+}
+
+/**
+ * Reglas de redirección (RBAC)
+ */
+function redirectPostLogin(perfil_actual) {
+  const base = basePrefix();
+  const r = (perfil_actual || "").toLowerCase();
+
+  // Admin / Zonal (desktop)
+  if (r === "admin") return navegarUnaVez(`${base}/views/admin.html`);
+  if (r === "zonal") return navegarUnaVez(`${base}/views/zonal.html`);
+
+  // Canal mobile
+  if (esMobile()) return navegarUnaVez(`${base}/views/supervisor.mobile.html`);
+
+  // Desktop por rol
+  if (r === "supervisor") return navegarUnaVez(`${base}/views/supervisor.html`);
+  if (r === "vendedor") return navegarUnaVez(`${base}/views/vendedor.html`);
+
+  // Fallback
+  return navegarUnaVez(`${base}/views/supervisor.html`);
 }
 
 async function obtenerPerfil(supabaseClient, userId) {
@@ -45,40 +81,6 @@ async function obtenerPerfil(supabaseClient, userId) {
   if (rolErr) throw rolErr;
 
   return { ...prof, perfil_actual: perfil_actual ?? null };
-}
-
-function esMobile() {
-  return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-}
-
-/**
- * Reglas de redirección (RBAC)
- */
-function redirectPostLogin(perfil_actual) {
-  const r = (perfil_actual || "").toLowerCase();
-
-  // Admin
-  if (r === "admin") {
-    navegarUnaVez("./views/admin.html");
-    return;
-  }
-
-  // Zonal (NO móvil)
-  if (r === "zonal") {
-    navegarUnaVez("./views/zonal.html");
-    return;
-  }
-
-  // Móvil (canal único)
-  if (esMobile()) {
-    navegarUnaVez("./views/supervisor.mobile.html");
-    return;
-  }
-
-  // Desktop
-  if (r === "supervisor") navegarUnaVez("./views/supervisor.html");
-  else if (r === "vendedor") navegarUnaVez("./views/vendedor.html");
-  else navegarUnaVez("./views/supervisor.html");
 }
 
 /**
@@ -110,17 +112,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (!form || !inputUsuario || !inputPassword) return;
 
-  // Session Manager transversal (auth + sesión expirada)
+  // Session Manager (manejo auth / expiración)
   try {
     startSessionManager({
       supabase,
       loginPath: "./index.html",
     });
   } catch (e) {
-    console.warn("⚠️ Session Manager no inició:", e);
+    console.warn("Session Manager no inició:", e);
   }
 
-  // Sesión existente
+  // Si ya hay sesión, redirige
   try {
     const { data } = await supabase.auth.getSession();
     const sess = data?.session;
@@ -143,7 +145,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (perfil && perfil.activo === false) {
         await supabase.auth.signOut().catch(() => {});
       } else if (perfil?.must_change_password === true) {
-        navegarUnaVez("./views/cambiar-password.html");
+        navegarUnaVez(`${basePrefix()}/views/cambiar-password.html`);
         return;
       } else if (perfil) {
         redirectPostLogin(perfil.perfil_actual);
@@ -152,6 +154,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   } catch {}
 
+  // Submit
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -163,7 +166,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     mostrarOverlay("Validando credenciales...");
 
-    let email = esEmail(rawUsuario)
+    const email = esEmail(rawUsuario)
       ? rawUsuario
       : await resolverEmailDesdeUsuarioRPC(supabase, rawUsuario);
 
@@ -187,7 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const perfil = await obtenerPerfil(supabase, authData.user.id);
 
     if (!perfil || !perfil.activo) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut().catch(() => {});
       ocultarOverlay();
       toast("Usuario inactivo.");
       return;
@@ -195,7 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (perfil.must_change_password === true) {
       ocultarOverlay();
-      navegarUnaVez("./views/cambiar-password.html");
+      navegarUnaVez(`${basePrefix()}/views/cambiar-password.html`);
       return;
     }
 
