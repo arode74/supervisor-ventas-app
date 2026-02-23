@@ -83,6 +83,7 @@
     ventasMesByTipo: new Map(),  // id_vendedor -> {tf,tope,sobre,bajo,plan}
     ventasSemByTipo: new Map(),
     compMesByTipo: new Map(),
+    compTF40Mes: new Map(), // id_vendedor -> compromiso mensual TF40 (TOPE MES + SOBRE MES)
     compSemByTipo: new Map(),
 
     // modal context
@@ -164,20 +165,24 @@
   }
 
   function getSupabase() {
-  if (state.sb) return state.sb;
+    if (state.sb) return state.sb;
 
-  // Usar cliente único creado en config.js (NO crear otro client aquí)
-  const sb = window.sb || window.supabaseClient || null;
+    const url = window.SUPABASE_URL || window.__SUPABASE_URL__ || window.env?.SUPABASE_URL;
+    const key =
+      window.SUPABASE_ANON_KEY ||
+      window.SUPABASE_KEY ||
+      window.__SUPABASE_ANON_KEY__ ||
+      window.env?.SUPABASE_ANON_KEY;
 
-  if (!sb) {
-    console.error("Supabase client no inicializado. Falta cargar config.js antes.");
-    showToast("Falta configuración Supabase");
-    return null;
+    if (!url || !key || !window.supabase) {
+      console.error("Supabase env no disponible (SUPABASE_URL / SUPABASE_ANON_KEY).");
+      showToast("Falta configuración Supabase");
+      return null;
+    }
+
+    state.sb = window.supabase.createClient(url, key);
+    return state.sb;
   }
-
-  state.sb = sb;
-  return state.sb;
-}
 
   async function requireUser(sb) {
     const { data, error } = await sb.auth.getUser();
@@ -363,6 +368,60 @@
       destMap.set(row.id_vendedor, cur);
     }
   }
+  function _normKey(s) {
+    return (s || "").toString().trim().toUpperCase().replace(/\s+/g, " ");
+  }
+
+  function tipoIdMensualByName(nameUpper) {
+    const m = state.tipos?.mensual;
+    if (!(m instanceof Map)) return null;
+    const wanted = _normKey(nameUpper);
+    // exact
+    if (m.has(wanted)) return m.get(wanted)?.id || null;
+    // fallback: match by normalized key
+    for (const [k, row] of m.entries()) {
+      if (_normKey(k) === wanted) return row?.id || null;
+    }
+    return null;
+  }
+
+  async function loadCompTF40Mes(sb, monthStart) {
+    state.compTF40Mes.clear();
+
+    const ids = state.vendedores.map((v) => v.id_vendedor);
+    if (!ids.length) return;
+
+    // Tipos: TOPE MES + SOBRE MES (desde tipos_compromisos periodo MENSUAL)
+    const idTopeMes = tipoIdMensualByName("TOPE MES");
+    const idSobreMes = tipoIdMensualByName("SOBRE MES");
+
+    const tipoIds = [idTopeMes, idSobreMes].filter(Boolean);
+    if (!tipoIds.length) return;
+
+    const dayEndExcl = new Date(monthStart);
+    dayEndExcl.setDate(dayEndExcl.getDate() + 1);
+
+    let q = sb
+      .from(TABLES.COMP)
+      .select("id_vendedor,id_tipo,monto_comprometido,fecha_compromiso")
+      .in("id_vendedor", ids)
+      .in("id_tipo", tipoIds)
+      .gte("fecha_compromiso", isoDate(monthStart))
+      .lt("fecha_compromiso", isoDate(dayEndExcl));
+
+    // Asegurar equipo + supervisor (evita mezclar compromisos de otros equipos)
+    if (state.id_equipo) q = q.eq("id_equipo", state.id_equipo);
+    if (state.id_supervisor) q = q.eq("id_supervisor", state.id_supervisor);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    for (const row of data || []) {
+      const cur = Number(state.compTF40Mes.get(row.id_vendedor) || 0);
+      state.compTF40Mes.set(row.id_vendedor, cur + Number(row.monto_comprometido || 0));
+    }
+  }
+
 
   function computeTS(aggMap, vendorId) {
     const a = aggMap.get(vendorId) || blankAgg();
@@ -411,40 +470,45 @@
     for (let i = 0; i < state.filtered.length; i++) {
       const v = state.filtered[i];
 
-      const ventasMes = Number(state.ventasMesTotal.get(v.id_vendedor) || 0);
       const ventasTS = computeTS(state.ventasMesByTipo, v.id_vendedor);
-      const compTS = computeTS(state.compMesByTipo, v.id_vendedor);
+      const compTF40 = Number(state.compTF40Mes.get(v.id_vendedor) || 0);
 
-      const pct = compTS > 0 ? Math.max(0, Math.min(100, Math.round((ventasTS / compTS) * 100))) : 0;
+      const pct = compTF40 > 0 ? Math.max(0, Math.min(100, Math.round((ventasTS / compTF40) * 100))) : 0;
 
       const inactive = v.vendedor_estado_text && v.vendedor_estado_text.toUpperCase() !== "ACTIVO";
+      const nombre = (v.vendedor_nombre || "—").toString();
+      const initials = nombre.trim() ? nombre.trim().slice(0, 1).toUpperCase() : "—";
 
-      const row = document.createElement("div");
-      row.className = "m-item cmp-item";
+      const row = document.createElement("article");
+      row.className = "v-card cmp-card";
       row.dataset.idx = String(i);
       row.dataset.vid = v.id_vendedor;
 
       row.innerHTML = `
-        <div class="cmp-line1">
-          <div class="cmp-vname ${inactive ? "is-disabled" : ""}">${v.vendedor_nombre}</div>
-          <button class="m-mini-btn cmp-edit" type="button">Editar</button>
+        <div class="v-row">
+          <div class="v-avatar" aria-hidden="true">${initials}</div>
+
+          <button class="v-namebtn" type="button" data-action="edit">
+            <span class="${inactive ? "is-disabled" : ""}">${nombre}</span>
+          </button>
+
+          <button class="v-plus cmp-edit" type="button" aria-label="Editar" title="Editar">✎</button>
         </div>
 
         <div class="cmp-line2">
-          <span class="cmp-k">Mes</span><span class="cmp-v">${fmtNum(ventasMes)}</span>
+          <span class="cmp-k">TF40</span><span class="cmp-v">${fmtNum(compTF40)}</span>
           <span class="cmp-sep">|</span>
           <span class="cmp-k">TS</span><span class="cmp-v">${fmtNum(ventasTS)}</span>
-          <span class="cmp-sep">/</span>
-          <span class="cmp-k">Comp</span><span class="cmp-v">${fmtNum(compTS)}</span>
         </div>
 
-        <div class="cmp-progress" aria-label="Progreso mensual TOPE+SOBRE">
+        <div class="cmp-progress" aria-label="Cumplimiento mensual (TS / TF40)">
           <div class="cmp-bar" style="width:${pct}%"></div>
           <div class="cmp-pct">${pct}%</div>
         </div>
       `;
 
-      row.querySelector(".cmp-edit")?.addEventListener("click", () => openModal(v.id_vendedor, v.vendedor_nombre));
+      row.querySelector(".cmp-edit")?.addEventListener("click", () => openModal(v.id_vendedor, nombre));
+      row.querySelector('[data-action="edit"]')?.addEventListener("click", () => openModal(v.id_vendedor, nombre));
       frag.appendChild(row);
     }
 
