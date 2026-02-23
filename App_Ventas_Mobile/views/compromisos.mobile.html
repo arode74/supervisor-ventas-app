@@ -1,29 +1,68 @@
-
 <!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Compromisos Móvil</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Compromisos — Móvil</title>
+
+  <link rel="stylesheet" href="/styles/mobile-afp.css"/>
   <link rel="stylesheet" href="/styles/mobile.css"/>
+
+  <!-- ENV PRIMERO -->
+  <script src="/env.js"></script>
+  <script>
+    try {
+      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
+      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+    } catch (e) {}
+  </script>
 </head>
+
 <body>
+  <div class="ventas-screen">
 
-<header class="m-topbar">
-  <div class="m-topbar__title">Compromisos</div>
-</header>
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="/assets/logo_app_ventas.png" alt="APP Ventas"/>
+      <div class="m-topbar__title">Compromisos</div>
+      <button class="m-topbar__logout" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+    </header>
 
-<div class="ventas-top">
-  <input type="date" id="dt-dia"/>
-</div>
+    <div class="ventas-top">
+      <div class="m-toolbar">
+        <div class="m-field">
+          <div class="m-field__icon">📅</div>
+          <input class="m-input" id="dt-dia" type="date"/>
+        </div>
 
-<main class="ventas-scroll">
-  <div id="lista-vendedores"></div>
-</main>
+        <div class="m-toolbar__right">
+          <button class="m-backbtn" type="button" id="btn-volver">‹ Volver</button>
+        </div>
+      </div>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/config.js"></script>
-<script src="/scripts/compromisos.mobile.js"></script>
+    <!-- SOLO ESTE BLOQUE SCROLLEA -->
+    <main class="ventas-scroll">
+      <section class="ventas-layout">
+        <aside id="abcBar" class="ventas-abc" aria-label="Índice alfabético"></aside>
 
+        <section class="m-card ventas-lista" aria-label="Lista de vendedores">
+          <div class="m-list" id="lista-vendedores"></div>
+        </section>
+      </section>
+    </main>
+
+    <!-- SCRIPTS IGUAL QUE VENTAS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/config.js"></script>
+    <script src="/scripts/mobile_shared.js" defer></script>
+    <script src="/scripts/compromisos.mobile.js" defer></script>
+
+    <script>
+      document.getElementById("btn-volver")?.addEventListener("click", () => {
+        window.location.href = "/views/supervisor.mobile.html";
+      });
+    </script>
+
+  </div>
 </body>
 </html>
