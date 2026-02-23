@@ -5,18 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>APP Ventas Mobile - Ingreso</title>
 
-  <!-- 0) ENV primero (define window.__ENV__ y aliases) -->
+  <!-- ENV primero -->
   <script src="./env.js"></script>
 
-  <link rel="stylesheet" href="styles/institucional.css" />
-  <link rel="stylesheet" href="styles/login.css" />
-  <link rel="stylesheet" href="styles/responsive.css" />
+  <!-- MOBILE ONLY CSS -->
+  <link rel="stylesheet" href="styles/mobile-afp.css" />
+  <link rel="stylesheet" href="styles/mobile.css" />
+  <link rel="stylesheet" href="styles/login-mobile.css" />
 
   <script>
     // Diagnóstico visible si algún archivo no carga
     window.__av_diag__ = { envLoaded: false, supabaseLoaded: false, configLoaded: false };
+    try { window.__av_diag__.envLoaded = !!window.__ENV__ || !!window.SUPABASE_URL; } catch {}
     window.addEventListener("error", (e) => {
-      // Evita silencio cuando falla un script
       console.warn("[APP Ventas Mobile] Error:", e?.message || e);
     });
   </script>
@@ -24,7 +25,7 @@
 
 <body>
   <div class="login-container">
-    <img src="assets/logo_app_ventas.svg" alt="Logo APP Ventas" />
+    <img src="assets/logo_app_ventas.png" alt="Logo APP Ventas" />
     <h2>Ingreso al Sistema</h2>
 
     <form id="loginForm" autocomplete="on">
