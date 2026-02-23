@@ -5,22 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>APP Ventas Mobile - Ingreso</title>
 
-  <!-- ENV primero -->
   <script src="./env.js"></script>
 
-  <!-- MOBILE ONLY CSS -->
   <link rel="stylesheet" href="styles/mobile-afp.css" />
   <link rel="stylesheet" href="styles/mobile.css" />
   <link rel="stylesheet" href="styles/login-mobile.css" />
-
-  <script>
-    // Diagnóstico visible si algún archivo no carga
-    window.__av_diag__ = { envLoaded: false, supabaseLoaded: false, configLoaded: false };
-    try { window.__av_diag__.envLoaded = !!window.__ENV__ || !!window.SUPABASE_URL; } catch {}
-    window.addEventListener("error", (e) => {
-      console.warn("[APP Ventas Mobile] Error:", e?.message || e);
-    });
-  </script>
 </head>
 
 <body>
@@ -41,21 +30,10 @@
     <footer>© APP Ventas</footer>
   </div>
 
-  <!-- 1) Supabase CDN (OBLIGATORIO antes de config.js) -->
-  <script
-    src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-    onload="window.__av_diag__.supabaseLoaded=true"
-    onerror="window.__av_diag__.supabaseLoaded=false; console.error('No cargó supabase-js (CDN).')"
-  ></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
 
-  <!-- 2) Config (crea window.sb) -->
-  <script
-    src="./config.js"
-    onload="window.__av_diag__.configLoaded=true"
-    onerror="window.__av_diag__.configLoaded=false; console.error('No cargó config.js (ruta/404).')"
-  ></script>
-
-  <!-- 3) Login Mobile -->
-  <script src="scripts/login.js" defer></script>
+  <!-- Cache-busting para asegurar que Netlify entregue el login.js NUEVO -->
+  <script src="scripts/login.js?v=20260223212631" defer></script>
 </body>
 </html>

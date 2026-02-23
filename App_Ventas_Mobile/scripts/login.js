@@ -1,113 +1,124 @@
+\
 /**
- * scripts/login.js — MOBILE ONLY (sin módulos)
- * - Si config.js no alcanzó a crear window.sb, crea fallback con env.js (una sola vez)
- * - Error visible con causa (env/config/supabase-js)
+ * scripts/login.js — MOBILE ONLY
+ * Login por EMAIL o por USUARIO:
+ * - Si es email -> signInWithPassword(email, password)
+ * - Si es username -> RPC get_email_by_username (case-insensitive) -> email -> signInWithPassword
+ *
+ * Nota: este archivo incluye logs para diagnosticar en consola SIN adivinar.
  */
 (function () {
   "use strict";
 
-  const form = document.getElementById("loginForm");
-  const usuarioInput = document.getElementById("usuario");
-  const passwordInput = document.getElementById("password");
+  const $ = (id) => document.getElementById(id);
+  const form = $("loginForm");
+  const inputUsuario = $("usuario");
+  const inputPassword = $("password");
 
-  function msgErrorBase(extra) {
-    const d = window.__av_diag__ || {};
-    const parts = [
-      "Supabase no inicializado.",
-      `envLoaded=${!!d.envLoaded}`,
-      `supabaseLoaded=${!!d.supabaseLoaded}`,
-      `configLoaded=${!!d.configLoaded}`,
-      d.configError ? `configError=${d.configError}` : null,
-      extra || null,
-    ].filter(Boolean);
-    return parts.join(" ");
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function isEmail(v) {
+    return EMAIL_RE.test((v || "").trim());
   }
 
-  function getEnv() {
-    const url =
-      window.__ENV__?.SUPABASE_URL ||
-      window.SUPABASE_URL ||
-      window.__SUPABASE_URL__ ||
-      window.env?.SUPABASE_URL;
-
-    const key =
-      window.__ENV__?.SUPABASE_ANON_KEY ||
-      window.SUPABASE_ANON_KEY ||
-      window.SUPABASE_KEY ||
-      window.__SUPABASE_ANON_KEY__ ||
-      window.env?.SUPABASE_ANON_KEY;
-
-    return { url, key };
+  function sb() {
+    return window.sb || window.supabaseClient || null;
   }
 
-  function getSupabase() {
-    if (window.sb) return window.sb;
-    if (window.supabaseClient) return window.supabaseClient;
+  async function resolveEmailByUsername(supabaseClient, usernameRaw) {
+    const raw = (usernameRaw || "").trim();
+    if (!raw) return null;
 
-    // Fallback: crear client si lib + env existen
-    if (window.supabase?.createClient) {
-      const { url, key } = getEnv();
-      if (url && key) {
-        if (!window.__sb_fallback__) {
-          window.__sb_fallback__ = window.supabase.createClient(url, key);
-        }
-        window.sb = window.__sb_fallback__;
-        window.supabaseClient = window.__sb_fallback__;
-        return window.__sb_fallback__;
-      }
+    // 1) primero normalizado lower/trim
+    const uLower = raw.toLowerCase();
+
+    // RPC: get_email_by_username(p_usuario text) -> text
+    let res = await supabaseClient.rpc("get_email_by_username", { p_usuario: uLower });
+    if (res?.error) {
+      console.error("[login] RPC error (lower):", res.error);
+    } else if (typeof res?.data === "string" && res.data.includes("@")) {
+      return res.data.trim().toLowerCase();
+    }
+
+    // 2) fallback: intenta tal cual (por si la función no normaliza)
+    res = await supabaseClient.rpc("get_email_by_username", { p_usuario: raw });
+    if (res?.error) {
+      console.error("[login] RPC error (raw):", res.error);
+      return null;
+    }
+    if (typeof res?.data === "string" && res.data.includes("@")) {
+      return res.data.trim().toLowerCase();
     }
     return null;
   }
 
-  function irSupervisor() {
-    window.location.replace("./views/supervisor.mobile.html");
+  function go(url) {
+    window.location.replace(url);
   }
 
-  async function ensureSessionRedirect(sb) {
-    try {
-      const { data } = await sb.auth.getSession();
-      const sess = data?.session;
-      if (sess?.user?.id) irSupervisor();
-    } catch {}
-  }
-
-  document.addEventListener("DOMContentLoaded", async function () {
+  document.addEventListener("DOMContentLoaded", async () => {
     if (!form) return;
 
-    const sb = getSupabase();
-    if (!sb) {
-      alert(msgErrorBase("Revisa que /env.js y /config.js carguen 200 en Network."));
+    const client = sb();
+    if (!client) {
+      alert("Supabase no inicializado. Revisa carga de config.js.");
       return;
     }
 
-    await ensureSessionRedirect(sb);
+    // Si ya hay sesión
+    try {
+      const { data } = await client.auth.getSession();
+      if (data?.session?.user?.id) {
+        go("./views/supervisor.mobile.html");
+        return;
+      }
+    } catch {}
 
-    form.addEventListener("submit", async function (e) {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const sb2 = getSupabase();
-      if (!sb2) {
-        alert(msgErrorBase());
+      const client2 = sb();
+      if (!client2) {
+        alert("Supabase no inicializado.");
         return;
       }
 
-      const usuario = (usuarioInput?.value || "").trim();
-      const password = (passwordInput?.value || "").trim();
+      const u = (inputUsuario?.value || "").trim();
+      const p = (inputPassword?.value || "").trim();
 
-      if (!usuario || !password) {
-        alert("Completa usuario y contraseña.");
+      if (!u || !p) {
+        alert("Completa usuario/email y contraseña.");
         return;
       }
 
-      // Login directo por email (si usas username, lo resolvemos después)
-      const { error } = await sb2.auth.signInWithPassword({ email: usuario, password });
+      let email;
+      if (isEmail(u)) {
+        email = u.trim().toLowerCase();
+        console.info("[login] input es email:", email);
+      } else {
+        email = await resolveEmailByUsername(client2, u);
+        console.info("[login] username:", u, "-> email:", email);
+      }
+
+      if (!email) {
+        alert("Usuario no encontrado (no resolvió a email).");
+        return;
+      }
+
+      const { data, error } = await client2.auth.signInWithPassword({ email, password: p });
 
       if (error) {
+        console.error("[login] signInWithPassword error:", error);
         alert("Credenciales inválidas.");
         return;
       }
 
-      irSupervisor();
+      if (!data?.user?.id) {
+        alert("No se obtuvo usuario autenticado.");
+        return;
+      }
+
+      go("./views/supervisor.mobile.html");
     });
   });
 })();
