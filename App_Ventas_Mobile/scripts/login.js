@@ -1,4 +1,3 @@
-\
 /**
  * scripts/login.js — MOBILE ONLY
  * Login por EMAIL o por USUARIO:
