@@ -1,145 +1,46 @@
 // ============================================================
-//  CONFIG.JS — Cliente Supabase único + sesión (ROBUSTO PROD)
-//  - env.js independiente (window.__ENV__)
-//  - Autocarga /env.js si no está presente
-//  - Compatible con módulos legacy (window.supabase)
+//  CONFIG.JS — MOBILE ONLY (NO MODULES) — TOLERANTE A env.js
+//  Crea un único Supabase client y lo expone como window.sb
 // ============================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
+(function () {
+  "use strict";
 
-// -------------------------
-// Cargar env.js si falta
-// -------------------------
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    // Si ya existe el script, no lo dupliques
-    const existing = document.querySelector(`script[data-env-src="${src}"]`);
-    if (existing) return resolve(true);
+  // Marca env cargado si existe
+  try { if (window.__av_diag__) window.__av_diag__.envLoaded = !!window.__ENV__; } catch {}
 
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.defer = true;
-    s.dataset.envSrc = src;
-    s.onload = () => resolve(true);
-    s.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
-    document.head.appendChild(s);
-  });
-}
+  const SUPABASE_URL =
+    window.__ENV__?.SUPABASE_URL ||
+    window.SUPABASE_URL ||
+    window.__SUPABASE_URL__ ||
+    window.env?.SUPABASE_URL;
 
-async function ensureEnvLoaded() {
-  // Si ya está, listo.
-  if (window.__ENV__?.SUPABASE_URL && window.__ENV__?.SUPABASE_ANON_KEY) return;
+  const SUPABASE_ANON_KEY =
+    window.__ENV__?.SUPABASE_ANON_KEY ||
+    window.SUPABASE_ANON_KEY ||
+    window.SUPABASE_KEY ||
+    window.__SUPABASE_ANON_KEY__ ||
+    window.env?.SUPABASE_ANON_KEY;
 
-  // Intentar rutas típicas (Netlify + app estática)
-  const candidates = [
-    "/env.js",       // producción (raíz)
-    "./env.js",      // fallback
-    "../env.js",     // si estás en /views/
-  ];
-
-  let lastErr = null;
-
-  for (const src of candidates) {
-    try {
-      await loadScript(src);
-      if (window.__ENV__?.SUPABASE_URL && window.__ENV__?.SUPABASE_ANON_KEY) return;
-    } catch (e) {
-      lastErr = e;
-    }
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.error("[config.js] ENV NO ENCONTRADO:", {
+      __ENV__: window.__ENV__,
+      SUPABASE_URL: window.SUPABASE_URL,
+      SUPABASE_ANON_KEY: window.SUPABASE_ANON_KEY,
+    });
+    // No reventar silencioso: dejar flag y salir
+    try { if (window.__av_diag__) window.__av_diag__.configError = "missing_env"; } catch {}
+    return;
   }
 
-  // Si llegamos acá, no existe env.js o no define window.__ENV__
-  const detail = lastErr ? ` (${lastErr.message})` : "";
-  throw new Error(
-    `❌ Supabase no inicializado: falta window.__ENV__.SUPABASE_URL / SUPABASE_ANON_KEY. ` +
-    `Verifica que /env.js exista y se cargue antes de la app${detail}.`
-  );
-}
-
-// -------------------------
-// Init Supabase (con await)
-// -------------------------
-await ensureEnvLoaded();
-
-const SUPABASE_URL = window.__ENV__.SUPABASE_URL;
-const SUPABASE_ANON_KEY = window.__ENV__.SUPABASE_ANON_KEY;
-
-// Cliente ÚNICO
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Export ESM
-export { supabase };
-
-// Compatibilidad legacy
-window.supabase = supabase;
-
-// -------------------------
-// Helpers de sesión
-// -------------------------
-export function limpiarSesion() {
-  localStorage.removeItem("appVentasUser");
-  localStorage.removeItem("usuarioActivo");
-  localStorage.removeItem("idSupervisorActivo");
-
-  // Sign out Supabase (best effort)
-  supabase.auth.signOut().catch((err) => {
-    console.error("Error cerrando sesión Supabase:", err);
-  });
-}
-
-export function guardarUsuarioNormalizado(user, perfil) {
-  if (!user) return null;
-
-  const payload = {
-    id: user.id,
-    email: user.email ?? null,
-    nombre: perfil?.nombre ?? null,
-    genero: perfil?.genero ?? null,
-  };
-
-  localStorage.setItem("appVentasUser", JSON.stringify(payload));
-  return payload;
-}
-
-// ------------------------------------------------------------
-//  Obtener usuario activo (AUTH + PROFILES)
-//  Retorna: {id, email, nombre, genero}
-// ------------------------------------------------------------
-export async function obtenerUsuarioActivo() {
-  try {
-    const { data, error } = await supabase.auth.getUser();
-
-    if (error || !data?.user) {
-      limpiarSesion();
-      return null;
-    }
-
-    const user = data.user;
-
-    // Enriquecer con profiles (si existe y RLS lo permite)
-    let perfil = null;
-    try {
-      const { data: p, error: errP } = await supabase
-        .from("profiles")
-        .select("nombre, genero")
-        .eq("id", user.id)
-        .single();
-
-      if (!errP) perfil = p;
-    } catch (e) {
-      console.warn("No se pudo leer profiles:", e);
-    }
-
-    return guardarUsuarioNormalizado(user, perfil);
-  } catch (err) {
-    console.error("Error reconstruyendo usuario desde Supabase:", err);
-    limpiarSesion();
-    return null;
+  if (!window.supabase?.createClient) {
+    console.error("[config.js] Falta supabase-js antes de config.js.");
+    try { if (window.__av_diag__) window.__av_diag__.configError = "missing_supabase_js"; } catch {}
+    return;
   }
-}
 
-// Exponer helpers globales (compatibilidad legacy)
-window.obtenerUsuarioActivo = obtenerUsuarioActivo;
-window.guardarUsuarioNormalizado = guardarUsuarioNormalizado;
-window.limpiarSesion = limpiarSesion;
+  if (!window.sb) {
+    window.sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+  window.supabaseClient = window.sb;
+})();
