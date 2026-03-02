@@ -1,0 +1,25 @@
+/* Compromisos TF40 - barra de cumplimiento (scoped) */
+.page-compromisos .tf40-bar{
+  margin-top: 8px;
+  height: 8px;
+  background: rgba(18,59,109,.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.page-compromisos .tf40-bar__fill{
+  height: 100%;
+  width: 0%;
+  background: #123b6d;
+  border-radius: 999px;
+}
+
+.page-compromisos .tf40-bar__label{
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

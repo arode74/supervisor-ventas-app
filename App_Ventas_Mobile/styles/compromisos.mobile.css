@@ -1,0 +1,275 @@
+/* =========================================================
+   COMPROMISOS MOBILE - OVERRIDES v5
+   - Barra visible (fuerza display)
+   - Card en columna para 2 filas (contenido + barra)
+   - Meta: una línea, sin cortes raros
+   ========================================================= */
+
+html, body{ overflow-x: hidden; }
+.page-compromisos *{ box-sizing: border-box; }
+
+/* CLAVE: permitir segunda fila */
+.page-compromisos .v-card{
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Primera fila */
+.page-compromisos .v-row{
+  display: grid !important;
+  grid-template-columns: 40px 1fr 38px;
+  column-gap: 12px;
+  align-items: center;
+}
+
+/* Línea TF40 compacta */
+.page-compromisos .v-meta{
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Segunda fila: barra */
+.page-compromisos .v-bar-row{
+  display: grid !important;
+  grid-template-columns: 40px 1fr 38px;
+  column-gap: 12px;
+  margin-top: 8px;
+}
+
+.page-compromisos .v-bar-track{
+  grid-column: 1 / 4;
+  display: block !important;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(18,59,109,.20);
+  overflow: hidden;
+}
+
+.page-compromisos .v-bar-fill{
+  display: block !important;
+  height: 100%;
+  border-radius: 999px;
+  background: #123b6d;
+}
+
+
+/* =========================================================
+   Bottom Sheet - Compromisos (scoped a page-compromisos)
+   ========================================================= */
+.page-compromisos .cmp-sheet{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+}
+
+.page-compromisos .cmp-sheet.is-open{ display:block; }
+
+.page-compromisos .cmp-sheet__backdrop{
+  position:absolute;
+  inset:0;
+  background: rgba(0,0,0,.35);
+}
+
+.page-compromisos .cmp-sheet__panel{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  background:#fff;
+  border-radius: 18px 18px 0 0;
+  padding: 14px 14px 18px;
+  max-height: 85vh;
+  overflow: auto;
+  transform: translateY(100%);
+  transition: transform .18s ease-out;
+}
+
+.page-compromisos .cmp-sheet.is-open .cmp-sheet__panel{
+  transform: translateY(0);
+}
+
+.page-compromisos .cmp-sheet__header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.page-compromisos .cmp-sheet__title{
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.page-compromisos .cmp-sheet__close{
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(0,0,0,.03);
+  font-size: 22px;
+  line-height: 1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.page-compromisos .cmp-sheet__vendedor{
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Tabs */
+.page-compromisos .cmp-tabs{
+  margin-top: 12px;
+  display:flex;
+  gap:8px;
+}
+
+.page-compromisos .cmp-tab{
+  flex:1;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(18,59,109,.18);
+  background: rgba(18,59,109,.06);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.page-compromisos .cmp-tab.is-active{
+  background: rgba(18,59,109,.14);
+  border-color: rgba(18,59,109,.28);
+}
+
+/* Panes */
+.page-compromisos .cmp-pane{ display:none; padding-top: 12px; }
+.page-compromisos .cmp-pane.is-active{ display:block; }
+
+.page-compromisos .cmp-grid{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:10px;
+  width:100%;
+}
+
+.page-compromisos .cmp-row{
+  display:grid;
+  grid-template-columns: 1fr 92px 92px; /* label | compromiso | venta */
+  gap:10px;
+  align-items:center;
+  width:100%;
+}
+
+.page-compromisos .cmp-label{
+  font-weight:800;
+  color:#0f172a;
+  text-align:left;
+  justify-self:start;
+}
+
+.page-compromisos .cmp-input{
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.12);
+  padding: 0 10px;
+  font-weight: 800;
+  text-align: right;
+  background: #fff;
+}
+
+.page-compromisos .cmp-actions{
+  margin-top: 14px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+.page-compromisos .cmp-placeholder{
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.04);
+  color: rgba(15,23,42,.75);
+  font-weight: 700;
+}
+
+
+/* ===== SHEET FIX (v2) — Mantener filas + alinear columnas =====
+   Objetivo:
+   - Mantener la tabla en 4 filas (Tope/Sobre/Bajo/Plan o TF) como antes
+   - Etiqueta (Tope/Sobre/...) alineada a la izquierda
+   - Columnas "Compromiso" y "Venta" (headers + valores) alineadas a la derecha
+   Funciona para Mensual y Semanal (misma UI).
+*/
+.page-compromisos .cmp-grid {
+  display: grid;
+  grid-template-columns: 1fr 110px 70px;
+  gap: 10px;
+  align-items: center;
+}
+
+.page-compromisos .cmp-row {
+  display: grid;                /* NO display: contents; (rompe el layout) */
+  grid-template-columns: 1fr 110px 70px;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.page-compromisos .cmp-label {
+  text-align: left;
+  justify-self: start;
+  font-weight: 700;
+  color: #0f1d2d;
+}
+
+.page-compromisos .cmp-colhead {
+  text-align: right;
+  justify-self: end;
+  font-weight: 700;
+  color: #2c3b4d;
+}
+
+/* Valores (inputs o spans) a la derecha */
+.page-compromisos .cmp-input,
+.page-compromisos .cmp-venta,
+.page-compromisos input.cmp-input,
+.page-compromisos input.cmp-venta {
+  text-align: right;
+  justify-self: end;
+}
+
+/* Mantener tamaños de inputs */
+.page-compromisos .cmp-input,
+.page-compromisos .cmp-venta {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive fino: un poco más de aire en pantallas pequeñas */
+@media (max-width: 360px) {
+  .page-compromisos .cmp-grid,
+  .page-compromisos .cmp-row {
+    grid-template-columns: 1fr 100px 62px;
+    gap: 8px;
+  }
+}
+
+
+/* Header row for columns */
+.cmp-row--head{
+  padding:0 2px;
+}
+.cmp-row--head .cmp-label{
+  font-weight:700;
+  color:transparent; /* keep grid alignment without showing text */
+}

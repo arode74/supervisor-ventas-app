@@ -293,3 +293,81 @@ html, body{
 .page-supervisor .hidden{
   display: none;
 }
+
+/* --- Compromisos: línea TF40 en una sola línea (match Ventas) --- */
+.v-kpis{
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v-kpis b{ font-weight: 800; }
+.v-kpis .sep{ opacity: .65; padding: 0 2px; }
+
+
+
+/* ============================================================
+   TF40 VISUAL ADJUSTMENTS (Compromisos)
+   - Restores fondo gris/celeste
+   - Mantiene barra ABC (usa estilos base .ventas-abc)
+   - Nombre +2px y KPI alineado bajo avatar en 1 línea
+   ============================================================ */
+
+/* Fondo general como el tono de la zona superior (fecha/buscar) */
+html, body{
+  background:#e9eef6;
+}
+
+/* Asegura que el layout principal no quede blanco */
+.ventas-screen,
+.page-compromisos,
+.page-supervisor,
+.mobile-page{
+  background:#e9eef6;
+}
+
+/* Si algún contenedor quedó blanco y tapa el fondo, lo transparentamos */
+.ventas-top,
+.ventas-controls,
+.top-controls,
+.mobile-top,
+.mobile-controls{
+  background: transparent;
+}
+
+/* ---- Tipografía y alineación de cards (lo que pediste) ---- */
+.v-namewrap{
+  flex: 1;
+  min-width: 0;
+}
+
+/* Nombre vendedor +2px aprox */
+.v-name{
+  font-size: 16px; /* subido */
+  font-weight: 700;
+  line-height: 1.2;
+  color: #123b6d;
+}
+
+/* KPI: una sola línea, parte alineada bajo avatar (por layout del flex) */
+.v-meta{
+  font-size: 13px;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #334155;
+  font-weight: 600;
+}
+
+/* Ajuste fino para que el texto tenga más ancho útil */
+.v-row{
+  gap: 12px;
+}
+
+/* Barra ABC: asegurar visibilidad por encima del scroll */
+#abcBar.ventas-abc{
+  z-index: 20;
+}

@@ -1,114 +1,136 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Compromisos Mobile</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <title>Compromisos — Móvil</title>
 
-  <!-- Estilos base -->
-  <link rel="stylesheet" href="/styles/mobile.css" />
+  <!-- Stack de estilos (rutas RELATIVAS desde /views/) -->
+  <link rel="stylesheet" href="../styles/mobile-afp.css"/>
+  <link rel="stylesheet" href="../styles/mobile.css"/>
+  <link rel="stylesheet" href="../styles/compromisos.mobile.tf40bar.css"/>
+  <link rel="stylesheet" href="../styles/compromisos.mobile.css"/>
 
+  <!-- ENV (ruta RELATIVA) -->
+  <script src="../env.js"></script>
+  <script>
+    try {
+      if (typeof window.SUPABASE_URL === "undefined" && typeof SUPABASE_URL !== "undefined") window.SUPABASE_URL = SUPABASE_URL;
+      if (typeof window.SUPABASE_ANON_KEY === "undefined" && typeof SUPABASE_ANON_KEY !== "undefined") window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;
+    } catch (e) {}
+  </script>
 </head>
-<body class="mobile-body">
 
-  <!-- HEADER -->
-  <header class="mobile-header">
-    <button id="btn-volver" class="mobile-btn">←</button>
+<body class="page-compromisos">
+  <div class="ventas-screen">
 
-    <div class="mobile-header-center">
-      <img src="/assets/logo_app_ventas.png" class="mobile-logo" />
-      <h1 class="mobile-title">Compromisos</h1>
-    </div>
+    <!-- TOPBAR -->
+    <header class="m-topbar">
+      <img class="m-topbar__logo" src="../assets/logo_app_ventas.png" alt="APP Ventas"/>
+      <div class="m-topbar__title">Compromisos</div>
+      <button class="m-topbar__logout" id="btn-logout" type="button" aria-label="Cerrar sesión" title="Cerrar sesión">⏻</button>
+    </header>
 
-    <button id="btn-logout" class="mobile-btn">Salir</button>
-  </header>
-
-  <!-- FILTROS -->
-  <section class="mobile-filtros">
-    <input type="date" id="dt-dia" class="mobile-input" />
-    <input type="text" id="txt-buscar" class="mobile-input" placeholder="Buscar vendedor..." />
-  </section>
-
-  <!-- ABC BAR -->
-  <div id="abcBar" class="ventas-abc"></div>
-
-  <!-- LISTA -->
-  <main id="lista-vendedores" class="mobile-lista"></main>
-
-  <!-- MODAL OVERLAY -->
-  <div id="overlay" class="mobile-overlay" style="display:none;">
-    <div id="sheet" class="mobile-sheet">
-
-      <div class="mobile-sheet-header">
-        <h2 id="modalSub"></h2>
-        <button id="btnCancelar" class="mobile-btn">Cerrar</button>
-      </div>
-
-      <!-- TABS -->
-      <div class="mobile-tabs">
-        <button id="tabMensual" class="mobile-tab active">Mensual</button>
-        <button id="tabSemanal" class="mobile-tab">Semanal</button>
-        <button id="tabDiario" class="mobile-tab">Diario</button>
-      </div>
-
-      <!-- FORM MENSUAL -->
-      <div id="formMensual" class="mobile-form">
-        <div id="tblMensual" class="cmp-table"></div>
-      </div>
-
-      <!-- FORM SEMANAL -->
-      <div id="formSemanal" class="mobile-form" style="display:none;">
-        <div id="tblSemanal" class="cmp-table"></div>
-      </div>
-
-      <!-- FORM DIARIO -->
-      <div id="formDiario" class="mobile-form" style="display:none;">
-        <div class="cmp-daynav">
-          <button id="diaPrev">◀</button>
-          <span id="diaLabel"></span>
-          <button id="diaNext">▶</button>
+    <!-- Controles superiores -->
+    <div class="ventas-top">
+      <div class="m-toolbar">
+        <div class="m-field">
+          <div class="m-field__icon">📅</div>
+          <input class="m-input" id="dt-dia" type="date"/>
         </div>
 
-        <div id="lblSemana" class="mobile-mini"></div>
-
-        <div id="diarioLista" class="cmp-diario"></div>
-
-        <button id="diarioAdd" class="m-fab">+</button>
+        <div class="m-toolbar__right">
+          <button class="m-backbtn" type="button" id="btn-volver">‹ Volver</button>
+        </div>
       </div>
 
-    </div>
-  </div>
-
-  <!-- PICKER DIARIO -->
-  <div id="diarioPicker" class="cmp-picker" style="display:none;">
-    <div class="cmp-picker__card">
-      <select id="diarioTipoSelect" class="mobile-input"></select>
-      <div class="cmp-picker__actions">
-        <button id="diarioTipoCancel" class="mobile-btn">Cancelar</button>
-        <button id="diarioTipoOk" class="mobile-btn">OK</button>
+      <div class="m-field m-gap-10">
+        <div class="m-field__icon">🔎</div>
+        <input class="m-input" id="txt-buscar" type="search" placeholder="Buscar vendedor…" autocomplete="off"/>
       </div>
     </div>
+
+    <!-- SOLO ESTE BLOQUE SCROLLEA -->
+    <main class="ventas-scroll">
+      <section class="ventas-layout">
+        <aside id="abcBar" class="ventas-abc" aria-label="Índice alfabético"></aside>
+
+        <section class="m-card ventas-lista" aria-label="Lista de vendedores">
+          <div class="m-list" id="lista-vendedores"></div>
+        </section>
+      </section>
+    </main>
+
+    <!-- ====== Bottom Sheet (ÚNICO, sin duplicados) ====== -->
+    <div id="overlay" class="mobile-overlay" style="display:none;">
+      <div id="sheet" class="mobile-sheet">
+
+        <div class="mobile-sheet-header">
+          <h2 id="modalSub">Compromisos</h2>
+          <button id="btnCancelar" class="mobile-btn" type="button">Cerrar</button>
+        </div>
+
+        <div id="cmpVendorName" class="mobile-mini" style="margin:-4px 0 10px 0;"></div>
+
+        <div class="mobile-tabs">
+          <button id="tabMensual" class="mobile-tab active" type="button">Mensual</button>
+          <button id="tabSemanal" class="mobile-tab" type="button">Semanal</button>
+          <button id="tabDiario" class="mobile-tab" type="button">Diario</button>
+        </div>
+
+        <div id="formMensual" class="mobile-form">
+          <!-- JS pinta aquí la grilla con headers Compromiso / Venta + filas TOPE/SOBRE/TF/PLAN -->
+          <div id="tblMensual" class="cmp-table"></div>
+        </div>
+
+        <div id="formSemanal" class="mobile-form" style="display:none;">
+          <div id="tblSemanal" class="cmp-table"></div>
+        </div>
+
+        <div id="formDiario" class="mobile-form" style="display:none;">
+          <div class="cmp-daynav">
+            <button id="diaPrev" type="button">◀</button>
+            <span id="diaLabel"></span>
+            <button id="diaNext" type="button">▶</button>
+          </div>
+
+          <div id="lblSemana" class="mobile-mini"></div>
+          <div id="diarioLista" class="cmp-diario"></div>
+
+          <button id="diarioAdd" class="m-fab" type="button">+</button>
+        </div>
+
+        <div class="cmp-actions" style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button id="cmpGuardar" class="mobile-btn mobile-btn--primary" type="button">Guardar</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="diarioPicker" class="cmp-picker" style="display:none;">
+      <div class="cmp-picker__card">
+        <select id="diarioTipoSelect" class="mobile-input"></select>
+        <div class="cmp-picker__actions">
+          <button id="diarioTipoCancel" class="mobile-btn" type="button">Cancelar</button>
+          <button id="diarioTipoOk" class="mobile-btn" type="button">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="mobile-toast"></div>
+
+    <!-- ====== Scripts (rutas RELATIVAS desde /views/) ====== -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../config.js"></script>
+    <script src="../scripts/mobile_shared.js" defer></script>
+    <script src="../scripts/compromisos.mobile.js" defer></script>
+
+    <script>
+      document.getElementById("btn-volver")?.addEventListener("click", () => {
+        window.location.href = "supervisor.mobile.html";
+      });
+    </script>
+
   </div>
-
-  <div id="toast" class="mobile-toast"></div>
-
-  <!-- ========================= -->
-  <!-- SCRIPTS ORDEN CORRECTO   -->
-  <!-- ========================= -->
-
-  <!-- Librería Supabase -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/config.js"></script>
-
-  <!-- Variables de entorno -->
-  <script src="/env.js"></script>
-
-  <!-- Cliente Supabase único -->
-  <!-- Shared mobile -->
-  <script src="/scripts/mobile_shared.js" defer></script>
-
-  <!-- Archivo correcto (nombre real) -->
-  <script src="/scripts/compromisos.mobile.js?v=20260223c" defer></script>
-
 </body>
 </html>
