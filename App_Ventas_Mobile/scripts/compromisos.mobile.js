@@ -1,8 +1,9 @@
 // compromisos.mobile.js
 // VERSION: 2026-02-26 TF40 + BARRA + ABC + BOTON "+" (match Ventas)
+// PATCH: Diario funcional (tipos DIARIO + monto 2 dígitos + comentario 1000 + mic + guardar)
 (() => {
   "use strict";
-  console.log("[compromisos.mobile] TF40 + BARRA + SHEET v20 (fechas desde dt-dia: mensual+semanal)");
+  console.log("[compromisos.mobile] TF40 + BARRA + SHEET v20 (fechas desde dt-dia: mensual+semanal) + DIARIO");
 
   const $ = (s) => document.querySelector(s);
 
@@ -244,7 +245,25 @@
           </section>
 
           <section class="cmp-pane" data-cmp-pane="diario" role="tabpanel">
-            <div class="cmp-placeholder">Pendiente: UI diaria.</div>
+            <div class="cmp-diario">
+              <div class="cmp-diario__head">
+                <div class="cmp-diario__label">Compromiso</div>
+                <div class="cmp-diario__fecha">
+                  <button id="cmpDiarioPrev" class="cmp-tri" type="button" aria-label="Día anterior">◀</button>
+                  <div id="cmpDiarioFecha" class="cmp-diario__fechaTxt">—</div>
+                  <button id="cmpDiarioNext" class="cmp-tri" type="button" aria-label="Día siguiente">▶</button>
+                </div>
+              </div>
+
+              <div id="cmpDiarioList" class="cmp-diario__list">
+                <div class="cmp-placeholder">Cargando...</div>
+              </div>
+
+              <div class="cmp-diario__savebar">
+                <div id="cmpDiarioStatus" class="cmp-diario__status">Listo.</div>
+                <button id="cmpDiarioGuardar" class="mobile-btn mobile-btn--primary" type="button">Guardar</button>
+              </div>
+            </div>
           </section>
         </div>
       </div>
@@ -283,6 +302,26 @@
       .page-compromisos .cmp-input{height:38px;border-radius:12px;border:1px solid rgba(0,0,0,.12);padding:0 10px;font-weight:800;text-align:right;background:#fff}
       .page-compromisos .cmp-actions{margin-top:14px;display:flex;justify-content:flex-end}
       .page-compromisos .cmp-placeholder{padding:12px;border-radius:12px;background:rgba(0,0,0,.04);color:rgba(15,23,42,.75);font-weight:700}
+
+      /* ===== Diario (agregado) ===== */
+      .page-compromisos .cmp-diario{display:flex;flex-direction:column;gap:12px}
+      .page-compromisos .cmp-diario__head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+      .page-compromisos .cmp-diario__label{font-weight:900;color:#0f172a}
+      .page-compromisos .cmp-diario__fecha{display:flex;align-items:center;gap:8px}
+      .page-compromisos .cmp-tri{width:30px;height:30px;border-radius:10px;border:1px solid rgba(0,0,0,.10);background:rgba(0,0,0,.03);display:flex;align-items:center;justify-content:center;padding:0}
+      .page-compromisos .cmp-diario__fechaTxt{min-width:96px;text-align:center;font-weight:900;color:#0f172a;font-size:12px}
+      .page-compromisos .cmp-diario__list{display:flex;flex-direction:column;gap:12px}
+
+      .page-compromisos .cmp-drow{display:flex;flex-direction:column;gap:8px;padding:10px;border-radius:12px;background:rgba(0,0,0,.03);border:1px solid rgba(0,0,0,.06)}
+      .page-compromisos .cmp-drow__title{font-weight:900;color:#0f172a;font-size:13px}
+
+      .page-compromisos .cmp-drow__grid{display:grid;grid-template-columns:72px 1fr 44px;gap:10px;align-items:start}
+      .page-compromisos .cmp-drow__monto{height:40px;border-radius:12px;border:1px solid rgba(0,0,0,.12);padding:0 10px;font-weight:900;text-align:center;background:#fff}
+      .page-compromisos .cmp-drow__coment{border-radius:12px;border:1px solid rgba(0,0,0,.12);padding:8px 10px;font-weight:700;background:#fff;line-height:18px;height:calc(18px * 2 + 16px);resize:none;overflow:hidden}
+      .page-compromisos .cmp-drow__mic{width:44px;height:44px;border-radius:12px;border:1px solid rgba(0,0,0,.10);background:rgba(0,0,0,.03);display:flex;align-items:center;justify-content:center}
+
+      .page-compromisos .cmp-diario__savebar{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;background:linear-gradient(to top, rgba(255,255,255,.98), rgba(255,255,255,.88))}
+      .page-compromisos .cmp-diario__status{font-size:12px;color:rgba(15,23,42,.75);font-weight:800}
     `;
     document.head.appendChild(st);
   }
@@ -349,6 +388,7 @@
         alert("Error guardando compromisos.");
       }
     });
+
     sheet.querySelector("#cmpSemanalGuardar")?.addEventListener("click", async () => {
       try {
         const tipos = await ensureTiposSemanal();
@@ -396,6 +436,30 @@
       }
     });
 
+    // Diario: prev/next + guardar + mic (delegado)
+    sheet.querySelector("#cmpDiarioPrev")?.addEventListener("click", () => {
+      dailyDateISO = addDaysISO(dailyDateISO, -1);
+      refreshDiario().catch(() => {});
+    });
+    sheet.querySelector("#cmpDiarioNext")?.addEventListener("click", () => {
+      dailyDateISO = addDaysISO(dailyDateISO, +1);
+      refreshDiario().catch(() => {});
+    });
+    sheet.querySelector("#cmpDiarioGuardar")?.addEventListener("click", async () => {
+      await guardarDiario().catch(() => {});
+    });
+
+    sheet.querySelector("#cmpDiarioList")?.addEventListener("click", (ev) => {
+      const mic = ev.target.closest?.("[data-mic='1']");
+      if (!mic) return;
+      const row = ev.target.closest?.(".cmp-drow");
+      if (!row) return;
+      const ta = row.querySelector("textarea[data-coment='1']");
+      if (!ta) return;
+
+      startDictationInto(ta, (msg, isErr) => setDiarioStatus(msg, isErr));
+    });
+
   }
 
   function setSheetOpen(isOpen){
@@ -409,14 +473,17 @@
   async function activateTab(key){
     const sheet = document.getElementById("cmpSheet");
     if (!sheet) return;
+
     sheet.querySelectorAll(".cmp-tab").forEach(b => {
       const active = b.getAttribute("data-cmp-tab") === key;
       b.classList.toggle("is-active", active);
       b.setAttribute("aria-selected", active ? "true" : "false");
     });
+
     sheet.querySelectorAll(".cmp-pane").forEach(p => {
       p.classList.toggle("is-active", p.getAttribute("data-cmp-pane") === key);
     });
+
     // Precarga data al cambiar tab
     if (currentSheetVendedorId) {
       if (key === "mensual") {
@@ -431,6 +498,7 @@
           setVentasUI(ventas);
         } catch (e) { console.warn("[compromisos.tab] mensual preload", e); }
       }
+
       if (key === "semanal") {
         try {
           const { tipos, byTipo, byNombre } = await loadCompromisosSemanal(currentSheetVendedorId);
@@ -440,11 +508,30 @@
           setVentasSemanalUI(ventas);
         } catch (e) { console.warn("[compromisos.tab] semanal preload", e); }
       }
-    }
 
+      if (key === "diario") {
+        try {
+          // Asegurar fecha válida siempre (no depende de inicialización previa de #dt-dia)
+          if (!elDia?.value) {
+            const hoy = new Date().toISOString().slice(0,10);
+            if (elDia) elDia.value = hoy;
+          }
+          dailyDateISO = (elDia?.value || new Date().toISOString().slice(0,10));
+          await refreshDiario();
+        } catch (e) {
+          console.error("[compromisos.tab] diario preload", e);
+        }
+      }
+    }
   }
 
-  
+  function escapeHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    }[c]));
+  }
+
+  // ========== Ventas (Mensual / Semanal) ==========
   async function loadVentasPorTipoMes(vendedorId){
     const { start, end } = monthRange();
     const tipos = ["TOPE","SOBRE","BAJO","PLAN"];
@@ -623,11 +710,8 @@
     return data?.id_compromiso;
   }
 
-
-  
-  // Fecha seleccionada en la UI (input #fecha-compromiso). Fallback: hoy.
+  // Fecha seleccionada en la UI (input #dt-dia). Fallback: hoy.
   function getFechaDesdeUI(){
-    // Fuente oficial: datepicker de la vista (id="dt-dia")
     const input =
       document.getElementById("dt-dia") ||
       document.getElementById("fecha") ||
@@ -636,18 +720,16 @@
 
     if (!input) return new Date();
 
-    // Garantiza formato ISO en inputs date
     if (!input.value) {
       const hoy = new Date();
       if ("valueAsDate" in input) input.valueAsDate = hoy;
       else input.value = hoy.toISOString().slice(0,10);
     }
 
-    // input.value siempre debe ser YYYY-MM-DD
     return new Date(input.value + "T00:00:00");
   }
 
-// ===== CACHE TIPOS COMPROMISOS MENSUAL =====
+  // ===== CACHE TIPOS COMPROMISOS MENSUAL =====
   const tipoCacheMensual = { loaded: false, mapByName: {} };
 
   async function ensureTiposMensual(){
@@ -677,7 +759,6 @@
     const id_supervisor = (window.getSupervisorId && window.getSupervisorId()) || window?.SESSION?.id_supervisor || window?.id_supervisor;
     const id_equipo = (typeof getEquipoId === "function" ? getEquipoId() : null) || window?.SESSION?.id_equipo || window?.id_equipo;
 
-    
     const q = sb
       .from("compromisos")
       .select("id_tipo,monto_comprometido,tipos_compromisos(nombre)")
@@ -701,7 +782,6 @@
       if (nom) byNombre[nom] = v;
     });
 
-    // asegurar claves esperadas existan (para inputs)
     ["TOPE MES","SOBRE MES","TF MES","PLAN MES"].forEach(n => { if (byNombre[n] == null) byNombre[n] = 0; });
 
     return { tipos, byTipo, byNombre };
@@ -720,7 +800,273 @@
 
   let currentSheetVendedorId = null;
 
-async function openCmpSheet(vendedorId){
+  // ======== DIARIO (AGREGADO) ========
+  let dailyDateISO = null;
+
+  const tipoCacheDiario = { loaded:false, list:[] };
+
+  function addDaysISO(iso, delta){
+    const [y,m,d] = iso.split("-").map(n => parseInt(n,10));
+    const dt = new Date(y, m-1, d);
+    dt.setDate(dt.getDate() + delta);
+    const yy = dt.getFullYear();
+    const mm = String(dt.getMonth()+1).padStart(2,"0");
+    const dd = String(dt.getDate()).padStart(2,"0");
+    return `${yy}-${mm}-${dd}`;
+  }
+
+  function setDiarioStatus(msg, isErr){
+    const el = document.getElementById("cmpDiarioStatus");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.color = isErr ? "#b00020" : "";
+  }
+
+  function getSupervisorIdSafe(){
+    const fn = window.getSupervisorId;
+    const id =
+      (typeof fn === "function" ? fn() : null) ||
+      window?.SESSION?.id_supervisor ||
+      window?.id_supervisor ||
+      localStorage.getItem("av_supervisor_id") ||
+      localStorage.getItem("id_supervisor") ||
+      null;
+    return id ? String(id).trim() : null;
+  }
+
+  async function ensureTiposDiario(){
+    if (tipoCacheDiario.loaded) return tipoCacheDiario.list;
+
+    const supId = getSupervisorIdSafe();
+
+    // Importante: NO seleccionar columnas que podrían no existir (PostgREST 42703).
+    // Traemos todo y filtramos en JS.
+    const { data, error } = await sb
+      .from("tipos_compromisos")
+      .select("*")
+      .eq("activo", true)
+      .order("nombre", { ascending: true });
+
+    if (error) throw error;
+
+    const list = (data || []).filter(t => {
+      const periodo = String(t.periodo || "").toLowerCase();
+      if (!periodo.includes("dia")) return false;
+
+      if (t.visible_para_todos === true) return true;
+
+      if (t.visible_para_todos === false) {
+        const owner =
+          t.supervisor_id ??
+          t.id_supervisor ??
+          t.id_usuario_supervisor ??
+          t.supervisor ??
+          t.creado_por ??
+          t.owner_id ??
+          null;
+
+        return supId && owner && String(owner) === String(supId);
+      }
+
+      // Si viene null/undefined, por defecto NO mostrar (evita filtrar mal).
+      return false;
+    }).map(t => ({
+      id: t.id,
+      nombre: String(t.descripcion || t.nombre || "").trim()
+    })).filter(t => t.id && t.nombre);
+
+    tipoCacheDiario.list = list;
+    tipoCacheDiario.loaded = true;
+    return list;
+  }
+
+  function clamp2Digits(s){
+    const v = String(s ?? "").trim();
+    if (!v) return null;
+    if (!/^\d{1,2}$/.test(v)) return null;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    if (n < 0 || n > 99) return null;
+    return n;
+  }
+
+  function clamp1000(s){
+    const v = String(s ?? "");
+    return v.length > 1000 ? v.slice(0,1000) : v;
+  }
+
+  async function loadCompromisosDiario(vendedorId, fechaISO, tipoIds){
+    const id_supervisor = getSupervisorIdSafe();
+    const id_equipo = getEquipoId?.() || window?.SESSION?.id_equipo || window?.id_equipo;
+
+    const q = sb
+      .from("compromisos")
+      .select("id_tipo,monto_comprometido,comentario")
+      .eq("id_vendedor", vendedorId)
+      .eq("fecha_compromiso", fechaISO);
+
+    if (id_supervisor) q.eq("id_supervisor", id_supervisor);
+    if (id_equipo) q.eq("id_equipo", id_equipo);
+    if (tipoIds?.length) q.in("id_tipo", tipoIds);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const byTipo = {};
+    (data || []).forEach(r => {
+      byTipo[String(r.id_tipo)] = {
+        monto: Number(r.monto_comprometido ?? 0),
+        comentario: String(r.comentario ?? "")
+      };
+    });
+
+    return byTipo;
+  }
+
+  function renderDiarioUI(tipos, byTipo){
+    const fechaEl = document.getElementById("cmpDiarioFecha");
+    if (fechaEl) fechaEl.textContent = dailyDateISO || "—";
+
+    const listEl = document.getElementById("cmpDiarioList");
+    if (!listEl) return;
+
+    if (!tipos.length) {
+      listEl.innerHTML = `<div class="cmp-placeholder">No hay tipos diarios visibles.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = tipos.map(t => {
+      const v = byTipo?.[String(t.id)] || { monto: null, comentario: "" };
+      const montoStr = (v.monto == null || Number.isNaN(v.monto)) ? "" : String(v.monto);
+      const comentStr = clamp1000(v.comentario || "");
+      return `
+        <div class="cmp-drow" data-id-tipo="${escapeHtml(t.id)}">
+          <div class="cmp-drow__title">${escapeHtml(t.nombre)}</div>
+          <div class="cmp-drow__grid">
+            <input class="cmp-drow__monto" data-monto="1" inputmode="numeric" maxlength="2" placeholder="0-99" value="${escapeHtml(montoStr)}"/>
+            <textarea class="cmp-drow__coment" data-coment="1" maxlength="1000" placeholder="Comentario (máx 1000)">${escapeHtml(comentStr)}</textarea>
+            <button class="cmp-drow__mic" type="button" data-mic="1" aria-label="Dictar">🎙️</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  async function refreshDiario(){
+    if (!currentSheetVendedorId) return;
+
+    if (!dailyDateISO) {
+      dailyDateISO = (elDia?.value || new Date().toISOString().slice(0,10));
+      if (elDia && !elDia.value) elDia.value = dailyDateISO;
+    }
+    const tipos = await ensureTiposDiario();
+    const tipoIds = tipos.map(t => t.id);
+    const byTipo = await loadCompromisosDiario(currentSheetVendedorId, dailyDateISO, tipoIds);
+    renderDiarioUI(tipos, byTipo);
+    setDiarioStatus(`Fecha: ${dailyDateISO}`, false);
+  }
+
+  async function guardarDiario(){
+    if (!currentSheetVendedorId) return;
+
+    const sheet = document.getElementById("cmpSheet");
+    if (!sheet) return;
+
+    const listEl = sheet.querySelector("#cmpDiarioList");
+    if (!listEl) return;
+
+    const id_supervisor = getSupervisorIdSafe();
+    const id_equipo = getEquipoId?.() || window?.SESSION?.id_equipo || window?.id_equipo;
+
+    if (!id_supervisor || !id_equipo) {
+      alert("Falta id_supervisor o id_equipo (sesión/equipo no definido).");
+      return;
+    }
+
+    const rows = [];
+    listEl.querySelectorAll(".cmp-drow[data-id-tipo]").forEach(row => {
+      const id_tipo = row.getAttribute("data-id-tipo");
+      const montoEl = row.querySelector("input[data-monto='1']");
+      const comentEl = row.querySelector("textarea[data-coment='1']");
+
+      const monto = clamp2Digits(montoEl?.value);
+      const comentario = clamp1000((comentEl?.value ?? "").toString().trim());
+
+      rows.push({
+        id_vendedor: currentSheetVendedorId,
+        id_tipo,
+        id_supervisor,
+        id_equipo,
+        fecha_compromiso: dailyDateISO,
+        monto_comprometido: (monto == null ? 0 : monto),
+        cumplido: false,
+        comentario
+      });
+    });
+
+    setDiarioStatus("Guardando...", false);
+
+    // upsert idempotente igual que semanal/mensual
+    const { error } = await sb
+      .from("compromisos")
+      .upsert(rows, { onConflict: "id_tipo,id_supervisor,id_equipo,id_vendedor,fecha_compromiso" });
+
+    if (error) {
+      console.error("[compromisos.diario] guardar fallo", error);
+      setDiarioStatus("Error guardando.", true);
+      alert("Error guardando compromisos diarios.");
+      return;
+    }
+
+    setDiarioStatus("Guardado OK.", false);
+  }
+
+  // Dictado (Web Speech API)
+  function getSpeechRecognition(){
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  let activeRec = null;
+
+  function startDictationInto(textarea, onStatus){
+    const SR = getSpeechRecognition();
+    if (!SR) {
+      onStatus?.("Dictado no disponible en este navegador.", true);
+      return;
+    }
+
+    try { activeRec?.stop?.(); } catch(_) {}
+
+    const rec = new SR();
+    activeRec = rec;
+
+    rec.lang = "es-CL";
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+
+    let finalText = "";
+    const base = textarea.value || "";
+
+    rec.onstart = () => onStatus?.("Escuchando...", false);
+    rec.onerror = () => onStatus?.("Error de micrófono/dictado.", true);
+    rec.onend = () => onStatus?.("Dictado detenido.", false);
+
+    rec.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const txt = event.results[i][0]?.transcript || "";
+        if (event.results[i].isFinal) finalText += txt;
+        else interim += txt;
+      }
+      textarea.value = clamp1000((base ? base.trimEnd() + " " : "") + finalText + interim);
+    };
+
+    rec.start();
+  }
+
+  // ======== Fin Diario ========
+
+  async function openCmpSheet(vendedorId){
     currentSheetVendedorId = vendedorId;
     const sheet = ensureSheetDom();
     const v = vendedores.find(x => String(x.id) === String(vendedorId));
@@ -737,7 +1083,6 @@ async function openCmpSheet(vendedorId){
       const { tipos, byTipo } = await loadCompromisosMensual(vendedorId, fechaYYYYMM01);
       setMensualInputsFromDB(tipos, byTipo, (typeof byNombre!=="undefined"?byNombre:null));
 
-
       setVentasUI({TOPE:0,SOBRE:0,BAJO:0,PLAN:0});
       const ventas = await loadVentasPorTipoMes(vendedorId);
       setVentasUI(ventas);
@@ -745,7 +1090,6 @@ async function openCmpSheet(vendedorId){
       console.warn('[compromisos.sheet] ventas por tipo fallo', e);
     }
   }
-
 
   // ABC
   function buildAbcBar(list) {
@@ -765,12 +1109,6 @@ async function openCmpSheet(vendedorId){
   }
 
   // Render
-  function escapeHtml(s) {
-    return String(s ?? "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-    }[c]));
-  }
-
   function render() {
     const q = norm(elBuscar?.value || "");
     const list = !q ? vendedores : vendedores.filter(v => norm(v.nombre).includes(q));
@@ -825,7 +1163,7 @@ async function openCmpSheet(vendedorId){
     openCmpSheet(id);
   });
 
-async function reload() {
+  async function reload() {
     setDefaultDate();
     vendedores = await loadVendedores();
     const ids = vendedores.map(v => v.id);
@@ -836,36 +1174,37 @@ async function reload() {
   reload();
 })();
 
-  // ===== UPSERT REAL MENSUAL =====
-  async function upsertCompromisoMensualReal({
+// ===== UPSERT REAL MENSUAL =====
+// (se deja como está; tu app actualmente la usa así)
+async function upsertCompromisoMensualReal({
+  id_vendedor,
+  id_tipo,
+  id_supervisor,
+  id_equipo,
+  fecha_compromiso,
+  monto_comprometido
+}) {
+
+  const payload = {
     id_vendedor,
     id_tipo,
     id_supervisor,
     id_equipo,
     fecha_compromiso,
-    monto_comprometido
-  }) {
+    monto_comprometido: Number(monto_comprometido || 0),
+    cumplido: false,
+    comentario: null
+  };
 
-    const payload = {
-      id_vendedor,
-      id_tipo,
-      id_supervisor,
-      id_equipo,
-      fecha_compromiso,
-      monto_comprometido: Number(monto_comprometido || 0),
-      cumplido: false,
-      comentario: null
-    };
+  const client = window.sb || window.supabaseClient;
+  const { data, error } = await client
+    .from("compromisos")
+    .upsert([payload], {
+      onConflict: "id_tipo,id_supervisor,id_equipo,id_vendedor,fecha_compromiso"
+    })
+    .select("id_compromiso")
+    .single();
 
-    const { data, error } = await sb
-      .from("compromisos")
-      .upsert([payload], {
-        onConflict: "id_tipo,id_supervisor,id_equipo,id_vendedor,fecha_compromiso"
-      })
-      .select("id_compromiso")
-      .single();
-
-    if (error) throw error;
-    return data?.id_compromiso;
-  }
-
+  if (error) throw error;
+  return data?.id_compromiso;
+}
