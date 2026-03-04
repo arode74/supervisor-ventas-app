@@ -650,7 +650,7 @@ async function cargarTablaCompromisos() {
 
   const idEquipo = localStorage.getItem("idEquipoActivo");
   if (!idEquipo) {
-    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">No hay equipo activo.</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">No hay equipo activo.</td></tr>';
     return;
   }
 
@@ -662,21 +662,20 @@ async function cargarTablaCompromisos() {
 
   if (errV) {
     console.error("Error cargando equipo_vendedor:", errV);
-    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">Error cargando vendedores.</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">Error cargando vendedores.</td></tr>';
     return;
   }
 
   const vendedores = (rels || []).map((r) => r.vendedores).filter(Boolean);
 
   if (vendedores.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">Sin vendedores.</td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="${totalCols}" style="text-align:center;">Sin vendedores.</td></tr>';
     return;
   }
 
   const idsVendedores = vendedores.map((v) => v.id_vendedor);
   const idsTiposSem = columnasSemanales.map((t) => t.id);
   const idsTiposMes = columnasMensuales.map((t) => t.id);
-  const idsTiposDia = (tiposSupervisorCache || []).map((t) => t.id).filter(Boolean);
 
   // Semanal
   let compsSem = [];
@@ -694,26 +693,6 @@ async function cargarTablaCompromisos() {
       compsSem = [];
     } else {
       compsSem = data || [];
-    }
-  }
-
-
-  // Diario (tipos no obligatorios del supervisor) - para detalle Ayer/Hoy
-  let compsDia = [];
-  if (idsTiposDia.length > 0) {
-    const { data, error } = await supabase
-      .from("compromisos")
-      .select("id_vendedor, id_tipo, monto_comprometido, fecha_compromiso, comentario, id_supervisor, id_equipo")
-      .in("id_vendedor", idsVendedores)
-      .in("id_tipo", idsTiposDia)
-      .gte("fecha_compromiso", semanaInicioActual)
-      .lte("fecha_compromiso", semanaFinActual);
-
-    if (error) {
-      console.error("Error cargando compromisos diarios (detalle):", error);
-      compsDia = [];
-    } else {
-      compsDia = data || [];
     }
   }
 
@@ -736,7 +715,7 @@ async function cargarTablaCompromisos() {
     }
   }
 
-  compromisosSemana = [...(compsSem || []), ...(compsDia || [])];
+  compromisosSemana = compsSem;
   compromisosMes = compsMes;
 
   reconstruirIndicesCompromisosSemana();
@@ -926,7 +905,7 @@ function __construirHtmlDetalleCompromisos_base(idVendedor) {
         '<input type="number" id="' + inputMontoId + '" class="input-compromiso-dia" ' +
           estiloFeriado +
           'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" ' +
-          'min="0" step="1" inputmode="numeric" value="' +
+          'min="0" max="99" step="1" inputmode="numeric" value="' +
           (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
         '" />' +
         // comentario (1000)
@@ -1374,8 +1353,6 @@ function rerenderDetalleAbierto(idV) {
   const filaDetalle = tbody?.querySelector('tr.fila-detalle[data-id-vendedor="' + idV + '"]');
   if (!filaDetalle) return;
 
-  try { __invalidateDetalleCache(idV); } catch (e) {}
-
   filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
       
   
@@ -1392,7 +1369,6 @@ function rerenderDetallesAbiertos() {
   document.querySelectorAll("tr.fila-detalle").forEach((filaDetalle) => {
     if (filaDetalle.style.display !== "none") {
       const idV = filaDetalle.dataset.idVendedor;
-      try { __invalidateDetalleCache(idV); } catch (e) {}
       filaDetalle.querySelector(".celda-detalle-compromisos").innerHTML = construirHtmlDetalleCompromisos(idV);
       
   
@@ -1493,61 +1469,26 @@ async function __compromisosHandleClick(e) {
     const inputCom = document.querySelector(selCom);
     if (!inputMonto) return;
 
-    // monto: numérico (sin tope artificial)
-    const monto = Number(String(inputMonto.value || "0").replace(/\./g,"").replace(/,/g,"."));
-    const montoSafe = Number.isFinite(monto) ? monto : 0;
+    // monto: 0..99 (2 dígitos)
+    let monto = Number(inputMonto.value || "0");
+    if (!Number.isFinite(monto) || monto < 0) monto = 0;
+    if (monto > 99) monto = 99;
 
     const comentario = inputCom ? String(inputCom.value || "").trim() : "";
 
     const fechaHoy = fechaHoyDetalleISO;
-    if (!fechaHoy || !/^\d{4}-\d{2}-\d{2}$/.test(fechaHoy)) {
-      alert("No se pudo determinar la fecha del compromiso diario.");
-      return;
-    }
 
     try {
-      const { data: _rpcData, error: _rpcErr } = await supabase.rpc("upsert_compromiso", {
+      await supabase.rpc("upsert_compromiso", {
         p_id_equipo: idEquipo,
         p_id_vendedor: idV,
         p_id_tipo: idTipo,
         p_fecha: fechaHoy,
-        p_monto: montoSafe,
+        p_monto: monto,
         p_comentario: comentario || null,
       });
 
-      if (_rpcErr) {
-        console.error("❌ upsert_compromiso error:", _rpcErr);
-        alert("No se pudo guardar compromiso diario: " + (_rpcErr.message || "Error"));
-        return;
-      }
-
-
-      // Confirmación post-save: releer lo que quedó realmente en BD (evita "guardó pero no se ve")
-      const { data: _row, error: _selErr } = await supabase
-        .from("compromisos")
-        .select("monto_comprometido, comentario")
-        .eq("id_equipo", idEquipo)
-        .eq("id_vendedor", idV)
-        .eq("id_tipo", idTipo)
-        .eq("fecha_compromiso", fechaHoy)
-        .maybeSingle();
-
-      if (_selErr) {
-        console.warn("Post-save select falló (posible RLS/lectura):", _selErr);
-      } else if (_row) {
-        // Repintar el input con el valor confirmado
-        try { inputMonto.value = String(_row.monto_comprometido ?? 0); } catch (_) {}
-        if (inputCom) {
-          try { inputCom.value = String(_row.comentario ?? ""); } catch (_) {}
-        }
-      } else {
-        console.warn("RPC OK, pero no se encontró el registro con la llave esperada.", {
-          idEquipo, idV, idTipo, fechaHoy
-        });
-      }
-
-      // Refresco duro: recargar desde BD para no perder otros tipos/valores
-      await cargarTablaCompromisos();
+      setDiaEnIndiceSemana(idV, idTipo, fechaHoy, monto, comentario);
       rerenderDetalleAbierto(idV);
     } catch (err) {
       console.error("Error inesperado al guardar compromiso diario:", err);
@@ -1555,8 +1496,6 @@ async function __compromisosHandleClick(e) {
     }
     return;
   }
-
-}
 
 
 
@@ -1588,12 +1527,12 @@ function __autoResizeTextArea(ta) {
 document.addEventListener("input", (e) => {
   const el = e.target;
 
+
   // textarea autosize
   if (el && el.matches && el.matches("textarea.input-compromiso-comentario")) {
     __autoResizeTextArea(el);
   }
 });
-
 
 // al renderizar detalle, ajustamos altura inicial de textareas
 document.addEventListener("focusin", (e) => {
@@ -1726,39 +1665,35 @@ if (form) {
           ? Array.from(tablaModalSemanal.querySelectorAll('input.input-compromiso-semanal[data-id-tipo]'))
           : [];
 
-                const payload = inputs
-                  .map((inp) => ({
-                    id_tipo: inp.getAttribute("data-id-tipo"),
-                    monto: Number(inp.value || "0"),
-                  }))
-                  .filter((x) => x.id_tipo);
+        const inserts = inputs
+          .map((inp) => ({
+            id_tipo: inp.getAttribute("data-id-tipo"),
+            monto: Number(inp.value || "0"),
+          }))
+          .filter((x) => x.id_tipo && x.monto > 0)
+          .map((p) => ({
+            id_tipo: p.id_tipo,
+            id_equipo: idEquipo,
+            id_vendedor: idV,
+            id_supervisor: usuarioActual.id,
+            fecha_compromiso: inicio,
+            monto_comprometido: p.monto,
+            cumplido: false,
+            comentario: null,
+          }));
 
-                // Política: permitir 0. No se borra (auditoría no permite DELETE).
-                // 0 = actualizar monto_comprometido a 0 (vía UPSERT, que hace INSERT/UPDATE).
-                const inserts = payload
-                  .filter((p) => Number.isFinite(p.monto))
-                  .map((p) => ({
-                    id_tipo: p.id_tipo,
-                    id_equipo: idEquipo,
-                    id_vendedor: idV,
-                    id_supervisor: usuarioActual.id,
-                    fecha_compromiso: inicio,
-                    monto_comprometido: Math.max(0, p.monto),
-                    cumplido: false,
-                    comentario: null,
-                  }));
+        if (inserts.length > 0) {
+          const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
+            onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
+          });
 
-                if (inserts.length > 0) {
-                  const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
-                    onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
-                  });
-
-                  if (upErr) {
-                    console.error("Error guardando (upsert) compromisos semanales:", upErr);
-                    safeAlert("Error al guardar compromisos semanales.");
-                    return;
-                  }
-                }      } else {
+          if (upErr) {
+            console.error("Error guardando (upsert) compromisos semanales:", upErr);
+            safeAlert("Error al guardar compromisos semanales.");
+            return;
+          }
+        }
+      } else {
         if (!anclaMes) {
           safeAlert("No se pudo determinar el mes del compromiso.");
           return;
@@ -1768,39 +1703,35 @@ if (form) {
           ? Array.from(tablaModalMensual.querySelectorAll('input.input-compromiso-mensual[data-id-tipo]'))
           : [];
 
-                const payload = inputs
-                  .map((inp) => ({
-                    id_tipo: inp.getAttribute("data-id-tipo"),
-                    monto: Number(inp.value || "0"),
-                  }))
-                  .filter((x) => x.id_tipo);
+        const inserts = inputs
+          .map((inp) => ({
+            id_tipo: inp.getAttribute("data-id-tipo"),
+            monto: Number(inp.value || "0"),
+          }))
+          .filter((x) => x.id_tipo && x.monto > 0)
+          .map((p) => ({
+            id_tipo: p.id_tipo,
+            id_equipo: idEquipo,
+            id_vendedor: idV,
+            id_supervisor: usuarioActual.id,
+            fecha_compromiso: anclaMes,
+            monto_comprometido: p.monto,
+            cumplido: false,
+            comentario: null,
+          }));
 
-                // Política: permitir 0. No se borra (auditoría no permite DELETE).
-                // 0 = actualizar monto_comprometido a 0 (vía UPSERT, que hace INSERT/UPDATE).
-                const inserts = payload
-                  .filter((p) => Number.isFinite(p.monto))
-                  .map((p) => ({
-                    id_tipo: p.id_tipo,
-                    id_equipo: idEquipo,
-                    id_vendedor: idV,
-                    id_supervisor: usuarioActual.id,
-                    fecha_compromiso: anclaMes,
-                    monto_comprometido: Math.max(0, p.monto),
-                    cumplido: false,
-                    comentario: null,
-                  }));
+        if (inserts.length > 0) {
+          const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
+            onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
+          });
 
-                if (inserts.length > 0) {
-                  const { error: upErr } = await supabase.from("compromisos").upsert(inserts, {
-                    onConflict: "id_equipo,id_vendedor,id_tipo,fecha_compromiso",
-                  });
-
-                  if (upErr) {
-                    console.error("Error guardando (upsert) compromisos mensuales:", upErr);
-                    safeAlert("Error al guardar compromisos mensuales.");
-                    return;
-                  }
-                }      }
+          if (upErr) {
+            console.error("Error guardando (upsert) compromisos mensuales:", upErr);
+            safeAlert("Error al guardar compromisos mensuales.");
+            return;
+          }
+        }
+      }
 
       if (modal && typeof modal.close === "function") modal.close();
       await cargarTablaCompromisos();
@@ -1884,5 +1815,3 @@ function verificarCambioEquipo() {
     window.dispatchEvent(new Event("equipoCambiado"));
   }
 }
-
-// === EOF (compromisos.web.fix_diario_render.js) ===
