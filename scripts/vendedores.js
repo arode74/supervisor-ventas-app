@@ -1518,4 +1518,45 @@ async function inicializarModuloVendedores() {
    LLAMADA DE INICIO DEL MÓDULO
    (movida al final para evitar la TDZ con tablaVendedores)
    =========================================================== */
+/* ===========================================================
+   API PÚBLICA (Supervisor popup): abrir baja usando el MISMO flujo
+   - Reutiliza validaciones, modales y restricciones del módulo Vendedores.
+   - Requiere que el módulo ya esté cargado/insertado en DOM.
+   =========================================================== */
+AppVentas.features.vendedores.abrirBajaPorId = async function (idVendedor, idEquipo) {
+  try {
+    if (!idVendedor) return;
+
+    // Asegura data en memoria (usa cache/RPC ya implementado)
+    if (!Array.isArray(vendedores) || vendedores.length === 0) {
+      await cargarVendedores();
+    }
+
+    const v = (vendedores || []).find(x =>
+      String(x.id_vendedor) === String(idVendedor) &&
+      (idEquipo ? String(x.id_equipo) === String(idEquipo) : true)
+    );
+
+    if (!v) {
+      // Último intento: refresca
+      await cargarVendedores();
+      const v2 = (vendedores || []).find(x =>
+        String(x.id_vendedor) === String(idVendedor) &&
+        (idEquipo ? String(x.id_equipo) === String(idEquipo) : true)
+      );
+      if (!v2) {
+        mostrarAlerta("No se encontró el vendedor para dar de baja.");
+        return;
+      }
+      abrirModalBaja(v2);
+      return;
+    }
+
+    abrirModalBaja(v);
+  } catch (e) {
+    console.error("Error abrirBajaPorId:", e);
+    try { mostrarAlerta("No fue posible abrir el flujo de baja del vendedor."); } catch (_) {}
+  }
+};
+
 AppVentas.features.vendedores.init();

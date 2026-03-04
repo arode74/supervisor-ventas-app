@@ -165,7 +165,56 @@
 
     <!-- Contenedor dinámico -->
     <section id="contenedor-modulos" class="modulo-dinamico" style="display:none;"></section>
-  </main>
+  
+
+    <style>
+  /* === AV: Popup Control Vendedores Nuevos (Mes 5) === */
+  #modalNuevosVendedores .modal-contenido{ width: 700px; max-width: 95vw; }
+  #modalNuevosVendedores table{ width: 100%; table-layout: auto; }
+  #modalNuevosVendedores td, #modalNuevosVendedores th{ white-space: nowrap; vertical-align: middle; }
+  #modalNuevosVendedores .acciones{ display:flex; justify-content:flex-end; gap:10px; flex-wrap:nowrap; align-items:center; }
+  #modalNuevosVendedores .acciones button{ white-space: nowrap; min-width: 96px; padding: 10px 14px; line-height: 1; }
+  #modalNuevosVendedores .acciones .av-btn-baja{ min-width: 78px; }
+</style>
+
+<!-- =========================
+         POPUP: Vendedores "Nuevos" próximos a mes 5
+         ========================= -->
+    <dialog id="modalNuevosVendedores" class="modal">
+      <div class="modal-contenido">
+        <div class="modal-encabezado">
+          <h3>Control Vendedores Nuevos</h3>
+        </div>
+
+        <form method="dialog">
+          <p style="margin: 0 0 10px 0;">
+            Hay vendedores marcados como <strong>nuevo</strong> que están por iniciar el <strong>mes 5</strong>.
+            Debes tomar acción.
+          </p>
+
+          <table class="tabla-vendedores" style="margin-top:10px;">
+            <thead>
+              <tr>
+                <th>Vendedor</th>
+                <th>Ingreso</th>
+                <th>Hito</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyNuevosVendedores">
+              <tr><td colspan="4">Cargando…</td></tr>
+            </tbody>
+          </table>
+
+          <div class="acciones-modal">
+            <button type="submit" class="btn-secundario" value="cancel" id="btnCerrarModalNuevos" formnovalidate>Cerrar</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+    
+
+</main>
 
   <!-- Pie institucional -->
   <footer class="footer">

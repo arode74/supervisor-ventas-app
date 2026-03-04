@@ -1372,3 +1372,8 @@ dialog.modal .modal-contenido{
   max-height: 80vh !important;
   overflow-y: auto !important;
 }
+
+#modalNuevosVendedores .modal-contenido{
+  width: 620px;
+  max-width: 90vw;
+}

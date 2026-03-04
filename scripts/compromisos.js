@@ -696,6 +696,41 @@ async function cargarTablaCompromisos() {
     }
   }
 
+  // Diario / Detalle (tiposSupervisorCache): lo necesitamos para que "graba pero no se ve" no vuelva a pasar.
+  // Se carga en el mismo rango de semana para que el detalle Ayer/Hoy tenga data.
+  let compsDia = [];
+  const idsTiposDia = (tiposSupervisorCache || []).map(t => t.id).filter(Boolean);
+
+  // Evita llamada inútil
+  if (idsTiposDia.length > 0) {
+    const { data, error } = await supabase
+      .from("compromisos")
+      .select("id_vendedor, id_tipo, monto_comprometido, fecha_compromiso, comentario, id_supervisor, id_equipo")
+      .in("id_vendedor", idsVendedores)
+      .in("id_tipo", idsTiposDia)
+      .gte("fecha_compromiso", semanaInicioActual)
+      .lte("fecha_compromiso", semanaFinActual);
+
+    if (error) {
+      console.error("Error cargando compromisos diarios/detalle:", error);
+      compsDia = [];
+    } else {
+      compsDia = data || [];
+    }
+  }
+
+  // Unimos semanal + diario (sin duplicar por llave id_vendedor|id_tipo|fecha_compromiso)
+  const mergeByKey = (arr) => {
+    const map = new Map();
+    for (const c of (arr || [])) {
+      const k = `${c.id_vendedor}|${c.id_tipo}|${c.fecha_compromiso}`;
+      map.set(k, c);
+    }
+    return Array.from(map.values());
+  };
+  compsSem = mergeByKey([...(compsSem || []), ...(compsDia || [])]);
+
+
   // Mensual (ancla del mes)
   const anclaMes = getAnclaMesISO();
   let compsMes = [];
@@ -1497,7 +1532,32 @@ async function __compromisosHandleClick(e) {
     return;
   }
 
+    const selectorInput =
+      'input.input-compromiso-dia[data-id-vendedor="' + idV + '"][data-id-tipo="' + idTipo + '"]';
+    const inputDia = document.querySelector(selectorInput);
+    if (!inputDia) return;
 
+    const monto = Number(inputDia.value || "0");
+    const fechaHoy = fechaHoyDetalleISO;
+
+    try {
+      await supabase.rpc("upsert_compromiso", {
+        p_id_equipo: idEquipo,
+        p_id_vendedor: idV,
+        p_id_tipo: idTipo,
+        p_fecha: fechaHoy,
+        p_monto: monto,
+        p_comentario: null,
+      });
+
+      setMontoEnIndiceSemana(idV, idTipo, fechaHoy, monto);
+      rerenderDetalleAbierto(idV);
+    } catch (err) {
+      console.error("Error inesperado al guardar compromiso diario:", err);
+      alert("Error inesperado al guardar compromiso diario.");
+    }
+    return;
+  }
 
 if (window.__compromisosClickHandler) {
   try { document.removeEventListener("click", window.__compromisosClickHandler); } catch (e) {}
@@ -1527,6 +1587,13 @@ function __autoResizeTextArea(ta) {
 document.addEventListener("input", (e) => {
   const el = e.target;
 
+  // fuerza 0..99 y no más de 2 dígitos
+  if (el && el.matches && el.matches("input.input-compromiso-dia")) {
+    const raw = String(el.value || "").replace(/[^0-9]/g, "");
+    const clipped = raw.slice(0, 2);
+    if (String(el.value || "") !== clipped) el.value = clipped;
+    return;
+  }
 
   // textarea autosize
   if (el && el.matches && el.matches("textarea.input-compromiso-comentario")) {

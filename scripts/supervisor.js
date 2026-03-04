@@ -227,6 +227,256 @@ async function initSupervisor() {
     });
   }
 
+
+  // -------------------------
+  // Control "Vendedor Nuevo" (Mes 5) — POPUP al entrar / cambiar equipo
+  // Regla:
+  // - nuevo = true
+  // - vigente: fecha_egreso IS NULL o >= hoy  (además de relación vigente con equipo)
+  // - hito = 1er día del mes que corresponde al "mes 5" (mes ingreso + 4 meses calendario, día 01)
+  // - mostrar desde 3 días hábiles antes del hito (incluye el hito)
+  // Acciones:
+  // - Renovar: nuevo = false
+  // - Baja: abre Módulo Vendedores y ejecuta el MISMO flujo de baja (fecha obligatoria + validaciones)
+  // -------------------------
+  const modalNuevos = document.getElementById("modalNuevosVendedores");
+  const tbodyNuevos = document.getElementById("tbodyNuevosVendedores");
+
+  function _fmtISO(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
+  function _parseDateISO(s) {
+    if (!s) return null;
+    const str = String(s).slice(0, 10);
+    const parts = str.split("-");
+    if (parts.length !== 3) return null;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    if (!y || !m || !d) return null;
+    return new Date(y, m - 1, d);
+  }
+
+  function _addMonthsCalendar(dateObj, months) {
+    const d = new Date(dateObj.getTime());
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const day = d.getDate();
+
+    const base = new Date(y, m + months, 1);
+    const maxDay = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    base.setDate(Math.min(day, maxDay));
+    return base;
+  }
+
+  function _firstDayOfMonth(dateObj) {
+    return new Date(dateObj.getFullYear(), dateObj.getMonth(), 1);
+  }
+
+  function _isWeekend(dateObj) {
+    const wd = dateObj.getDay();
+    return wd === 0 || wd === 6;
+  }
+
+  function _subtractBusinessDays(dateObj, n) {
+    const d = new Date(dateObj.getTime());
+    let left = n;
+    while (left > 0) {
+      d.setDate(d.getDate() - 1);
+      if (!_isWeekend(d)) left--;
+    }
+    return d;
+  }
+
+  async function _fetchVendedoresEquipo(idEquipo) {
+    const { data, error } = await supabase
+      .from("equipo_vendedor")
+      .select("id_vendedor,id_equipo,fecha_inicio,fecha_fin,estado,vendedores(id_vendedor,nombre,fecha_ingreso,fecha_egreso,nuevo,rut,dv)")
+      .eq("id_equipo", idEquipo)
+      .is("fecha_fin", null);
+
+    if (error) {
+      console.error("❌ Error leyendo equipo_vendedor/vendedores:", error);
+      return [];
+    }
+
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    return (data || [])
+      .map((r) => {
+        const v = r.vendedores || {};
+        return {
+          id_vendedor: r.id_vendedor || v.id_vendedor,
+          id_equipo: r.id_equipo,
+          nombre: v.nombre || "",
+          fecha_ingreso: v.fecha_ingreso ? String(v.fecha_ingreso).slice(0, 10) : null,
+          fecha_egreso: v.fecha_egreso ? String(v.fecha_egreso).slice(0, 10) : null,
+          nuevo: v.nuevo === true,
+        };
+      })
+      .filter((v) => {
+        if (!v.nuevo) return false;
+        if (!v.fecha_egreso) return true;
+        const fe = _parseDateISO(v.fecha_egreso);
+        if (!fe) return true;
+        fe.setHours(0, 0, 0, 0);
+        return fe >= hoy;
+      });
+  }
+
+  function _calcHitoMes5(fechaIngresoISO) {
+    const fi = _parseDateISO(fechaIngresoISO);
+    if (!fi) return null;
+    const plus4 = _addMonthsCalendar(fi, 4);
+    return _firstDayOfMonth(plus4);
+  }
+
+  function _enVentanaAviso(hito) {
+    if (!hito) return false;
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
+    const inicioAviso = _subtractBusinessDays(hito, 3);
+    inicioAviso.setHours(0, 0, 0, 0);
+
+    const finAviso = new Date(hito.getTime());
+    finAviso.setHours(0, 0, 0, 0);
+
+    return hoy >= inicioAviso && hoy <= finAviso;
+  }
+
+  function _renderPopup(rows) {
+    if (!tbodyNuevos) return;
+
+    if (!rows.length) {
+      tbodyNuevos.innerHTML = `<tr><td colspan="4" class="texto-centro">No hay vendedores en control.</td></tr>`;
+      return;
+    }
+
+    tbodyNuevos.innerHTML = rows
+      .map((r) => {
+        const nombre = (r.nombre || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const fi = r.fecha_ingreso || "";
+        const hito = r.hitoISO || "";
+        return `
+          <tr data-idv="${r.id_vendedor}" data-ide="${r.id_equipo}">
+            <td>${nombre}</td>
+            <td>${fi}</td>
+            <td>${hito}</td>
+            <td class="acciones" style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:nowrap; align-items:center;">
+              <button type="button" class="btn-primario av-btn-renovar" data-idv="${r.id_vendedor}">Renovar</button>
+              <button type="button" class="btn-secundario av-btn-baja" data-idv="${r.id_vendedor}" data-ide="${r.id_equipo}">Baja</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  async function checkNuevosVendedores(idEquipo) {
+    try {
+      if (!idEquipo) return;
+
+      const list = await _fetchVendedoresEquipo(idEquipo);
+      const rows = list
+        .map((v) => {
+          const hito = _calcHitoMes5(v.fecha_ingreso);
+          const hitoISO = hito ? _fmtISO(hito) : "";
+          return { ...v, hito, hitoISO };
+        })
+        .filter((v) => v.hito && _enVentanaAviso(v.hito));
+
+      _renderPopup(rows);
+
+      if (rows.length && modalNuevos) {
+        if (typeof modalNuevos.showModal === "function") {
+          if (!modalNuevos.open) modalNuevos.showModal();
+        } else {
+          modalNuevos.setAttribute("open", "open");
+        }
+      } else if (modalNuevos) {
+        if (modalNuevos.open && typeof modalNuevos.close === "function") modalNuevos.close();
+        else modalNuevos.removeAttribute("open");
+      }
+    } catch (e) {
+      console.error("❌ Error checkNuevosVendedores:", e);
+    }
+  }
+
+  async function _renovarVendedor(idVendedor, idEquipo) {
+    const { error } = await supabase
+      .from("vendedores")
+      .update({ nuevo: false })
+      .eq("id_vendedor", idVendedor);
+
+    if (error) {
+      console.error("❌ Error renovando vendedor:", error);
+      alert("No fue posible renovar (marcar como no nuevo). Revisa permisos/RLS.");
+      return;
+    }
+
+    await checkNuevosVendedores(idEquipo);
+  }
+
+  async function _darDeBajaViaModuloVendedores(idVendedor, idEquipo) {
+    await abrirModulo("./vendedores.html", "../scripts/vendedores.js");
+
+    const maxWaitMs = 4000;
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+      const api = window.AppVentas?.features?.vendedores;
+      if (api && typeof api.abrirBajaPorId === "function") {
+        await api.abrirBajaPorId(idVendedor, idEquipo);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 120));
+    }
+
+    alert("No se pudo abrir el flujo de baja. Reintenta abriendo Gestión de Vendedores.");
+  }
+
+  document.addEventListener(
+    "click",
+    async (ev) => {
+      const btnRen = ev.target?.closest?.(".av-btn-renovar");
+      const btnBaja = ev.target?.closest?.(".av-btn-baja");
+      if (!btnRen && !btnBaja) return;
+
+      if (btnRen) {
+        ev.preventDefault();
+        const idV = btnRen.getAttribute("data-idv");
+        const eq = localStorage.getItem("idEquipoActivo") || btnRen.closest("tr")?.dataset?.ide || null;
+        await _renovarVendedor(idV, eq);
+        return;
+      }
+
+      if (btnBaja) {
+        ev.preventDefault();
+        const idV = btnBaja.getAttribute("data-idv");
+        const idE = btnBaja.getAttribute("data-ide") || localStorage.getItem("idEquipoActivo");
+        await _darDeBajaViaModuloVendedores(idV, idE);
+      }
+    },
+    true
+  );
+
+  // Ejecutar al entrar (equipo principal) y cada vez que cambie equipo
+  try {
+    const eq0 = localStorage.getItem("idEquipoActivo");
+    if (eq0) checkNuevosVendedores(eq0);
+  } catch (_) {}
+
+  window.addEventListener("equipo:change", (e) => {
+    const idE = e?.detail?.idEquipo || localStorage.getItem("idEquipoActivo");
+    if (idE) checkNuevosVendedores(idE);
+  });
+
+
   // -------------------------
   // Velocímetro TF40 (VA/VM) — embebido en franja celeste
   // -------------------------
