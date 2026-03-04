@@ -12,6 +12,13 @@
   <meta name="theme-color" content="#0b3a8a" />
   <link rel="icon" href="/favicon.ico" />
 
+  <!-- iOS PWA support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="APP Ventas">
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+  <meta name="format-detection" content="telephone=no">
+
   <link rel="stylesheet" href="styles/mobile-afp.css" />
   <link rel="stylesheet" href="styles/mobile.css" />
   <link rel="stylesheet" href="styles/login-mobile.css" />
@@ -38,8 +45,9 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./config.js"></script>
 
-  <!-- Cache-busting para asegurar que Netlify entregue el login.js NUEVO -->
+  <!-- Cache-busting para asegurar que se entregue el login.js nuevo -->
   <script src="scripts/login.js?v=20260223212631" defer></script>
+
   <!-- Service Worker (PWA) -->
   <script>
     if ("serviceWorker" in navigator) {
