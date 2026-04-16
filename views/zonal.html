@@ -21,7 +21,7 @@
       border-radius:12px;
       padding:16px 18px;
       margin:18px auto 0 auto;
-      max-width:940px;
+      max-width:1180px;
       box-shadow:0 2px 10px rgba(0,0,0,.08);
     }
     .bloque-zonal .linea-superior{
@@ -53,7 +53,7 @@
     /* Ajuste: alinear encabezados y contenido embebido dentro del mismo ancho del panel */
     #contenedor-modulos.modulo-dinamico{
       width: 100%;
-      max-width: 900px;
+      max-width: 1180px;
       margin: 18px auto 0;
       padding: 0 24px;
       box-sizing: border-box;
@@ -82,6 +82,21 @@
       </div>
       <h1 class="supbar__title">Sistema de Gestión de Ventas</h1>
       <div class="supbar__right">
+        <div class="av-alertas-wrap" id="alertasWrapper">
+          <button type="button" class="av-alertas-btn" id="btnAlertas" aria-label="Ver alertas" title="Alertas">
+            <span class="av-alertas-icono">🔔</span>
+            <span class="av-alertas-badge" id="alertasBadge" style="display:none;">0</span>
+          </button>
+          <div class="av-alertas-panel" id="alertasPanel" style="display:none;">
+            <div class="av-alertas-head">
+              <strong>Alertas</strong>
+              <button type="button" class="av-alertas-marcar" id="btnMarcarTodasAlertas">Marcar todas</button>
+            </div>
+            <div class="av-alertas-lista" id="alertasLista">
+              <div class="av-alertas-vacio">No hay alertas.</div>
+            </div>
+          </div>
+        </div>
         <button id="btnLogout" class="btn">Cerrar sesión</button>
       </div>
     </div>
@@ -99,9 +114,6 @@
         <select id="selectZona" class="selector-equipo"></select>
       </div>
 
-      <p style="text-align:center; margin-top:6px; font-weight:600; color:#003366;">
-        Desde este panel puedes revisar indicadores y reportes de tu zona.
-      </p>
     </section>
 
     <!-- Botones -->

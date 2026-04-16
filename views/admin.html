@@ -1,77 +1,430 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Panel Administrador</title>
-  
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin – APP Ventas</title>
+
   <script src="../env.js"></script>
 
-  <link rel="stylesheet" href="../styles/institucional.css">
-  <link rel="stylesheet" href="../styles/panel-base.css">
-  <link rel="stylesheet" href="../styles/panel-base-responsive.css">
-  <link rel="stylesheet" href="../styles/responsive.css">
-  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg" href="../assets/logo_app_ventas.svg" />
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css" />
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css" />
+  <link rel="stylesheet" href="../styles/panel-modulos.css" />
 
-  <script src="../scripts/admin.js" defer></script>
+  <style>
+    .bloque-admin{
+      background:#eaf3ff;
+      border-radius:12px;
+      padding:16px 18px;
+      margin:18px auto 0 auto;
+      max-width:1180px;
+      box-shadow:0 2px 10px rgba(0,0,0,.08);
+    }
+    .bloque-admin .linea-superior{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      text-align:center;
+    }
+    .bloque-admin .texto-nombre{
+      font-weight:700;
+      color:#003366;
+    }
+    .bloque-admin .texto-rol{
+      font-weight:600;
+      color:#003366;
+      background:#dbeafe;
+      border:1px solid #bfdbfe;
+      border-radius:999px;
+      padding:4px 12px;
+    }
+    .bloque-admin .separador{
+      display:inline-block;
+      width:10px;
+    }
+
+    #admin-shell{
+      width:100%;
+      max-width:1180px;
+      margin:18px auto 0;
+      padding:0 24px 24px;
+      box-sizing:border-box;
+    }
+
+    .admin-toolbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+    .admin-toolbar__left{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .admin-layout{
+      display:grid;
+      grid-template-columns:280px minmax(0,1fr);
+      gap:18px;
+      align-items:start;
+    }
+    .admin-menu{
+      background:#fff;
+      border-radius:14px;
+      box-shadow:0 2px 12px rgba(0,0,0,.08);
+      padding:16px;
+      position:sticky;
+      top:16px;
+    }
+    .admin-menu[hidden]{ display:none !important; }
+    .admin-menu__grupo + .admin-menu__grupo{ margin-top:12px; }
+    .admin-menu__titulo{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.04em;
+      color:#5b6b7c;
+      margin:0;
+      padding:8px 4px;
+      text-transform:uppercase;
+      background:transparent;
+      border:none;
+      cursor:pointer;
+    }
+    .admin-menu__titulo-texto{ pointer-events:none; }
+    .admin-menu__toggle{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      border:1px solid #d7e4f2;
+      background:#f8fbff;
+      color:#003366;
+      font-size:15px;
+      line-height:1;
+      flex:0 0 auto;
+      pointer-events:none;
+    }
+    .admin-menu__lista{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      overflow:hidden;
+      max-height:520px;
+      opacity:1;
+      transition:max-height .22s ease, opacity .18s ease, margin-top .18s ease;
+      margin-top:8px;
+    }
+    .admin-menu__lista.colapsada{
+      max-height:0;
+      opacity:0;
+      margin-top:0;
+      pointer-events:none;
+    }
+    .admin-menu__item{
+      width:100%;
+      text-align:left;
+      border:1px solid #d7e4f2;
+      background:#f8fbff;
+      color:#003366;
+      border-radius:10px;
+      padding:10px 12px;
+      font-weight:600;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .admin-menu__item:hover,
+    .admin-menu__item.activo{
+      background:#dbeafe;
+      border-color:#93c5fd;
+    }
+
+    .admin-main{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .admin-submenu{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .admin-submenu__item{
+      border:1px solid #d7e4f2;
+      background:#fff;
+      color:#003366;
+      border-radius:999px;
+      padding:9px 14px;
+      font-weight:600;
+      cursor:pointer;
+    }
+    .admin-submenu__item:hover,
+    .admin-submenu__item.activo{
+      background:#dbeafe;
+      border-color:#93c5fd;
+    }
+
+    .admin-panel{
+      background:#fff;
+      border-radius:14px;
+      box-shadow:0 2px 12px rgba(0,0,0,.08);
+      padding:18px;
+    }
+    .admin-panel__header{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .admin-panel__titulo{
+      margin:0;
+      color:#003366;
+      font-size:24px;
+      line-height:1.2;
+    }
+    .admin-panel__subtitulo{
+      margin:6px 0 0 0;
+      color:#4f5f70;
+    }
+
+    .admin-kpis{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .admin-kpi{
+      border:1px solid #d7e4f2;
+      background:#f8fbff;
+      border-radius:12px;
+      padding:14px;
+    }
+    .admin-kpi__label{
+      font-size:13px;
+      color:#5b6b7c;
+      margin:0 0 6px 0;
+    }
+    .admin-kpi__value{
+      font-size:28px;
+      font-weight:800;
+      color:#003366;
+      margin:0;
+    }
+
+    .admin-grid{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:16px;
+    }
+    .admin-card{
+      border:1px solid #d7e4f2;
+      border-radius:12px;
+      padding:16px;
+      background:#fff;
+    }
+    .admin-card h3{
+      margin:0 0 10px 0;
+      color:#003366;
+      font-size:18px;
+    }
+    .admin-card ul{
+      margin:0;
+      padding-left:18px;
+      color:#334155;
+    }
+    .admin-card li + li{ margin-top:8px; }
+
+    .admin-filtros{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .admin-filtros input,
+    .admin-filtros select{
+      min-width:180px;
+      border:1px solid #cbd5e1;
+      border-radius:10px;
+      padding:10px 12px;
+      font:inherit;
+    }
+
+    .admin-tabla-wrap{
+      overflow:auto;
+      border:1px solid #d7e4f2;
+      border-radius:12px;
+    }
+    .admin-tabla{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+      background:#fff;
+    }
+    .admin-tabla th,
+    .admin-tabla td{
+      padding:12px 14px;
+      border-bottom:1px solid #e5edf5;
+      text-align:left;
+      font-size:14px;
+      color:#334155;
+      vertical-align:top;
+    }
+    .admin-tabla th{
+      background:#f8fbff;
+      color:#003366;
+      font-weight:700;
+    }
+
+    .estado-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:999px;
+      padding:4px 10px;
+      font-size:12px;
+      font-weight:700;
+      border:1px solid transparent;
+      white-space:nowrap;
+    }
+    .estado-pill.activo{ background:#ecfdf5; color:#166534; border-color:#bbf7d0; }
+    .estado-pill.pendiente{ background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+    .estado-pill.alerta{ background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+
+    .acciones-fila{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .btn-secundario{
+      border:1px solid #cbd5e1;
+      background:#fff;
+      color:#003366;
+      border-radius:8px;
+      padding:7px 10px;
+      font-weight:600;
+      cursor:pointer;
+    }
+
+    @media (max-width: 960px){
+      .admin-layout{ grid-template-columns:1fr; }
+      .admin-menu{ position:static; }
+      .admin-grid{ grid-template-columns:1fr; }
+    }
+  </style>
 </head>
-
-<body>
+<body class="panel-container">
   <header class="supbar">
     <div class="supbar__wrap">
       <div class="supbar__left">
-        <img src="../assets/logo_app_ventas.png" alt="Logo App Ventas" class="supbar__logo">
+        <img src="../assets/logo_app_ventas.svg" class="supbar__logo" alt="Logo AFP Habitat" />
       </div>
-      <h1 class="supbar__title">Panel Administrador</h1>
+      <h1 class="supbar__title">Sistema de Gestión de Ventas</h1>
       <div class="supbar__right">
-        <button id="logoutBtn" class="btn btn--danger">Cerrar sesión</button>
+        <button id="btnLogout" class="btn">Cerrar sesión</button>
       </div>
     </div>
   </header>
 
-  <main class="supmain fade-in">
-    <section class="infocard sombra-suave">
-      <h2 class="infocard__title">Gestión General</h2>
-      <p class="infocard__desc">
-        Desde este panel puedes administrar usuarios, supervisores, equipos y configuraciones generales del sistema.
-      </p>
+  <main class="supmain">
+    <section class="bloque-admin">
+      <div class="linea-superior">
+        <span id="textoBienvenida" class="texto-bienvenida">Bienvenido/a,</span>
+        <span class="texto-nombre" id="nombreAdmin">Administrador</span>
+        <span class="separador"></span>
+        <span class="texto-rol">Admin</span>
+      </div>
     </section>
 
-    <section class="cards">
-      <div class="card sombra-suave">
-        <h3 class="card__title">Gestión de Usuarios</h3>
-        <button id="btnUsuarios" class="btn">Abrir</button>
+    <section id="admin-shell">
+      <div class="admin-toolbar">
+        <div class="admin-toolbar__left">
+          <button class="btn" id="btnToggleMenu">☰ Menú</button>
+          <button class="btn" id="btnVolver" type="button">Volver</button>
+        </div>
       </div>
 
-      <div class="card sombra-suave">
-        <h3 class="card__title">Gestión de Supervisores</h3>
-        <button id="btnSupervisores" class="btn">Abrir</button>
-      </div>
+      <div class="admin-layout">
+        <aside class="admin-menu" id="adminMenu">
+          <div class="admin-menu__grupo" data-group="control">
+            <button class="admin-menu__titulo" type="button" data-menu-group="control" aria-expanded="false">
+              <span class="admin-menu__titulo-texto">Control</span>
+              <span class="admin-menu__toggle">+</span>
+            </button>
+            <div class="admin-menu__lista colapsada" data-menu-panel="control">
+              <button class="admin-menu__item activo" data-modulo="dashboard">Dashboard</button>
+              <button class="admin-menu__item" data-modulo="alertas">Alertas</button>
+              <button class="admin-menu__item" data-modulo="auditoria">Auditoría</button>
+            </div>
+          </div>
 
-      <div class="card sombra-suave">
-        <h3 class="card__title">Gestión de Equipos</h3>
-        <button id="btnEquipos" class="btn">Abrir</button>
-      </div>
+          <div class="admin-menu__grupo" data-group="accesos">
+            <button class="admin-menu__titulo" type="button" data-menu-group="accesos" aria-expanded="false">
+              <span class="admin-menu__titulo-texto">Accesos</span>
+              <span class="admin-menu__toggle">+</span>
+            </button>
+            <div class="admin-menu__lista colapsada" data-menu-panel="accesos">
+              <button class="admin-menu__item" data-modulo="usuarios">Usuarios y cuentas</button>
+              <button class="admin-menu__item" data-modulo="roles">Roles y perfiles</button>
+            </div>
+          </div>
 
-      <div class="card sombra-suave">
-        <h3 class="card__title">Configuraciones</h3>
-        <button id="btnConfig" class="btn">Abrir</button>
+          <div class="admin-menu__grupo" data-group="organizacion">
+            <button class="admin-menu__titulo" type="button" data-menu-group="organizacion" aria-expanded="false">
+              <span class="admin-menu__titulo-texto">Organización</span>
+              <span class="admin-menu__toggle">+</span>
+            </button>
+            <div class="admin-menu__lista colapsada" data-menu-panel="organizacion">
+              <button class="admin-menu__item" data-modulo="vendedores">Vendedores</button>
+              <button class="admin-menu__item" data-modulo="supervisores">Supervisores</button>
+              <button class="admin-menu__item" data-modulo="zonales">Zonales</button>
+              <button class="admin-menu__item" data-modulo="equipos">Equipos</button>
+              <button class="admin-menu__item" data-modulo="zonas">Zonas</button>
+              <button class="admin-menu__item" data-modulo="asignaciones">Asignaciones</button>
+            </div>
+          </div>
+
+          <div class="admin-menu__grupo" data-group="operacion">
+            <button class="admin-menu__titulo" type="button" data-menu-group="operacion" aria-expanded="false">
+              <span class="admin-menu__titulo-texto">Operación</span>
+              <span class="admin-menu__toggle">+</span>
+            </button>
+            <div class="admin-menu__lista colapsada" data-menu-panel="operacion">
+              <button class="admin-menu__item" data-modulo="suplencias">Suplencias</button>
+              <button class="admin-menu__item" data-modulo="motivos">Motivos de suplencia</button>
+              <button class="admin-menu__item" data-modulo="compromisos">Compromisos</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="admin-main">
+          <div class="admin-submenu" id="adminSubmenu"></div>
+          <section class="admin-panel" id="adminContenido"></section>
+        </section>
       </div>
     </section>
   </main>
 
-  <footer class="footer" style="text-align:center; margin-top:40px;">
-    <p class="texto-secundario">© 2025 App Ventas | Panel Administrador</p>
+  <footer class="footer">
+    AFP Habitat – Los Leones 5 | Sistema de Gestión de Ventas
   </footer>
-    <!-- Scripts institucionales -->
-  <script type="module" src="../scripts/utils.js"></script>
 
-  <!-- Bloques institucionales globales -->
-  <div id="overlayCarga" class="oculto">
-    <div class="spinner"></div>
-    <div id="mensajeCarga">Cargando...</div>
-  </div>
-
-  <div id="toast" class="toast"></div>
+  <script type="module" src="../scripts/ui_modales.js"></script>
+  <script type="module" src="../scripts/admin.js"></script>
 </body>
 </html>

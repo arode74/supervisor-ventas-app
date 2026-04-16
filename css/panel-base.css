@@ -25,7 +25,7 @@ header.supbar {
 }
 
 header.supbar .supbar__wrap {
-  max-width: 940px;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 0px 16px;
 
@@ -86,7 +86,7 @@ header {
   background-color: #e9f1f9;
   border-radius: 10px;
   width: 100%;
-  max-width: 880px;
+  max-width: 1180px;
   margin: 20px auto;
   padding: 18px 24px;
   text-align: center;
@@ -125,7 +125,7 @@ header {
   justify-content: center;
   align-items: flex-start;
   gap: 20px;
-  max-width: 880px;
+  max-width: 1180px;
   margin: 0 auto;
   text-align: center;
   padding: 20px 0;
@@ -195,7 +195,7 @@ button:hover {
 #modulo-configuracion,
 #modulo-cierre-ventas {
   width: 100%;
-  max-width: 880px;
+  max-width: 1180px;
   margin: 15px auto 0 auto;
   background-color: #fff;
   border-radius: 10px;
@@ -728,4 +728,281 @@ header.supbar {
 
 header.supbar .supbar__wrap {
   text-align: initial;
+}
+
+
+/* ===========================================================
+   ALERTAS IN-APP — PANEL TRANSPARENTE / GLASS
+   Aplica a Supervisor y Zonal
+   =========================================================== */
+
+.alertas-wrapper{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.alertas-boton{
+  position: relative;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.10) !important;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.alertas-boton:hover{
+  background: rgba(255,255,255,0.16) !important;
+}
+
+.alertas-icono{
+  font-size: 18px;
+  line-height: 1;
+}
+
+.alertas-badge{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #b31237;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+}
+
+.alertas-panel{
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-height: 430px;
+  overflow: hidden;
+  background: rgba(0, 51, 102, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+  z-index: 3000;
+}
+
+.alertas-panel-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
+  color: #ffffff;
+}
+
+.alertas-marcar-todas{
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #d8ebff !important;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.alertas-marcar-todas:hover{
+  color: #ffffff !important;
+  text-decoration: underline;
+}
+
+.alertas-lista{
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.alerta-item{
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  cursor: pointer;
+  background: transparent;
+  color: #ffffff;
+}
+
+.alerta-item:hover{
+  background: rgba(255,255,255,0.10);
+}
+
+.alerta-item.no-leida{
+  background: rgba(120, 194, 255, 0.14);
+}
+
+.alerta-titulo{
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+
+.alerta-mensaje{
+  font-size: 13px;
+  color: rgba(255,255,255,0.90);
+  margin-bottom: 6px;
+}
+
+.alerta-meta{
+  font-size: 12px;
+  color: rgba(255,255,255,0.72);
+}
+
+.alertas-vacio{
+  padding: 18px 14px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.80);
+}
+
+@media (max-width: 640px){
+  .alertas-panel{
+    width: min(360px, calc(100vw - 24px));
+    right: 0;
+  }
+}
+
+
+/* ===========================================================
+   ALERTAS IN-APP — COMPATIBILIDAD CLASES av-*
+   =========================================================== */
+
+.av-alertas-wrap{
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.av-alertas-btn{
+  position: relative;
+  width: 42px !important;
+  min-width: 42px !important;
+  height: 42px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.10) !important;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.av-alertas-btn:hover{
+  background: rgba(255,255,255,0.16) !important;
+}
+
+.av-alertas-icono{
+  font-size: 18px;
+  line-height: 1;
+}
+
+.av-alertas-badge{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #b31237;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.22);
+}
+
+.av-alertas-panel{
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 360px;
+  max-height: 430px;
+  overflow: hidden;
+  background: rgba(0, 51, 102, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+  z-index: 3000;
+}
+
+.av-alertas-panel.visible{
+  display: block;
+}
+
+.av-alertas-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  background: transparent;
+  color: #ffffff;
+}
+
+.av-alertas-marcar{
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #d8ebff !important;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.av-alertas-marcar:hover{
+  color: #ffffff !important;
+  text-decoration: underline;
+}
+
+.av-alertas-lista{
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.av-alertas-vacio{
+  padding: 18px 14px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.80);
+}
+
+@media (max-width: 640px){
+  .av-alertas-panel{
+    width: min(360px, calc(100vw - 24px));
+    right: 0;
+  }
 }

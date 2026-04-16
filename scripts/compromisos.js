@@ -1158,7 +1158,12 @@ function renderTabla() {
         isStart ? "semanal-start" : "",
         isEnd ? "semanal-end" : ""
       ].filter(Boolean).join(" ");
-      html += `<td class="${cls}">${fmt(d[key])}</td>`;
+
+      // FIX PROD: si por cualquier motivo `metricas` no pobló `d[key]`,
+      // caemos al índice reconstruido desde la tabla compromisos.
+      const val = (d[key] ?? idxMontoPorVendedorTipo.get(keyVT(d.id_vendedor, t.id)) ?? 0);
+
+      html += `<td class="${cls}">${fmt(val)}</td>`;
     });
 
     // Real (Sobre + Tope del mes)

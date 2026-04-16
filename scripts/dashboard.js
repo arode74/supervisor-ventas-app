@@ -33,7 +33,7 @@ import { supabase } from "../config.js";
     if (!container) throw new Error("No se encontró #dashboard-container (dashboard.html).");
 
     // Mantener layout dentro del ancho “APP”
-    container.style.maxWidth = "900px";
+    container.style.maxWidth = "1180px";
     container.style.margin = "0 auto";
     container.style.width = "100%";
 

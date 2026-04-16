@@ -1,0 +1,83 @@
+<section id="modulo-vendedores">
+  <div class="tarjeta-principal">
+
+    <div class="modulo-header">
+      <h2>Gestión de Suplencias</h2>
+      <button class="btn-volver" id="btnVolver">← Volver</button>
+    </div>
+
+    <div class="acciones-vendedores" style="display:flex; align-items:center; justify-content:space-between; gap:12px; width:100%;">
+      <div class="filtros-vendedores" style="display:flex; gap:8px; justify-content:flex-start; align-items:center;">
+        <select id="filtroEstado" style="padding:4px 6px;">
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="aceptada">Aceptada</option>
+          <option value="rechazada">Rechazada</option>
+          <option value="cancelada">Cancelada</option>
+        </select>
+
+        <select id="filtroAmbito" style="padding:4px 6px;">
+          <option value="">Cargando...</option>
+        </select>
+      </div>
+
+      <button id="btnNuevaSolicitud" class="btn btn-guardar" style="margin-left:auto;">Nueva solicitud</button>
+    </div>
+
+    <table id="tablaSuplencias" class="tabla-vendedores">
+      <thead>
+        <tr>
+          <th>Equipo / Zona</th>
+          <th>Solicitante</th>
+          <th>Propuesto</th>
+          <th>Motivo</th>
+          <th>Inicio</th>
+          <th>Fin</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="fila-placeholder">
+          <td colspan="8" style="text-align:center;">No hay registros</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+
+  <dialog id="modalSolicitud" class="modal">
+    <div class="modal-contenido">
+      <h3>Nueva solicitud de suplencia</h3>
+
+      <form id="formSolicitud">
+        <div style="display:grid; grid-template-columns:1fr; gap:10px;">
+
+          <label for="selectAmbito" id="labelAmbito">Equipo</label>
+          <select id="selectAmbito" required></select>
+
+          <label for="selectPropuesto" id="labelPropuesto">Supervisor propuesto</label>
+          <select id="selectPropuesto" required></select>
+
+          <label for="selectMotivo">Motivo</label>
+          <select id="selectMotivo" required></select>
+
+          <label for="fechaInicio">Fecha inicio</label>
+          <input type="date" id="fechaInicio" required>
+
+          <label for="fechaFin">Fecha fin</label>
+          <input type="date" id="fechaFin">
+
+          <label for="observacion">Observación</label>
+          <textarea id="observacion" rows="3"></textarea>
+
+        </div>
+
+        <div class="modal-botones">
+          <button type="submit" class="btn-guardar">Guardar</button>
+          <button type="button" id="btnCerrarModal" class="btn-cancelar">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+</section>

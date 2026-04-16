@@ -75,7 +75,7 @@ main.supmain {
 #contenedorVendedores,
 #contenedorVendedores .modulo-panel,
 #contenedorVendedores .tarjeta-principal {
-  width: 940px;
+  width: 1180px;
   max-width: 100%;
   margin: 0 auto;
 }
@@ -100,7 +100,7 @@ main.supmain {
   align-items: center;
   justify-content: center;
   position: relative;
-  max-width: 940px;
+  max-width: 1180px;
 }
 
 /* Título */
@@ -146,7 +146,7 @@ main.supmain {
 
 /* Contenedor general dentro del área central */
 #contenedorVendedores {
-  max-width: 940px;     /* límite institucional */
+  max-width: 1180px;     /* límite institucional */
   margin: 0 auto;       /* centra horizontalmente */
 }
 
@@ -185,7 +185,7 @@ main.supmain {
 /* El contenedor general de vendedores se comporta como bloque centrado dentro del flex */
 #contenedorVendedores {
   display: block;         /* corrige efecto de flex del padre */
-  width: 940px;           /* ancho institucional */
+  width: 1180px;           /* ancho institucional */
   max-width: 100%;
   margin: 0 auto;         /* centra horizontalmente */
 }
@@ -213,7 +213,7 @@ main.supmain {
   justify-content: center;
   position: relative;
   box-sizing: border-box; /* ✅ garantiza que padding no expanda el ancho */
-  max-width: 940px;       /* ✅ mantiene el margen institucional */
+  max-width: 1180px;       /* ✅ mantiene el margen institucional */
   margin: 0 auto;         /* ✅ centra dentro del contenedor */
 }
 

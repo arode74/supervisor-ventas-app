@@ -195,11 +195,13 @@ async function initSupervisor() {
     }));
   }
 
-  const equipos = await cargarEquiposSupervisor();
+  function renderEquiposSupervisor(equipos = []) {
+    if (!selectEquipo) {
+      console.error("❌ No existe #selectEquipo en supervisor.html");
+      return;
+    }
 
-  if (!selectEquipo) {
-    console.error("❌ No existe #selectEquipo en supervisor.html");
-  } else {
+    const actual = localStorage.getItem("idEquipoActivo");
     selectEquipo.innerHTML = "";
 
     equipos.forEach((e) => {
@@ -212,13 +214,27 @@ async function initSupervisor() {
     if (!equipos.length) {
       console.warn("⚠️ Supervisor sin equipos asociados (o RLS bloqueando).");
       localStorage.removeItem("idEquipoActivo");
-    } else {
-      const principal = equipos.find((e) => e.es_principal) || equipos[0];
-      selectEquipo.value = principal.id_equipo;
-      localStorage.setItem("idEquipoActivo", principal.id_equipo);
-      emitirCambioEquipo(principal.id_equipo);
+      return;
     }
 
+    const vigente = equipos.find((e) => e.id_equipo === actual);
+    const principal = equipos.find((e) => e.es_principal) || equipos[0];
+    const seleccionado = vigente || principal;
+
+    selectEquipo.value = seleccionado.id_equipo;
+    localStorage.setItem("idEquipoActivo", seleccionado.id_equipo);
+    emitirCambioEquipo(seleccionado.id_equipo);
+  }
+
+  async function refrescarEquiposSupervisorUI() {
+    const equiposActualizados = await cargarEquiposSupervisor();
+    renderEquiposSupervisor(equiposActualizados);
+  }
+
+  const equipos = await cargarEquiposSupervisor();
+  renderEquiposSupervisor(equipos);
+
+  if (selectEquipo) {
     selectEquipo.addEventListener("change", () => {
       const idEquipo = selectEquipo.value;
       if (!idEquipo) return;
@@ -226,6 +242,14 @@ async function initSupervisor() {
       emitirCambioEquipo(idEquipo);
     });
   }
+
+  window.addEventListener("suplencia-aceptada", async () => {
+    try {
+      await refrescarEquiposSupervisorUI();
+    } catch (e) {
+      console.error("❌ Error refrescando equipos tras aceptar suplencia:", e);
+    }
+  });
 
 
   // -------------------------
@@ -477,6 +501,199 @@ async function initSupervisor() {
   });
 
 
+  
+  // -------------------------
+  // Alertas in-app
+  // -------------------------
+  function avEnsureAlertasStyle() {
+    if (document.getElementById("av-alertas-style")) return;
+    const style = document.createElement("style");
+    style.id = "av-alertas-style";
+    style.textContent = `
+      .av-alertas-wrap{ position:relative; display:inline-flex; align-items:center; margin-right:10px; }
+      .av-alertas-btn{ position:relative; width:44px; height:44px; border-radius:12px; border:1px solid rgba(255,255,255,.65); background:rgba(255,255,255,.08); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
+      .av-alertas-btn:hover{ background:rgba(255,255,255,.16); }
+      .av-alertas-icono{ font-size:18px; line-height:1; }
+      .av-alertas-badge{ position:absolute; top:-6px; right:-6px; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#d32f2f; color:#fff; font-size:12px; font-weight:700; display:none; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+      .av-alertas-panel{ display:none; position:absolute; top:calc(100% + 10px); right:0; width:360px; max-height:430px; overflow:hidden; background:rgba(10,26,47,.78); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.15); border-radius:14px; box-shadow:0 10px 28px rgba(0,0,0,.18); z-index:3000; }
+      .av-alertas-panel.visible{ display:block; }
+      .av-alertas-head{ display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.08); color:#fff; }
+      .av-alertas-head strong{ font-size:14px; }
+      .av-alertas-marcar{ border:0; background:transparent; color:#9ecbff; cursor:pointer; font-size:13px; font-weight:600; }
+      .av-alertas-lista{ max-height:360px; overflow-y:auto; }
+      .av-alerta-item{ padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.08); cursor:pointer; background:transparent; color:#fff; }
+      .av-alerta-item:hover{ background:rgba(255,255,255,.08); }
+      .av-alerta-item.no-leida{ background:rgba(0,120,255,.10); }
+      .av-alerta-titulo{ font-size:14px; font-weight:700; margin-bottom:4px; }
+      .av-alerta-mensaje{ font-size:13px; color:rgba(255,255,255,.90); margin-bottom:6px; }
+      .av-alerta-meta{ font-size:12px; color:rgba(255,255,255,.72); }
+      .av-alertas-vacio{ padding:18px 14px; font-size:13px; color:rgba(255,255,255,.72); }
+      @media (max-width: 640px){ .av-alertas-panel{ width:min(360px, calc(100vw - 24px)); right:-6px; } }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function avEnsureAlertasDOM() {
+    let wrap = document.getElementById("alertasWrapper");
+    if (wrap && document.getElementById("btnAlertas") && document.getElementById("alertasPanel") && document.getElementById("alertasLista")) {
+      return {
+        wrap,
+        btn: document.getElementById("btnAlertas"),
+        badge: document.getElementById("alertasBadge"),
+        panel: document.getElementById("alertasPanel"),
+        lista: document.getElementById("alertasLista"),
+        marcarTodas: document.getElementById("btnMarcarTodasAlertas")
+      };
+    }
+
+    const right = document.querySelector(".supbar__right");
+    if (!right) return {};
+
+    wrap = document.createElement("div");
+    wrap.className = "av-alertas-wrap";
+    wrap.id = "alertasWrapper";
+    wrap.innerHTML = `
+      <button type="button" class="av-alertas-btn" id="btnAlertas" aria-label="Ver alertas" title="Alertas">
+        <span class="av-alertas-icono">🔔</span>
+        <span class="av-alertas-badge" id="alertasBadge" style="display:none;">0</span>
+      </button>
+      <div class="av-alertas-panel" id="alertasPanel">
+        <div class="av-alertas-head">
+          <strong>Alertas</strong>
+          <button type="button" class="av-alertas-marcar" id="btnMarcarTodasAlertas">Marcar todas</button>
+        </div>
+        <div class="av-alertas-lista" id="alertasLista">
+          <div class="av-alertas-vacio">No hay alertas.</div>
+        </div>
+      </div>`;
+    right.insertBefore(wrap, document.getElementById("btnLogout") || right.firstChild);
+    return {
+      wrap,
+      btn: document.getElementById("btnAlertas"),
+      badge: document.getElementById("alertasBadge"),
+      panel: document.getElementById("alertasPanel"),
+      lista: document.getElementById("alertasLista"),
+      marcarTodas: document.getElementById("btnMarcarTodasAlertas")
+    };
+  }
+
+  function avEscapeHtml(valor) {
+    return String(valor ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function avFmtFechaAlerta(fechaIso) {
+    if (!fechaIso) return "";
+    try {
+      return new Date(fechaIso).toLocaleString("es-CL", {
+        year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit"
+      });
+    } catch (_) { return fechaIso; }
+  }
+
+  avEnsureAlertasStyle();
+  const avAlertas = avEnsureAlertasDOM();
+  let avAlertasInit = false;
+
+  async function avContarAlertasNoLeidas() {
+    if (!avAlertas.badge) return 0;
+    const { data, error } = await supabase.rpc("contar_mis_alertas_no_leidas");
+    if (error) {
+      console.error("❌ Error contando alertas:", error);
+      return 0;
+    }
+    const total = Number(data || 0);
+    avAlertas.badge.textContent = String(total);
+    avAlertas.badge.style.display = total > 0 ? "inline-flex" : "none";
+    return total;
+  }
+
+  async function avCargarAlertas() {
+    if (!avAlertas.lista) return [];
+    avAlertas.lista.innerHTML = `<div class="av-alertas-vacio">Cargando alertas...</div>`;
+    const { data, error } = await supabase.rpc("listar_mis_alertas", { p_solo_no_leidas: false, p_limite: 20 });
+    if (error) {
+      console.error("❌ Error cargando alertas:", error);
+      avAlertas.lista.innerHTML = `<div class="av-alertas-vacio">No fue posible cargar las alertas.</div>`;
+      return [];
+    }
+    const alertas = Array.isArray(data) ? data : [];
+    if (!alertas.length) {
+      avAlertas.lista.innerHTML = `<div class="av-alertas-vacio">No hay alertas.</div>`;
+      return [];
+    }
+    avAlertas.lista.innerHTML = alertas.map((a) => `
+      <div class="av-alerta-item ${a.leida ? '' : 'no-leida'}" data-id-alerta="${a.id_alerta}">
+        <div class="av-alerta-titulo">${avEscapeHtml(a.titulo || 'Alerta')}</div>
+        <div class="av-alerta-mensaje">${avEscapeHtml(a.mensaje || '')}</div>
+        <div class="av-alerta-meta">${avFmtFechaAlerta(a.fecha_creacion)}</div>
+      </div>`).join('');
+
+    avAlertas.lista.querySelectorAll('.av-alerta-item').forEach((item) => {
+      item.addEventListener('click', async () => {
+        const idAlerta = item.dataset.idAlerta;
+        const { error: markErr } = await supabase.rpc('marcar_alerta_leida', { p_id_alerta: idAlerta });
+        if (markErr) {
+          console.error('❌ Error marcando alerta leída:', markErr);
+          return;
+        }
+        item.classList.remove('no-leida');
+        await avContarAlertasNoLeidas();
+      });
+    });
+    return alertas;
+  }
+
+  async function avRefrescarAlertasUI() {
+    await avContarAlertasNoLeidas();
+    if (avAlertas.panel?.classList.contains('visible')) await avCargarAlertas();
+  }
+
+  if (!avAlertasInit && avAlertas.btn && avAlertas.panel) {
+    avAlertasInit = true;
+    avAlertas.btn.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const abrir = !avAlertas.panel.classList.contains('visible');
+      avAlertas.panel.classList.toggle('visible', abrir);
+      if (abrir) {
+        await avContarAlertasNoLeidas();
+        await avCargarAlertas();
+      }
+    });
+
+    avAlertas.marcarTodas?.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const { error } = await supabase.rpc('marcar_todas_mis_alertas_leidas');
+      if (error) {
+        console.error('❌ Error marcando todas las alertas:', error);
+        return;
+      }
+      await avContarAlertasNoLeidas();
+      await avCargarAlertas();
+    });
+
+    document.addEventListener('click', (ev) => {
+      if (!avAlertas.wrap?.contains(ev.target)) avAlertas.panel.classList.remove('visible');
+    });
+
+    window.addEventListener('alertas:refresh', avRefrescarAlertasUI);
+    window.addEventListener('suplencia-aceptada', avRefrescarAlertasUI);
+    window.addEventListener('suplencia-rechazada', avRefrescarAlertasUI);
+    window.addEventListener('suplencia-cancelada', avRefrescarAlertasUI);
+    window.addEventListener('suplencia-terminada', avRefrescarAlertasUI);
+    window.addEventListener('solicitud-suplencia-creada', avRefrescarAlertasUI);
+
+    avContarAlertasNoLeidas();
+    setInterval(avContarAlertasNoLeidas, 60000);
+  }
+
+
   // -------------------------
   // Velocímetro TF40 (VA/VM) — embebido en franja celeste
   // -------------------------
@@ -570,7 +787,9 @@ async function initSupervisor() {
     abrirModulo("./reportes-supervisor.html", "../scripts/reportes-supervisor.js")
   );
 
-  btnSuplencias?.addEventListener("click", () => alert("Suplencias: pendiente"));
+  btnSuplencias?.addEventListener("click", () =>
+    abrirModulo("./suplencias.html", "../scripts/suplencias.js")
+  );
   btnConfiguracion?.addEventListener("click", () =>
     abrirModulo(
       "./parametros-supervisor.html",

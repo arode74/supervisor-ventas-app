@@ -6,6 +6,7 @@ function notifyMsg(msg){ try{ if(typeof mostrarAlerta==="function") return mostr
 // ================================
 
 import { supabase } from "../config.js";
+import { renderAccesosVendedorEnModal } from "./admin/accesos.js";
 
 
 // ============================================================
@@ -113,6 +114,10 @@ const inputRut                 = document.getElementById("rutVendedor");
 const inputNombre              = document.getElementById("nombreVendedor");
 const inputFechaIngreso        = document.getElementById("fechaIngreso");
 const formNuevoVendedor        = document.getElementById("formNuevoVendedor");
+const btnNuevoVendedorAcceso   = document.querySelector('[data-modal-abrir="modalNuevoVendedor"]') || document.getElementById("btnNuevoVendedor");
+let modalAccesoVendedor        = null;
+let contenedorAccesoModal      = null;
+let btnCerrarAccesoVendedor    = null;
 
 // Modal editar
 const modalEditarVendedor      = document.getElementById("modalEditarVendedor");
@@ -178,6 +183,7 @@ function cerrarTodosLosModales() {
   cerrarDialog(modalEditarVendedor);
   cerrarDialog(modalBajaVendedor);
   cerrarDialog(modalAdvertenciaCambioFecha);
+  cerrarDialog(modalAccesoVendedor);
   const alerta = document.getElementById("alertaInstitucional");
   if (alerta) {
     alerta.classList.remove("activa");
@@ -185,6 +191,64 @@ function cerrarTodosLosModales() {
     alerta.style.opacity = "0";
     alerta.style.pointerEvents = "none";
   }
+}
+
+function asegurarModalAccesoVendedor() {
+  if (modalAccesoVendedor && contenedorAccesoModal) return;
+
+  modalAccesoVendedor = document.getElementById("modalAccesoVendedor");
+  if (!modalAccesoVendedor) {
+    modalAccesoVendedor = document.createElement("dialog");
+    modalAccesoVendedor.id = "modalAccesoVendedor";
+    modalAccesoVendedor.className = "modal";
+    modalAccesoVendedor.innerHTML = `
+      <div class="modal-contenido">
+        <div class="modal-encabezado" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <h3 style="margin:0;">Crear acceso de vendedor</h3>
+          <button type="button" id="btnCerrarAccesoVendedor" class="btn-secundario">Cerrar</button>
+        </div>
+        <div id="contenedorAccesoModal" style="margin-top:12px;"></div>
+      </div>
+    `;
+    document.body.appendChild(modalAccesoVendedor);
+  }
+
+  contenedorAccesoModal = modalAccesoVendedor.querySelector("#contenedorAccesoModal");
+  btnCerrarAccesoVendedor = modalAccesoVendedor.querySelector("#btnCerrarAccesoVendedor");
+
+  btnCerrarAccesoVendedor?.addEventListener("click", (e) => {
+    e.preventDefault();
+    cerrarDialog(modalAccesoVendedor);
+  });
+}
+
+async function abrirModalAccesoVendedor() {
+  try {
+    asegurarModalAccesoVendedor();
+    cerrarTodosLosModales();
+
+    if (!contenedorAccesoModal) {
+      mostrarAlerta("No fue posible inicializar el modal de acceso de vendedor.");
+      return;
+    }
+
+    contenedorAccesoModal.innerHTML = "";
+    await renderAccesosVendedorEnModal(contenedorAccesoModal);
+    abrirDialog(modalAccesoVendedor);
+  } catch (err) {
+    console.error("Error abriendo modal de acceso vendedor:", err);
+    mostrarAlerta("No fue posible cargar el formulario de acceso para vendedor.");
+  }
+}
+
+function configurarAltaVendedorConAccesos() {
+  if (!btnNuevoVendedorAcceso) return;
+
+  btnNuevoVendedorAcceso.addEventListener("click", async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await abrirModalAccesoVendedor();
+  }, true);
 }
 
 /* ===========================================================
@@ -264,6 +328,7 @@ function mostrarAlerta(mensaje) {
     document.querySelector("#modalNuevoVendedor") ||
     document.querySelector("#modalEditarVendedor") ||
     document.querySelector("#modalBajaVendedor") ||
+    document.querySelector("#modalAccesoVendedor") ||
     document.body;
 
   if (contenedorModal && !contenedorModal.contains(alerta)) {
@@ -848,10 +913,7 @@ async function aplicarCambioFechaIngresoConfirmado(params) {
   console.log("DEBUG update equipo_vendedor:", { dataRelUpd, errRelUpd });
 
   if (errRelUpd) {
-    console.error(
-      "Error sincronizando fecha_inicio en equipo_vendedor:",
-      errRelUpd
-    );
+    console.error("Error sincronizando fecha_inicio en equipo_vendedor:", errRelUpd);
     mostrarAlerta(
       "Vendedor actualizado, pero hubo un problema al sincronizar la fecha de inicio en el equipo. " +
         (errRelUpd.message || JSON.stringify(errRelUpd))
@@ -960,7 +1022,7 @@ async function guardarEdicionVendedor(e) {
         notifyMsg("No se guardaron cambios (sin permisos/RLS o vendedor no encontrado).");
         return;
       }
-if (errVend) {
+      if (errVend) {
         console.error("Error revirtiendo baja en vendedores:", errVend);
         mostrarAlerta(
           "Error al intentar reversar la baja del vendedor: " +
@@ -979,7 +1041,8 @@ if (errVend) {
         .eq("id_vendedor", idVendedor)
         .eq("id_equipo",  vendedorEditando.id_equipo)
         .select("id_relacion");
-if (errEV) {
+
+      if (errEV) {
         console.error("Error reactivando relación equipo_vendedor:", errEV);
         mostrarAlerta(
           "El vendedor fue reactivado, pero hubo un problema al actualizar su relación con el equipo."
@@ -989,9 +1052,9 @@ if (errEV) {
       }
 
       cerrarModalEditar();
-       try { if (typeof limpiarCacheVendedores === "function") limpiarCacheVendedores(); } catch (_) {}
-       await cargarVendedores();
-       return; // no seguir con lógica normal
+      try { if (typeof limpiarCacheVendedores === "function") limpiarCacheVendedores(); } catch (_) {}
+      await cargarVendedores();
+      return; // no seguir con lógica normal
     } catch (err) {
       console.error("Error general al reversar baja:", err);
       mostrarAlerta("Error al intentar reversar la baja del vendedor.");
@@ -1020,7 +1083,7 @@ if (errEV) {
         notifyMsg("No se guardaron cambios (sin permisos/RLS o vendedor no encontrado).");
         return;
       }
-if (errVend) {
+      if (errVend) {
         console.error(
           "Error actualizando vendedor (sin cambio fecha):",
           errVend
@@ -1033,7 +1096,7 @@ if (errVend) {
       notifyMsg("✅ Vendedor actualizado correctamente.");
       try { if (typeof limpiarCacheVendedores === "function") limpiarCacheVendedores(); } catch (_) {}
       await cargarVendedores();
-return;
+      return;
     } catch (err) {
       console.error(
         "Error general al actualizar vendedor (sin cambio fecha):",
@@ -1483,6 +1546,7 @@ async function inicializarModuloVendedores() {
 
     // Carga inicial de UI
     bindHeaderSorting();
+    configurarAltaVendedorConAccesos();
     await cargarEquipos();
     await cargarVendedores();
 

@@ -25,7 +25,12 @@
 
       <div class="contenido-vendedores">
         <div class="acciones-vendedores">
-          <button class="btn-nuevo" data-modal-abrir="modalNuevoVendedor">+ Nuevo Vendedor</button>
+          <button
+            class="btn-nuevo"
+            id="btnNuevoVendedor"
+            type="button">
+            + Nuevo Vendedor
+          </button>
 
           <div class="filtros-vendedores">
             <label>
@@ -91,7 +96,6 @@
         </div>
 
         <div class="acciones-modal">
-          <!-- Cierra sin exigir required -->
           <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
           <button type="button" id="btnGuardarVendedor" class="btn-primario">Guardar</button>
         </div>
@@ -99,7 +103,21 @@
     </div>
   </dialog>
 
-  <!-- EDITAR VENDEDOR (CORREGIDO: sin X, permite editar Nombre + Fecha ingreso, Cancelar cierra sin validar) -->
+  <!-- NUEVO VENDEDOR CON ACCESO -->
+  <dialog id="modalAccesoVendedor" class="modal">
+    <div class="modal-contenido" style="max-width:1100px; width:min(1100px, 96vw);">
+      <div class="modal-encabezado modal-encabezado-x">
+        <h3>Crear acceso de vendedor</h3>
+        <button type="button" id="btnCerrarAccesoVendedor" class="btn-cerrar-x">
+          &times;
+        </button>
+      </div>
+
+      <div id="contenedorAccesoModal"></div>
+    </div>
+  </dialog>
+
+  <!-- EDITAR VENDEDOR -->
   <dialog id="modalEditarVendedor" class="modal">
     <div class="modal-contenido">
       <div class="modal-encabezado">
@@ -131,10 +149,8 @@
           </label>
         </div>
 
-        <!-- Campo requerido por vendedores.js (se usa internamente). Lo dejamos oculto. -->
         <input id="editFechaEgreso" type="date" style="display:none;" />
 
-        <!-- Reversar baja (vendedores.js lo muestra/oculta según tenga fecha_egreso) -->
         <div id="filaRevertirBaja" style="display:none; margin-top:10px;">
           <label style="display:flex; gap:10px; align-items:center;">
             <input type="checkbox" id="editRevertirBaja" />
@@ -143,7 +159,6 @@
         </div>
 
         <div class="acciones-modal">
-          <!-- Igual que Nuevo Vendedor -->
           <button type="submit" class="btn-secundario" value="cancel" formnovalidate>Cancelar</button>
           <button type="button" id="btnGuardarEdicion" class="btn-primario">Guardar cambios</button>
         </div>
@@ -151,7 +166,7 @@
     </div>
   </dialog>
 
-  <!-- BAJA VENDEDOR (incluye fechaBajaVendedor requerida por vendedores.js) -->
+  <!-- BAJA VENDEDOR -->
   <dialog id="modalBajaVendedor" class="modal">
     <div class="modal-contenido">
       <div class="modal-encabezado">
@@ -202,7 +217,6 @@
           <button type="button" id="btnConfirmarCambioFecha" class="btn-primario">Continuar</button>
         </div>
 
-        <!-- Mantengo ids por compatibilidad con vendedores.js (si los usa por id) -->
         <button id="btnCancelarCambioFecha" type="button" style="display:none;"></button>
       </form>
     </div>

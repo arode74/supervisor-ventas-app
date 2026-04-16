@@ -117,6 +117,21 @@
       </div>
       <h1 class="supbar__title">Sistema de Gestión de Ventas</h1>
       <div class="supbar__right">
+        <div class="av-alertas-wrap" id="alertasWrapper">
+          <button type="button" class="av-alertas-btn" id="btnAlertas" aria-label="Ver alertas" title="Alertas">
+            <span class="av-alertas-icono">🔔</span>
+            <span class="av-alertas-badge" id="alertasBadge" style="display:none;">0</span>
+          </button>
+          <div class="av-alertas-panel" id="alertasPanel" style="display:none;">
+            <div class="av-alertas-head">
+              <strong>Alertas</strong>
+              <button type="button" class="av-alertas-marcar" id="btnMarcarTodasAlertas">Marcar todas</button>
+            </div>
+            <div class="av-alertas-lista" id="alertasLista">
+              <div class="av-alertas-vacio">No hay alertas.</div>
+            </div>
+          </div>
+        </div>
         <button id="btnLogout" class="btn">Cerrar sesión</button>
       </div>
     </div>
