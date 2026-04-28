@@ -321,6 +321,26 @@
       cursor:pointer;
     }
 
+
+    /* AJUSTE ADMIN — Vista limpia sin botón menú ni submenú superior */
+    #btnToggleMenu{
+      display:none !important;
+    }
+
+    .admin-toolbar{
+      justify-content:flex-end;
+    }
+
+    .admin-toolbar__left{
+      width:100%;
+      display:flex;
+      justify-content:flex-end;
+    }
+
+    .admin-submenu{
+      display:none !important;
+    }
+
     @media (max-width: 960px){
       .admin-layout{ grid-template-columns:1fr; }
       .admin-menu{ position:static; }
@@ -361,7 +381,7 @@
 
       <div class="admin-layout">
         <aside class="admin-menu" id="adminMenu">
-          <div class="admin-menu__grupo" data-group="control">
+          <!--<div class="admin-menu__grupo" data-group="control">
             <button class="admin-menu__titulo" type="button" data-menu-group="control" aria-expanded="false">
               <span class="admin-menu__titulo-texto">Control</span>
               <span class="admin-menu__toggle">+</span>
@@ -371,7 +391,7 @@
               <button class="admin-menu__item" data-modulo="alertas">Alertas</button>
               <button class="admin-menu__item" data-modulo="auditoria">Auditoría</button>
             </div>
-          </div>
+          </div>-->
 
           <div class="admin-menu__grupo" data-group="accesos">
             <button class="admin-menu__titulo" type="button" data-menu-group="accesos" aria-expanded="false">
@@ -380,11 +400,23 @@
             </button>
             <div class="admin-menu__lista colapsada" data-menu-panel="accesos">
               <button class="admin-menu__item" data-modulo="usuarios">Usuarios y cuentas</button>
-              <button class="admin-menu__item" data-modulo="roles">Roles y perfiles</button>
+              <button class="admin-menu__item" data-modulo="vendedores_lista">Vendedores</button>
+              <button class="admin-menu__item" data-modulo="Carga_Masiva_Usuarios">Carga Masiva Usuarios</button>
+            <!--  <button class="admin-menu__item" data-modulo="roles">Roles y perfiles</button> -->
             </div>
           </div>
 
-          <div class="admin-menu__grupo" data-group="organizacion">
+          <div class="admin-menu__grupo" data-group="mantenedores">
+            <button class="admin-menu__titulo" type="button" data-menu-group="mantenedores" aria-expanded="false">
+              <span class="admin-menu__titulo-texto">Mantenedores</span>
+              <span class="admin-menu__toggle">+</span>
+            </button>
+            <div class="admin-menu__lista colapsada" data-menu-panel="mantenedores">
+              <button class="admin-menu__item" data-modulo="contratos">Contratos</button>
+            </div>
+          </div>
+
+          <!--<div class="admin-menu__grupo" data-group="organizacion">
             <button class="admin-menu__titulo" type="button" data-menu-group="organizacion" aria-expanded="false">
               <span class="admin-menu__titulo-texto">Organización</span>
               <span class="admin-menu__toggle">+</span>
@@ -397,9 +429,9 @@
               <button class="admin-menu__item" data-modulo="zonas">Zonas</button>
               <button class="admin-menu__item" data-modulo="asignaciones">Asignaciones</button>
             </div>
-          </div>
+          </div>-->
 
-          <div class="admin-menu__grupo" data-group="operacion">
+          <!--<div class="admin-menu__grupo" data-group="operacion">
             <button class="admin-menu__titulo" type="button" data-menu-group="operacion" aria-expanded="false">
               <span class="admin-menu__titulo-texto">Operación</span>
               <span class="admin-menu__toggle">+</span>
@@ -409,7 +441,7 @@
               <button class="admin-menu__item" data-modulo="motivos">Motivos de suplencia</button>
               <button class="admin-menu__item" data-modulo="compromisos">Compromisos</button>
             </div>
-          </div>
+          </div>-->
         </aside>
 
         <section class="admin-main">

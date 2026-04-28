@@ -1,6 +1,9 @@
 import { supabase, limpiarSesion } from "../config.js";
 import { enforceMustChangePassword } from "./guard-must-change-password.js";
 import { renderAccesos, setAccesosMode } from "./admin/accesos.js";
+import { renderCargaMasiva } from "./admin/carga-masiva.js";
+import { renderContratos } from "./admin/contratos.js";
+import { renderVendedor } from "./admin/vendedor_lista.js";
 
 try {
   await enforceMustChangePassword();
@@ -78,6 +81,12 @@ const ADMIN_MODULOS = {
       ]
     ),
   },
+  vendedores_lista: {
+    titulo: "Vendedores",
+    subtitulo: "Listado y mantención de vendedores según perfil del usuario.",
+    subopciones: [],
+    render: () => "",
+  },
   roles: {
     titulo: "Roles y perfiles",
     subtitulo: "Asignación de roles, vigencias y control RBAC.",
@@ -121,6 +130,12 @@ const ADMIN_MODULOS = {
       ["Nombre", "Usuario", "Zonas vigentes", "Estado", "Acciones"],
       [["--", "--", "--", pill("Activo", "activo"), acciones("Ver", "Asignar")]]
     ),
+  },
+  Carga_Masiva_Usuarios: {
+    titulo: "Carga Masiva Usuarios",
+    subtitulo: "Carga masiva de vendedores y supervisores desde archivo Excel.",
+    subopciones: [],
+    render: () => "",
   },
   equipos: {
     titulo: "Equipos",
@@ -208,6 +223,12 @@ const ADMIN_MODULOS = {
       ["Tipo", "Obligatorio", "Visible para todos", "Estado", "Acciones"],
       [["--", "--", "--", pill("Activo", "activo"), acciones("Editar", "Estado")]]
     ),
+  },
+  contratos: {
+    titulo: "Contratos",
+    subtitulo: "Mantenedor de contratos comerciales y contrato por defecto para nuevo vendedor.",
+    subopciones: [],
+    render: () => "",
   },
   alertas: {
     titulo: "Alertas",
@@ -342,7 +363,6 @@ async function initAdmin() {
     if (icon) icon.textContent = expandido ? "−" : "+";
   }
 
-
   function collapseAllMenuGroups() {
     menuHeaders.forEach((header) => {
       const groupKey = header.dataset.menuGroup;
@@ -398,15 +418,36 @@ async function initAdmin() {
     setTimeout(() => { elTextoBienvenida.style.display = "none"; }, 5000);
   }
 
+  let perfilActual = null;
   try {
-    const perfilActual = await getPerfilActual(authUserId);
-    if (String(perfilActual || "").toLowerCase() !== "admin") {
-      console.warn("⛔ Acceso denegado: perfil_actual != admin");
+    perfilActual = await getPerfilActual(authUserId);
+    const perfilNormalizado = String(perfilActual || "").toLowerCase();
+
+    if (!["admin", "supervisor"].includes(perfilNormalizado)) {
+      console.warn("⛔ Acceso denegado: perfil_actual no autorizado", perfilActual);
       irLogin();
       return;
     }
+
+    const rolEl = document.querySelector(".texto-rol");
+    if (rolEl) {
+      rolEl.textContent = perfilNormalizado === "admin" ? "Admin" : "Supervisor";
+    }
+
+    if (perfilNormalizado === "supervisor") {
+      menuItems.forEach((btn) => {
+        const permitido = btn.dataset.modulo === "vendedores_lista";
+        btn.hidden = !permitido;
+      });
+
+      document.querySelectorAll(".admin-menu__grupo").forEach((grupo) => {
+        const visibles = Array.from(grupo.querySelectorAll(".admin-menu__item"))
+          .some((btn) => !btn.hidden);
+        grupo.hidden = !visibles;
+      });
+    }
   } catch (e) {
-    console.error("⛔ Error validando RBAC admin:", e);
+    console.error("⛔ Error validando RBAC:", e);
     irLogin();
     return;
   }
@@ -432,19 +473,44 @@ async function initAdmin() {
 
   function renderSubmenu(moduloKey) {
     const modulo = ADMIN_MODULOS[moduloKey];
-    if (!modulo || !adminSubmenu) return;
+    if (!adminSubmenu) return;
+    if (!modulo || !Array.isArray(modulo.subopciones) || !modulo.subopciones.length) {
+      adminSubmenu.innerHTML = "";
+      return;
+    }
+
     const activeIndex = moduloKey === "usuarios" ? 1 : 0;
     adminSubmenu.innerHTML = modulo.subopciones
       .map((txt, i) => `<button type="button" class="admin-submenu__item ${i === activeIndex ? "activo" : ""}">${txt}</button>`)
       .join("");
+
     if (moduloKey === "usuarios") bindUsuariosSubmenu();
   }
 
-  function renderModulo(moduloKey) {
+  async function renderModulo(moduloKey) {
     const moduloRealKey = moduloKey === "usuarios" ? "usuarios" : moduloKey;
     const modulo = ADMIN_MODULOS[moduloRealKey] || ADMIN_MODULOS.dashboard;
 
     menuItems.forEach((btn) => btn.classList.toggle("activo", btn.dataset.modulo === moduloKey));
+
+    if (moduloKey === "Carga_Masiva_Usuarios") {
+      adminSubmenu.innerHTML = "";
+      await renderCargaMasiva(adminContenido);
+      return;
+    }
+
+    if (moduloKey === "vendedores_lista") {
+      adminSubmenu.innerHTML = "";
+      await renderVendedor(adminContenido);
+      return;
+    }
+
+    if (moduloKey === "contratos") {
+      adminSubmenu.innerHTML = "";
+      await renderContratos(adminContenido);
+      return;
+    }
+
     renderSubmenu(moduloRealKey);
 
     if (moduloKey === "usuarios") {
@@ -456,11 +522,19 @@ async function initAdmin() {
   }
 
   menuItems.forEach((btn) => {
-    btn.addEventListener("click", () => renderModulo(btn.dataset.modulo));
+    btn.addEventListener("click", async () => {
+      await renderModulo(btn.dataset.modulo);
+    });
   });
 
   initAccordionMenu();
-  renderModulo("dashboard");
+
+  if (String(perfilActual || "").toLowerCase() === "supervisor") {
+    setMenuGroupState("accesos", true);
+    await renderModulo("vendedores_lista");
+  } else {
+    await renderModulo("dashboard");
+  }
 }
 
 initAdmin();

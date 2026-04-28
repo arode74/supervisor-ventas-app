@@ -196,6 +196,36 @@ async function loadEquiposByZona(idZona) {
   );
 }
 
+async function loadContratosVigentes() {
+  const { data, error } = await supabase.rpc("get_contratos_vigentes");
+
+  if (error) throw error;
+
+  return sortNatural(
+    (data || [])
+      .map((c) => ({
+        descripcion: c.descripcion || "",
+      }))
+      .filter((c) => c.descripcion),
+    "descripcion"
+  );
+}
+
+async function getContratoIdByDescripcion(descripcion) {
+  const desc = String(descripcion || "").trim();
+  if (!desc) return null;
+
+  const { data, error } = await supabase
+    .from("contratos")
+    .select("id_contrato, descripcion")
+    .eq("descripcion", desc)
+    .eq("vigente", true)
+    .limit(1);
+
+  if (error) throw error;
+  return data?.[0]?.id_contrato ?? null;
+}
+
 async function validateProfileUniqueness({ rut, email, usuario, currentId = null }) {
   const rutNum = onlyRutNumbers(rut);
   const emailLc = String(email || "").trim().toLowerCase();
@@ -551,6 +581,15 @@ function formView(mode, statusText = "", isError = false) {
                   <label class="acc-label">${tipo === "vendedor" ? "Fecha de ingreso" : "Fecha de inicio"}</label>
                   <input class="acc-input" id="acc-fecha-inicio" type="date" value="${selected.fecha_inicio ? String(selected.fecha_inicio).slice(0, 10) : ""}">
                 </div>
+                <div class="acc-field ${tipo === "vendedor" ? "" : "acc-hidden"}" id="acc-contrato-field">
+                  <label class="acc-label">Contrato</label>
+                  <select class="acc-select" id="acc-contrato"><option value="">Cargando contratos...</option></select>
+                </div>
+
+                <div class="acc-field ${tipo === "vendedor" ? "" : "acc-hidden"}" id="acc-fecha-contrato-field">
+                  <label class="acc-label">Fecha inicio contrato</label>
+                  <input class="acc-input" id="acc-fecha-inicio-contrato" type="date" value="${selected.fecha_inicio_contrato ? String(selected.fecha_inicio_contrato).slice(0, 10) : (selected.fecha_inicio ? String(selected.fecha_inicio).slice(0, 10) : "")}">
+                </div>
               </div>
 
               <div id="acc-warning" class="acc-warning acc-hidden"></div>
@@ -625,6 +664,11 @@ function attachListadoEvents(container) {
 
 async function maybeLoadCombos(container) {
   const tipo = (container.querySelector('input[name="tipoCuenta"]:checked')?.value) || "vendedor";
+
+  if (tipo === "vendedor") {
+    await fillContratos(container);
+  }
+
   if (tipo === "admin") return;
 
   const zonaSel = container.querySelector("#acc-zona");
@@ -639,6 +683,20 @@ async function maybeLoadCombos(container) {
 
   if (tipo !== "zonal" && zonaSel.value) {
     await fillEquipos(container, zonaSel.value);
+  }
+}
+
+async function fillContratos(container) {
+  const contratoSel = container.querySelector("#acc-contrato");
+  if (!contratoSel) return;
+
+  const contratos = await loadContratosVigentes();
+
+  contratoSel.innerHTML = `<option value="">Seleccione un contrato</option>` +
+    contratos.map((c) => `<option value="${c.descripcion}">${c.descripcion}</option>`).join("");
+
+  if (_ctx.selected?.contrato) {
+    contratoSel.value = _ctx.selected.contrato;
   }
 }
 
@@ -747,6 +805,8 @@ async function prepareCreatePayload(container) {
   const estado = container.querySelector("#acc-estado").value;
   const fechaFin = container.querySelector("#acc-fecha-fin")?.value || null;
   const fechaInicio = container.querySelector("#acc-fecha-inicio")?.value || null;
+  const contrato = container.querySelector("#acc-contrato")?.value || null;
+  const fechaInicioContrato = container.querySelector("#acc-fecha-inicio-contrato")?.value || null;
   const idZona = container.querySelector("#acc-zona")?.value || null;
   const idEquipo = container.querySelector("#acc-equipo")?.value || null;
 
@@ -761,8 +821,16 @@ async function prepareCreatePayload(container) {
     if (tipo !== "zonal" && !idEquipo) throw new Error("Seleccione el equipo.");
     if (!fechaInicio) throw new Error("Seleccione la fecha.");
 
+    if (tipo === "vendedor") {
+      if (!contrato) throw new Error("Seleccione el contrato del vendedor.");
+      if (!fechaInicioContrato) throw new Error("Seleccione la fecha de inicio del contrato.");
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     if (fechaInicio > today) throw new Error("La fecha no puede ser futura.");
+    if (tipo === "vendedor" && fechaInicioContrato > today) {
+      throw new Error("La fecha de inicio del contrato no puede ser futura.");
+    }
   }
 
   if (estado === "inactivo" && !fechaFin) {
@@ -808,11 +876,24 @@ async function prepareCreatePayload(container) {
   };
 
   if (tipo === "vendedor") {
+    const idContrato = await getContratoIdByDescripcion(contrato);
+
+    if (!idContrato) {
+      throw new Error("El contrato seleccionado no existe o no está vigente.");
+    }
+
     payload.equipo_vendedor = {
       id_equipo: idEquipo,
       fecha_inicio: fechaInicio,
       fecha_fin: null,
       estado: true,
+    };
+
+    payload.vendedor_contrato = {
+      id_contrato: idContrato,
+      contrato,
+      fecha_inicio: fechaInicioContrato,
+      fecha_fin: null,
     };
   }
 
@@ -883,7 +964,9 @@ async function handleSaveCreateOrEdit(container) {
         p_fecha_fin: payload.profile.fecha_fin,
         p_must_change_password: payload.profile.must_change_password,
         p_id_perfil: payload.user_role.id_perfil,
-        p_id_equipo: payload.equipo_vendedor.id_equipo
+        p_id_equipo: payload.equipo_vendedor.id_equipo,
+        p_id_contrato: payload.vendedor_contrato.id_contrato,
+        p_fecha_inicio_contrato: payload.vendedor_contrato.fecha_inicio
       }));
     }
 
@@ -983,6 +1066,8 @@ function attachFormEvents(container) {
   const radios = container.querySelectorAll('input[name="tipoCuenta"]');
   const zona = container.querySelector("#acc-zona");
   const equipo = container.querySelector("#acc-equipo");
+  const fechaInicio = container.querySelector("#acc-fecha-inicio");
+  const fechaInicioContrato = container.querySelector("#acc-fecha-inicio-contrato");
   const copiar = container.querySelector("#acc-copiar");
   const guardar = container.querySelector("#acc-guardar");
   const cancelar = container.querySelector("#acc-cancelar");
@@ -1029,6 +1114,12 @@ function attachFormEvents(container) {
 
   equipo?.addEventListener("change", async () => {
     await checkPrincipal(container);
+  });
+
+  fechaInicio?.addEventListener("change", () => {
+    if (fechaInicioContrato && !fechaInicioContrato.value) {
+      fechaInicioContrato.value = fechaInicio.value;
+    }
   });
 
   guardar?.addEventListener("click", async () => {

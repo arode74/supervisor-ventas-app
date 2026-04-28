@@ -48,11 +48,12 @@
               <th>Equipo</th>
               <th>Fecha Ingreso</th>
               <th>Fecha Egreso</th>
+              <th>Contrato</th>
               <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td colspan="6">Cargando vendedores…</td></tr>
+            <tr><td colspan="7">Cargando vendedores…</td></tr>
           </tbody>
         </table>
       </div>
@@ -146,6 +147,18 @@
             <select id="editEquipoSelect" required>
               <option value="">Cargando…</option>
             </select>
+          </label>
+
+          <label>
+            Contrato
+            <select id="editContratoSelect">
+              <option value="">Cargando…</option>
+            </select>
+          </label>
+
+          <label>
+            Fecha cambio contrato
+            <input id="editFechaCambioContrato" type="date" />
           </label>
         </div>
 

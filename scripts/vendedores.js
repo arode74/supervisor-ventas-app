@@ -129,6 +129,8 @@ const inputEditNombre          = document.getElementById("editNombreVendedor");
 const inputEditFechaIngreso    = document.getElementById("editFechaIngreso");
 const inputEditFechaEgreso     = document.getElementById("editFechaEgreso");
 const selectEditEquipo         = document.getElementById("editEquipoSelect");
+const selectEditContrato       = document.getElementById("editContratoSelect");
+const inputEditFechaCambioContrato = document.getElementById("editFechaCambioContrato");
 const inputEditRevertirBaja    = document.getElementById("editRevertirBaja");
 const filaRevertirBaja         = document.getElementById("filaRevertirBaja");
 
@@ -258,6 +260,7 @@ function configurarAltaVendedorConAccesos() {
 let vendedores                   = [];
 let vendedoresOriginal           = [];
 let equiposSupervisor            = [];
+let contratosDisponibles         = [];
 let vendedorEditando             = null;
 let vendedorEnBaja               = null;
 let ventasPosterioresEncontradas = [];
@@ -606,6 +609,145 @@ inputEditNombre?.addEventListener("blur", e => {
     .join(" ");
 });
 
+
+
+/* ===========================================================
+   CONTRATOS — combo edición
+   - Tabla/lista: usa contrato desde vw_vendedores_contrato_vigente
+   - Combo: usa tabla contratos
+   =========================================================== */
+function getContratoLabel(c) {
+  return c?.descripcion || c?.nombre_contrato || "";
+}
+
+async function cargarContratosDisponibles() {
+  try {
+    const { data, error } = await supabase
+      .from("contratos")
+      .select(`
+        id_contrato,
+        descripcion,
+        nombre_contrato,
+        vigente,
+        nuevo_vendedor,
+        fecha_creacion
+      `)
+      .eq("vigente", true)
+      .order("fecha_creacion", { ascending: false });
+
+    if (error) throw error;
+
+    contratosDisponibles = data || [];
+
+    console.log("DEBUG contratos disponibles desde tabla contratos:", contratosDisponibles);
+
+    return contratosDisponibles;
+  } catch (err) {
+    console.error("Error cargando contratos desde tabla contratos:", err);
+    contratosDisponibles = [];
+    return [];
+  }
+}
+
+function poblarContratoEditar(vendedor) {
+  if (!selectEditContrato) return;
+
+  selectEditContrato.innerHTML = "";
+
+  let contratoDefault = null;
+
+  const optBase = document.createElement("option");
+  optBase.value = "";
+  optBase.textContent = contratosDisponibles.length ? "Seleccione contrato" : "No hay contratos vigentes";
+  selectEditContrato.appendChild(optBase);
+
+  contratosDisponibles.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c.id_contrato;
+    opt.textContent = getContratoLabel(c);
+
+    // Si el vendedor ya trae contrato desde la vista, se respeta.
+    if (vendedor?.id_contrato && String(c.id_contrato) === String(vendedor.id_contrato)) {
+      opt.selected = true;
+    }
+
+    // Default para vendedores sin contrato.
+    if (c.nuevo_vendedor === true && !contratoDefault) {
+      contratoDefault = c.id_contrato;
+    }
+
+    selectEditContrato.appendChild(opt);
+  });
+
+  if (!vendedor?.id_contrato && contratoDefault) {
+    selectEditContrato.value = contratoDefault;
+  }
+
+  if (inputEditFechaCambioContrato) {
+    inputEditFechaCambioContrato.value = "";
+  }
+}
+
+function calcularFechaFinContratoAnterior(fechaCambio) {
+  const d = new Date(`${fechaCambio}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+async function guardarCambioContratoSiCorresponde(idVendedor) {
+  if (!selectEditContrato || !inputEditFechaCambioContrato) return true;
+
+  const nuevoContrato = selectEditContrato.value || "";
+  const contratoActual = vendedorEditando?.id_contrato || "";
+  const fechaCambio = inputEditFechaCambioContrato.value || "";
+
+  if (!nuevoContrato || String(nuevoContrato) === String(contratoActual || "")) {
+    return true;
+  }
+
+  if (!fechaCambio) {
+    mostrarAlerta("Debe ingresar la fecha de cambio de contrato.");
+    return false;
+  }
+
+  if (vendedorEditando?.fecha_ingreso && fechaCambio < vendedorEditando.fecha_ingreso) {
+    mostrarAlerta(`La fecha de cambio de contrato no puede ser anterior a la fecha de ingreso (${vendedorEditando.fecha_ingreso}).`);
+    return false;
+  }
+
+  const fechaFinAnterior = calcularFechaFinContratoAnterior(fechaCambio);
+
+  const { error: errCerrar } = await supabase
+    .from("vendedor_contrato")
+    .update({ fecha_fin: fechaFinAnterior })
+    .eq("id_vendedor", idVendedor)
+    .is("fecha_fin", null);
+
+  if (errCerrar) {
+    console.error("Error cerrando contrato anterior:", errCerrar);
+    mostrarAlerta("No fue posible cerrar el contrato anterior del vendedor.");
+    return false;
+  }
+
+  const { error: errInsert } = await supabase
+    .from("vendedor_contrato")
+    .insert({
+      id_vendedor: idVendedor,
+      id_contrato: Number(nuevoContrato),
+      fecha_inicio: fechaCambio,
+      fecha_fin: null,
+    });
+
+  if (errInsert) {
+    console.error("Error insertando contrato nuevo:", errInsert);
+    mostrarAlerta("No fue posible guardar el nuevo contrato del vendedor.");
+    return false;
+  }
+
+  return true;
+}
+
+
 /* ===========================================================
    CARGA DE EQUIPOS Y VENDEDORES
    =========================================================== */
@@ -653,20 +795,57 @@ async function cargarVendedores() {
   try {
     const soloVigentes = !!chkVigentes?.checked;
 
-    // 1) Pintar inmediato desde cache (si existe)
+    // 1) Pintar inmediato desde cache
     const cache = leerCacheVendedores(soloVigentes);
     if (cache) {
       vendedores = cache;
       renderizarTablaVendedores();
     }
 
-    // 2) Source of truth: 1 RPC
-    const { data, error } = await supabase.rpc("get_vendedores_supervisor", {
-      p_solo_vigentes: soloVigentes,
-    });
+    // 2) Source of truth: vista con contrato vigente resuelto en BD.
+    // El contrato que muestra la tabla viene desde la vista.
+    let query = supabase
+      .from("vw_vendedores_contrato_vigente")
+      .select(`
+        id_vendedor,
+        nombre_vendedor,
+        nombre,
+        rut,
+        dv,
+        fecha_ingreso,
+        fecha_egreso,
+        fecha_creacion,
+        estado_vendedor,
+        id_equipo,
+        nombre_equipo,
+        id_zona,
+        nombre_zona,
+        id_vendedor_contrato,
+        id_contrato,
+        fecha_inicio_contrato,
+        fecha_fin_contrato,
+        contrato,
+        contrato_nombre_corto,
+        nombre_contrato,
+        codigo_contrato
+      `)
+      .order("nombre_vendedor", { ascending: true });
+
+    if (soloVigentes) {
+      query = query.is("fecha_egreso", null);
+    }
+
+    if (Array.isArray(equiposSupervisor) && equiposSupervisor.length > 0) {
+      const idsEquipo = equiposSupervisor.map(e => e.id_equipo).filter(Boolean);
+      if (idsEquipo.length > 0) {
+        query = query.in("id_equipo", idsEquipo);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) {
-      console.error("Error al cargar vendedores (RPC):", error);
+      console.error("Error al cargar vendedores desde vista:", error);
       if (!cache) mostrarAlerta("No fue posible cargar los vendedores.");
       return;
     }
@@ -674,7 +853,6 @@ async function cargarVendedores() {
     vendedores = Array.isArray(data) ? data : [];
     guardarCacheVendedores(soloVigentes, vendedores);
 
-    // Si había cache, actualiza; si no, renderiza ahora
     renderizarTablaVendedores();
   } catch (e) {
     console.error("Error inesperado al cargar vendedores:", e);
@@ -700,7 +878,7 @@ function renderizarTablaVendedores() {
   if (!vendedores.length) {
     const tr = document.createElement("tr");
     tr.innerHTML =
-      '<td colspan="6" class="texto-centro">No hay vendedores para mostrar.</td>';
+      '<td colspan="7" class="texto-centro">No hay vendedores para mostrar.</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -720,6 +898,7 @@ function renderizarTablaVendedores() {
       <td>${v.nombre_equipo || ""}</td>
       <td>${v.fecha_ingreso || ""}</td>
       <td>${v.fecha_egreso || ""}</td>
+      <td>${v.contrato || v.contrato_nombre_corto || ""}</td>
       <td class="acciones">
         <button class="btn-editar-vendedor" data-id="${v.id_vendedor}" title="Editar vendedor">
           <i class="fa-solid fa-pen"></i>
@@ -819,7 +998,7 @@ btnGuardarVendedor?.addEventListener("click", async () => {
 /* ===========================================================
    EDICIÓN VENDEDOR
    =========================================================== */
-function abrirModalEditar(v) {
+async function abrirModalEditar(v) {
   if (!modalEditarVendedor) return;
 
   cerrarTodosLosModales(); // por seguridad, cierra cualquier resto
@@ -839,6 +1018,9 @@ function abrirModalEditar(v) {
     selectEditEquipo.appendChild(opt);
     selectEditEquipo.disabled = true;
   }
+
+  await cargarContratosDisponibles();
+  poblarContratoEditar(v);
 
   // Manejar visibilidad del check "Reversar baja"
   if (filaRevertirBaja) {
@@ -932,9 +1114,13 @@ async function aplicarCambioFechaIngresoConfirmado(params) {
     errAfter,
   });
 
+  const contratoOk = await guardarCambioContratoSiCorresponde(idVendedor);
+  if (!contratoOk) return;
+
   cerrarModalAdvertenciaCambioFecha();
   cerrarModalEditar();
   mostrarAlerta("✅ Vendedor actualizado correctamente.");
+  limpiarCacheVendedores();
   await cargarVendedores();
 }
 
@@ -1091,6 +1277,9 @@ async function guardarEdicionVendedor(e) {
         mostrarAlerta("Error al actualizar el vendedor.");
         return;
       }
+
+      const contratoOk = await guardarCambioContratoSiCorresponde(idVendedor);
+      if (!contratoOk) return;
 
       cerrarModalEditar();
       notifyMsg("✅ Vendedor actualizado correctamente.");
@@ -1548,6 +1737,7 @@ async function inicializarModuloVendedores() {
     bindHeaderSorting();
     configurarAltaVendedorConAccesos();
     await cargarEquipos();
+    await cargarContratosDisponibles();
     await cargarVendedores();
 
     // Filtro “Mostrar solo vigentes”
