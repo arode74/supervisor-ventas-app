@@ -1,5 +1,71 @@
 <script src="../env.js"></script>
 
+<style>
+  /* ===========================================================
+     PARAMETROS SUPERVISOR — Scroll interno modal
+     =========================================================== */
+
+  #modalTiposCompromisos[open] {
+    width: min(920px, 96vw) !important;
+    max-width: 96vw !important;
+    max-height: 86vh !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  #modalTiposCompromisos .modal-contenido {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 86vh !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #modalTiposCompromisos .modal-tabla-scroll {
+    flex: 1 1 auto !important;
+    min-height: 220px !important;
+    max-height: calc(86vh - 150px) !important;
+    overflow-y: auto !important;
+    overflow-x: auto !important;
+    border: 1px solid #dbe4ee;
+    border-radius: 8px;
+    overscroll-behavior: contain;
+  }
+
+  #modalTiposCompromisos .modal-tabla-scroll table {
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #modalTiposCompromisos .modal-tabla-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #cfe2f3 !important;
+  }
+
+  #modalTiposCompromisos .modal-botones {
+    flex: 0 0 auto !important;
+    margin-top: 12px !important;
+  }
+
+  #modalNuevoTipo[open],
+  #modalAviso[open] {
+    max-height: 86vh !important;
+    overflow: hidden !important;
+  }
+
+  #modalNuevoTipo .modal-contenido,
+  #modalAviso .modal-contenido {
+    max-height: 86vh !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+  }
+</style>
+
+
 <div id="modulo-configuracion" class="modulo-configuracion">
   <div class="modulo-panel">
     <div class="modulo-header">
@@ -40,7 +106,7 @@
   <div class="modal-contenido">
     <h3>Tipos de compromisos</h3>
 
-    <div style="margin-top:10px;">
+    <div class="modal-tabla-scroll" style="margin-top:10px;">
       <table class="tabla-compacta" style="width:100%; border-collapse:collapse;">
         <colgroup>
           <col style="width:20%;">   <!-- Nombre -->
