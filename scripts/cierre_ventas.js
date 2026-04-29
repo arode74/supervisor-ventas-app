@@ -126,6 +126,7 @@ let rolActual =
   "supervisor";
 
 let existentesPorVendedor = new Map();
+let contratosPorVendedor = new Map();
 let fuenteActual = 'BASE';
 
 // ======================================================
@@ -188,6 +189,19 @@ function formatearPVEnVivo(inp) {
     pos++;
   }
   try { inp.setSelectionRange(pos, pos); } catch (_) {}
+}
+
+function limitarInputCierreA199(inp) {
+  if (!inp || inp.dataset.tipo === "PV") return;
+
+  const raw = String(inp.value ?? "").replace(/\D/g, "");
+  if (!raw) {
+    inp.value = "";
+    return;
+  }
+
+  const n = Math.min(Number(raw), 199);
+  inp.value = Number.isFinite(n) ? String(n) : "";
 }
 
 function recalcularTotales() {
@@ -268,6 +282,135 @@ function aislarScrollSoloEnTabla() {
 }
 
 // ======================================================
+// ======================================================
+// Layout scroll cierre ventas
+// - Mantiene el scroll dentro de la tabla
+// - Evita que el contenedor padre/página tenga que desplazarse
+// - Corrige el caso donde el scroller calcula menor altura que la tabla real
+// ======================================================
+function aplicarLayoutScrollCierre() {
+  const root = document.getElementById(ROOT_ID);
+  if (!root) return;
+
+  const scroller = scrollCierreEl || root.querySelector("#scrollCierre") || root.querySelector(".contenedor-tabla");
+  const tablaBody = tabla || root.querySelector("#tablaCierre");
+  const headWrap = root.querySelector(".contenedor-tabla-head");
+
+  if (!scroller || !tablaBody) return;
+
+  root.style.overflow = "hidden";
+
+  const rect = scroller.getBoundingClientRect();
+  const margenInferior = 24;
+  const altoDisponible = Math.max(260, Math.floor(window.innerHeight - rect.top - margenInferior));
+
+  scroller.style.height = `${altoDisponible}px`;
+  scroller.style.maxHeight = `${altoDisponible}px`;
+  scroller.style.overflowY = "auto";
+  scroller.style.overflowX = "auto";
+  scroller.style.position = "relative";
+  scroller.style.overscrollBehavior = "contain";
+
+  tablaBody.style.display = "table";
+  tablaBody.style.width = "100%";
+  tablaBody.style.height = "auto";
+  tablaBody.style.maxHeight = "none";
+  tablaBody.style.position = "relative";
+
+  if (headWrap) {
+    headWrap.style.overflow = "hidden";
+  }
+
+  try { avSetScrollbarWidthVar(); } catch (_) {}
+  try { avSyncCierreVentasHeadWidths(); } catch (_) {}
+}
+
+
+// ======================================================
+// Layout columnas cierre ventas
+// - Alinea encabezados sobre cada input editable
+// - TF, >40, >70 y Plan aceptan hasta 199 con ancho justo para flechas nativas
+// - Producto Voluntario acepta hasta 999.999.999 y usa ancho justo
+// ======================================================
+function aplicarLayoutColumnasCierre() {
+  const root = document.getElementById(ROOT_ID);
+  if (!root) return;
+
+  const styleId = "av-cierre-ventas-columnas-style";
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `
+      #modulo-cierre-ventas #tablaCierre,
+      #modulo-cierre-ventas #tablaCierreHead {
+        table-layout: fixed !important;
+        border-collapse: collapse;
+      }
+
+      #modulo-cierre-ventas #tablaCierreHead th,
+      #modulo-cierre-ventas #tablaCierre td {
+        box-sizing: border-box;
+        vertical-align: middle;
+      }
+
+      #modulo-cierre-ventas #tablaCierreHead th:not(:first-child),
+      #modulo-cierre-ventas #tablaCierre td:not(:first-child) {
+        text-align: center !important;
+        padding-left: 4px !important;
+        padding-right: 4px !important;
+      }
+
+      #modulo-cierre-ventas #tablaCierreHead th {
+        white-space: normal !important;
+        line-height: 1.1 !important;
+        text-align: center !important;
+      }
+
+      #modulo-cierre-ventas #tablaCierre .input-cierre,
+      #modulo-cierre-ventas #tablaCierre .input-cierre-pv {
+        box-sizing: border-box !important;
+        display: block !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        text-align: center !important;
+      }
+
+      #modulo-cierre-ventas #tablaCierre .input-cierre {
+        width: 76px !important;
+        max-width: 76px !important;
+        min-width: 76px !important;
+        padding-left: 8px !important;
+        padding-right: 20px !important; /* reserva espacio para flechas nativas */
+        text-align: left !important;
+      }
+
+      #modulo-cierre-ventas #tablaCierre .input-cierre-pv {
+        width: 150px !important;
+        max-width: 150px !important;
+        min-width: 150px !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const headTable = root.querySelector("#tablaCierreHead");
+  const bodyTable = root.querySelector("#tablaCierre");
+  if (!headTable || !bodyTable) return;
+
+  const widths = [270, 78, 86, 86, 86, 86, 170];
+  for (const table of [headTable, bodyTable]) {
+    let colgroup = table.querySelector("colgroup");
+    if (!colgroup) {
+      colgroup = document.createElement("colgroup");
+      const firstChild = table.firstElementChild;
+      table.insertBefore(colgroup, firstChild);
+    }
+
+    colgroup.innerHTML = widths.map((w) => `<col style="width:${w}px; min-width:${w}px; max-width:${w}px;">`).join("");
+    table.style.minWidth = `${widths.reduce((a, b) => a + b, 0)}px`;
+  }
+}
+
 function mesActualPorDefecto() {
   const d = new Date();
   return { mes: d.getMonth() + 1, anio: d.getFullYear() };
@@ -427,6 +570,45 @@ async function obtenerVendedoresDelMes(idEquipoLocal, anio, mes) {
   return out;
 }
 
+async function obtenerContratosPorVendedor(idEquipoLocal, anio, mes, vendedores = []) {
+  contratosPorVendedor = new Map();
+
+  const ids = [...new Set((vendedores || []).map(v => v.id_vendedor).filter(Boolean))];
+  if (!ids.length) return contratosPorVendedor;
+
+  const ini = `${anio}-${String(mes).padStart(2, "0")}-01`;
+  const finDia = new Date(anio, mes, 0).getDate();
+  const fin = `${anio}-${String(mes).padStart(2, "0")}-${String(finDia).padStart(2, "0")}`;
+
+  try {
+    const { data, error } = await supabase
+      .from("vendedor_contrato")
+      .select(`
+        id_vendedor,
+        fecha_inicio,
+        fecha_fin,
+        contratos (
+          descripcion
+        )
+      `)
+      .in("id_vendedor", ids)
+      .lte("fecha_inicio", fin)
+      .or(`fecha_fin.is.null,fecha_fin.gte.${ini}`);
+
+    if (error) throw error;
+
+    for (const r of data || []) {
+      const id = r?.id_vendedor;
+      if (!id || contratosPorVendedor.has(id)) continue;
+      contratosPorVendedor.set(id, r?.contratos?.descripcion || "");
+    }
+  } catch (err) {
+    console.warn("No se pudieron cargar contratos vigentes:", err);
+  }
+
+  return contratosPorVendedor;
+}
+
 async function obtenerMontosExistentes(idEquipoLocal, anio, mes) {
   existentesPorVendedor = new Map();
 
@@ -467,7 +649,7 @@ function render(vendedores) {
   tbody.innerHTML = "";
 
   if (!vendedores.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Sin vendedores</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Sin vendedores</td></tr>`;
     ajustarStickyTop();
     recalcularTotales();
     return;
@@ -484,14 +666,16 @@ function render(vendedores) {
     const g70Val = ex.TOPE || "";
     const planVal= ex.PLAN || "";
     const pvRaw  = ex.PV || "";
+    const contrato = contratosPorVendedor.get(v.id_vendedor) || "";
 
     tr.innerHTML = `
-      <td class="nombre-vendedor" title="${escapeHtml(v.nombre)}"><span class="cv-vendedor">${escapeHtml(v.nombre)}</span></td>
-      <td><input class="input-cierre" data-tipo="BAJO"  type="number" inputmode="numeric" min="0" step="1" value="${tfVal}"></td>
-      <td><input class="input-cierre" data-tipo="SOBRE" type="number" inputmode="numeric" min="0" step="1" value="${g40Val}"></td>
-      <td><input class="input-cierre" data-tipo="TOPE"  type="number" inputmode="numeric" min="0" step="1" value="${g70Val}"></td>
-      <td><input class="input-cierre" data-tipo="PLAN"  type="number" inputmode="numeric" min="0" step="1" value="${planVal}"></td>
-      <td><input class="input-cierre-pv" data-tipo="PV" type="text" inputmode="numeric" autocomplete="off" spellcheck="false"></td>
+      <td class="cv-celda-vendedor" title="${escapeHtml(v.nombre)}"><span class="cv-vendedor">${escapeHtml(v.nombre)}</span></td>
+      <td class="contrato-vendedor" title="${escapeHtml(contrato)}"><span class="cv-contrato">${escapeHtml(contrato)}</span></td>
+      <td><input class="input-cierre" data-tipo="BAJO"  type="number" inputmode="numeric" min="0" max="199" step="1" value="${tfVal}"></td>
+      <td><input class="input-cierre" data-tipo="SOBRE" type="number" inputmode="numeric" min="0" max="199" step="1" value="${g40Val}"></td>
+      <td><input class="input-cierre" data-tipo="TOPE"  type="number" inputmode="numeric" min="0" max="199" step="1" value="${g70Val}"></td>
+      <td><input class="input-cierre" data-tipo="PLAN"  type="number" inputmode="numeric" min="0" max="199" step="1" value="${planVal}"></td>
+      <td><input class="input-cierre-pv" data-tipo="PV" type="text" inputmode="numeric" maxlength="11" autocomplete="off" spellcheck="false"></td>
     `;
 
     const pvInp = tr.querySelector('input[data-tipo="PV"]');
@@ -499,12 +683,20 @@ function render(vendedores) {
 
     tr.querySelectorAll("input").forEach((inp) => {
       inp.addEventListener("input", () => {
-        if (inp.dataset.tipo === "PV") formatearPVEnVivo(inp);
+        if (inp.dataset.tipo === "PV") {
+          formatearPVEnVivo(inp);
+        } else {
+          limitarInputCierreA199(inp);
+        }
         marcarFilaDirty(tr);
         recalcularTotales();
       });
       inp.addEventListener("change", () => {
-        if (inp.dataset.tipo === "PV") formatearPVEnVivo(inp);
+        if (inp.dataset.tipo === "PV") {
+          formatearPVEnVivo(inp);
+        } else {
+          limitarInputCierreA199(inp);
+        }
         marcarFilaDirty(tr);
         recalcularTotales();
       });
@@ -602,10 +794,6 @@ async function guardarTodo() {
 
     // recarga y limpia dirty
     await cargarCierre();
-
-  window.addEventListener('resize', () => {
-    ajustarStickyTop();
-  });
   } catch (err) {
     console.error("Error guardando cierre mensual:", err);
     alert("No se pudo guardar el cierre mensual. Revisa la consola.");
@@ -615,6 +803,85 @@ async function guardarTodo() {
   }
 }
 
+
+
+function aplicarLayoutContratoCierre() {
+  const styleId = "av-cierre-contrato-layout";
+  let style = document.getElementById(styleId);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = styleId;
+    document.head.appendChild(style);
+  }
+
+  style.textContent = `
+    #modulo-cierre-ventas #tablaCierreHead col.col-vendedor,
+    #modulo-cierre-ventas #tablaCierre col.col-vendedor{ width: 270px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-contrato,
+    #modulo-cierre-ventas #tablaCierre col.col-contrato{ width: 78px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-tf,
+    #modulo-cierre-ventas #tablaCierre col.col-tf{ width: 86px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-g40,
+    #modulo-cierre-ventas #tablaCierre col.col-g40{ width: 86px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-g70,
+    #modulo-cierre-ventas #tablaCierre col.col-g70{ width: 86px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-plan,
+    #modulo-cierre-ventas #tablaCierre col.col-plan{ width: 86px !important; }
+    #modulo-cierre-ventas #tablaCierreHead col.col-pv,
+    #modulo-cierre-ventas #tablaCierre col.col-pv{ width: 170px !important; }
+    #modulo-cierre-ventas .cv-celda-vendedor,
+    #modulo-cierre-ventas .cv-vendedor,
+    #modulo-cierre-ventas .contrato-vendedor,
+    #modulo-cierre-ventas .cv-contrato{
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #modulo-cierre-ventas .cv-contrato{
+      display:block;
+      max-width:100%;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody td.cv-celda-vendedor{
+      display: table-cell !important;
+      text-align: left !important;
+      vertical-align: middle !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      background-color: inherit !important;
+      background-image: none !important;
+      box-shadow: none !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody td.cv-celda-vendedor .cv-vendedor{
+      display: block !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      background-image: none !important;
+      box-shadow: none !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody tr:nth-child(odd) td{
+      background-color: #ffffff !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody tr:nth-child(even) td{
+      background-color: #f3f7fb !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody tr:hover td{
+      background-color: #eef6ff !important;
+    }
+  `;
+}
 
 // ======================================================
 // Carga principal
@@ -627,12 +894,16 @@ async function cargarCierre() {
     const { mes, anio } = obtenerPeriodoSeguro();
 
     const vendedores = await obtenerVendedoresDelMes(idEquipo, anio, mes);
+    await obtenerContratosPorVendedor(idEquipo, anio, mes, vendedores);
     await obtenerMontosExistentes(idEquipo, anio, mes);
     if (btnGuardarCierre) btnGuardarCierre.title = `Fuente carga: ${fuenteActual}`;
     render(vendedores);
+    aplicarLayoutContratoCierre();
+    aplicarLayoutColumnasCierre();
+    aplicarLayoutScrollCierre();
   } catch (err) {
     console.error("Error cargando cierre mensual:", err);
-    tbody.innerHTML = `<tr><td colspan="6">Error cargando datos</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7">Error cargando datos</td></tr>`;
   }
 }
 
@@ -645,7 +916,9 @@ async function cargarCierre() {
 
   setearDefaultsMesAnio();
 
-  aislarScrollSoloEnTabla();
+  aplicarLayoutContratoCierre();
+  aplicarLayoutColumnasCierre();
+  aplicarLayoutScrollCierre();
   ajustarStickyTop();
   recalcularTotales();
 
@@ -654,17 +927,19 @@ async function cargarCierre() {
   selectAnio.addEventListener("change", cargarCierre);
 
   await cargarCierre();
-
-  window.addEventListener('resize', () => {
-    ajustarStickyTop();
-  });
 })();
 
+try { aplicarLayoutColumnasCierre(); } catch(_) {}
+try { aplicarLayoutScrollCierre(); } catch(_) {}
 try { avSetScrollbarWidthVar(); } catch(_) {}
-  try { avSyncCierreVentasHeadWidths(); } catch(_) {}
+try { avSyncCierreVentasHeadWidths(); } catch(_) {}
 
-window.addEventListener("resize", () => { try { avSetScrollbarWidthVar(); } catch(_) {}
-  try { avSyncCierreVentasHeadWidths(); } catch(_) {} });
+window.addEventListener("resize", () => {
+  try { aplicarLayoutColumnasCierre(); } catch(_) {}
+  try { aplicarLayoutScrollCierre(); } catch(_) {}
+  try { avSetScrollbarWidthVar(); } catch(_) {}
+  try { avSyncCierreVentasHeadWidths(); } catch(_) {}
+});
 
 // Re-sincroniza cuando cambia el tamaño del scroller (por layout, fonts, etc.)
 try {
@@ -672,6 +947,7 @@ try {
   const scroller = root?.querySelector(".contenedor-tabla");
   if (scroller && window.ResizeObserver) {
     const ro = new ResizeObserver(() => {
+      try { aplicarLayoutColumnasCierre(); } catch(_) {}
       try { avSetScrollbarWidthVar(); } catch(_) {}
       try { avSyncCierreVentasHeadWidths(); } catch(_) {}
     });

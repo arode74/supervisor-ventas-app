@@ -1377,3 +1377,99 @@ dialog.modal .modal-contenido{
   width: 620px;
   max-width: 90vw;
 }
+
+#modulo-cierre-ventas {
+  height: calc(100vh - 180px);
+  overflow: hidden;
+}
+
+#modulo-cierre-ventas #scrollCierre,
+#modulo-cierre-ventas .contenedor-tabla {
+  height: calc(100vh - 300px) !important;
+  max-height: calc(100vh - 300px) !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  overscroll-behavior: contain;
+  position: relative !important;
+}
+
+#modulo-cierre-ventas #tablaCierre {
+  display: table !important;
+  width: 100%;
+  height: auto !important;
+  max-height: none !important;
+  position: relative !important;
+}
+/* ===========================================================
+   CIERRE VENTAS — FIX FINAL MANCHAS BLANCAS
+   Motivo: la columna vendedor heredaba estilos globales y partes internas
+   quedaban con fondo distinto. Aquí se pinta cada TD explícitamente.
+   =========================================================== */
+
+/* Todas las celdas del body deben comportarse como celdas reales */
+#modulo-cierre-ventas #tablaCierre tbody td {
+  display: table-cell !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  padding: 0 10px !important;
+  vertical-align: middle !important;
+  border-bottom: 1px solid #dbe4ee !important;
+  box-sizing: border-box !important;
+  background-image: none !important;
+  background-clip: padding-box !important;
+}
+
+/* Pintar TODAS las celdas impares explícitamente */
+#modulo-cierre-ventas #tablaCierre tbody tr:nth-child(odd) td {
+  background-color: #ffffff !important;
+}
+
+/* Pintar TODAS las celdas pares explícitamente */
+#modulo-cierre-ventas #tablaCierre tbody tr:nth-child(even) td {
+  background-color: #f3f7fb !important;
+}
+
+/* Hover consistente en toda la fila */
+#modulo-cierre-ventas #tablaCierre tbody tr:hover td {
+  background-color: #eef6ff !important;
+}
+
+/* La celda vendedor NO puede heredar display:inline-block de panel-base */
+#modulo-cierre-ventas #tablaCierre tbody td.nombre-vendedor,
+#modulo-cierre-ventas #tablaCierre tbody td:first-child {
+  display: table-cell !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* El texto interno nunca debe pintar caja propia */
+#modulo-cierre-ventas #tablaCierre tbody td.nombre-vendedor .cv-vendedor,
+#modulo-cierre-ventas #tablaCierre tbody td:first-child .cv-vendedor {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  line-height: normal !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Contrato sin caja propia */
+#modulo-cierre-ventas #tablaCierre tbody td.contrato-vendedor,
+#modulo-cierre-ventas #tablaCierre tbody td.contrato-vendedor * {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}

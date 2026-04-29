@@ -166,6 +166,11 @@ const inputProductoVol = document.getElementById("cantidadProductoVol");
 
 let usuarioActual = null;
 let rolActual = null;
+let idVendedorActual = null;
+let nombreVendedorActual = null;
+let ventasMesVendedorActual = [];
+let feriadosMesVendedorActual = new Set();
+let semanaBaseVendedor = null;
 
 let datosTabla = [];
 let estadoOrden = { col: "nombre", dir: "asc" };
@@ -205,6 +210,230 @@ async function obtenerPerfil() {
   rolActual = data ? String(data).trim().toLowerCase() : null;
 }
 
+
+// ================================
+// CONTEXTO COMERCIAL VENDEDOR
+// Fuente de verdad para columna Vendedor: tabla vendedores
+// ================================
+async function obtenerContextoComercialVendedor() {
+  idVendedorActual = null;
+  nombreVendedorActual = null;
+  if (!usuarioActual?.id) return null;
+
+  const { data: vu, error: vuErr } = await supabase
+    .from("vendedor_usuario")
+    .select("id_vendedor")
+    .eq("id_usuario", usuarioActual.id)
+    .maybeSingle();
+
+  if (vuErr) {
+    console.error("Error obteniendo vendedor_usuario:", vuErr);
+    return null;
+  }
+
+  idVendedorActual = vu?.id_vendedor || null;
+  if (!idVendedorActual) return null;
+
+  const { data: vend, error: vendErr } = await supabase
+    .from("vendedores")
+    .select("id_vendedor, nombre")
+    .eq("id_vendedor", idVendedorActual)
+    .maybeSingle();
+
+  if (vendErr) {
+    console.error("Error obteniendo nombre desde vendedores:", vendErr);
+    return { id_vendedor: idVendedorActual, nombre: null };
+  }
+
+  nombreVendedorActual = vend?.nombre || null;
+  return { id_vendedor: idVendedorActual, nombre: nombreVendedorActual };
+}
+
+function esPerfilVendedor() {
+  return String(rolActual || "").toLowerCase() === "vendedor";
+}
+
+function aplicarVisibilidadAccionesPorPerfil() {
+  if (!tablaVentas) return;
+  const ocultar = esPerfilVendedor();
+  const thAcciones = tablaVentas.querySelector("thead th:last-child");
+  if (thAcciones && thAcciones.textContent.trim().toLowerCase().includes("acciones")) {
+    thAcciones.style.display = ocultar ? "none" : "";
+  }
+  tablaVentas.querySelectorAll("td.acciones").forEach((td) => {
+    td.style.display = ocultar ? "none" : "";
+  });
+}
+
+function avInicioSemanaLunes(fecha) {
+  const d = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+function avAddDays(fecha, dias) {
+  const d = new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  d.setDate(d.getDate() + dias);
+  return d;
+}
+function avFmtCorta(fecha) {
+  return fecha.toLocaleDateString("es-CL", { day: "2-digit", month: "2-digit" });
+}
+function avNombreDia(fecha) {
+  return fecha.toLocaleDateString("es-CL", { weekday: "short" }).replace(".", "");
+}
+
+function avEsFinDeSemana(fecha) {
+  const dia = fecha.getDay();
+  return dia === 0 || dia === 6;
+}
+
+function avEsFeriado(fecha) {
+  return feriadosMesVendedorActual.has(formatoFechaLocal(fecha));
+}
+
+function avEsDiaHabil(fecha) {
+  return !avEsFinDeSemana(fecha) && !avEsFeriado(fecha);
+}
+
+async function cargarFeriadosMesVendedor(desde, hasta) {
+  feriadosMesVendedorActual = new Set();
+  try {
+    const { data, error } = await supabase
+      .from("feriados")
+      .select("fecha")
+      .gte("fecha", desde)
+      .lt("fecha", hasta);
+
+    if (error) {
+      console.warn("⚠️ No se pudieron cargar feriados. Se omiten solo fines de semana.", error);
+      return;
+    }
+
+    feriadosMesVendedorActual = new Set(
+      (data || [])
+        .map((f) => String(f.fecha || "").slice(0, 10))
+        .filter(Boolean)
+    );
+  } catch (e) {
+    console.warn("⚠️ Error cargando feriados. Se omiten solo fines de semana.", e);
+  }
+}
+
+function avAsegurarResumenSemanalVendedorUI() {
+  if (!tablaVentas || document.getElementById("resumenSemanaVendedor")) return;
+  if (!document.getElementById("resumen-semana-vendedor-style")) {
+    const style = document.createElement("style");
+    style.id = "resumen-semana-vendedor-style";
+    style.textContent = `
+      #resumenSemanaVendedor{ margin-top:18px; border:1px solid #d8e3f0; border-radius:10px; overflow:hidden; background:#fff; }
+      #resumenSemanaVendedor .rs-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#eef6ff; color:#003366; font-weight:700; }
+      #resumenSemanaVendedor .rs-title{ text-align:center; flex:1; }
+      #resumenSemanaVendedor .rs-nav{ min-width:42px; height:34px; border:0; border-radius:8px; background:#005baa; color:#fff; font-weight:700; cursor:pointer; }
+      #resumenSemanaVendedor .rs-nav:disabled{ opacity:.35; cursor:not-allowed; }
+      #tablaSemanaVendedor{ width:100%; border-collapse:collapse; }
+      #tablaSemanaVendedor th{ background:#c6def4; color:#003366; padding:9px; text-align:center; }
+      #tablaSemanaVendedor td{ padding:9px; border-top:1px solid #edf2f7; text-align:center; }
+      #tablaSemanaVendedor td:first-child{ text-align:left; font-weight:600; color:#003366; }
+    `;
+    document.head.appendChild(style);
+  }
+  const wrap = document.createElement("div");
+  wrap.id = "resumenSemanaVendedor";
+  wrap.innerHTML = `
+    <div class="rs-head">
+      <button type="button" id="btnSemanaAnteriorVendedor" class="rs-nav">‹</button>
+      <div id="tituloSemanaVendedor" class="rs-title">Semana</div>
+      <button type="button" id="btnSemanaSiguienteVendedor" class="rs-nav">›</button>
+    </div>
+    <table id="tablaSemanaVendedor">
+      <thead><tr><th>Día</th><th>Tope</th><th>Sobre</th><th>Bajo</th><th>Plan</th><th>PV</th></tr></thead>
+      <tbody></tbody>
+    </table>`;
+  tablaVentas.insertAdjacentElement("afterend", wrap);
+
+  document.getElementById("btnSemanaAnteriorVendedor")?.addEventListener("click", () => {
+    const { mes, anio } = obtenerMesAnioFiltro();
+    const mesInicio = new Date(anio, mes - 1, 1);
+    const propuesta = avAddDays(avInicioSemanaLunes(semanaBaseVendedor || mesInicio), -7);
+    semanaBaseVendedor = propuesta < mesInicio ? mesInicio : propuesta;
+    renderResumenSemanalVendedor();
+  });
+  document.getElementById("btnSemanaSiguienteVendedor")?.addEventListener("click", () => {
+    const { mes, anio } = obtenerMesAnioFiltro();
+    const mesFin = new Date(anio, mes, 0);
+    const propuesta = avAddDays(avInicioSemanaLunes(semanaBaseVendedor || mesFin), 7);
+    if (propuesta <= mesFin) semanaBaseVendedor = propuesta;
+    renderResumenSemanalVendedor();
+  });
+}
+
+function renderResumenSemanalVendedor() {
+  const wrap = document.getElementById("resumenSemanaVendedor");
+  if (!wrap) return;
+  wrap.style.display = esPerfilVendedor() ? "block" : "none";
+  if (!esPerfilVendedor()) return;
+
+  const { mes, anio } = obtenerMesAnioFiltro();
+  const mesInicio = new Date(anio, mes - 1, 1);
+  const mesFin = new Date(anio, mes, 0);
+
+  if (!semanaBaseVendedor) {
+    const base = selectDia?.value ? new Date(selectDia.value + "T00:00:00") : new Date();
+    semanaBaseVendedor = avInicioSemanaLunes(base);
+  }
+
+  const baseLunes = avInicioSemanaLunes(semanaBaseVendedor);
+  let semanaInicio = baseLunes < mesInicio ? mesInicio : baseLunes;
+  let semanaFin = avAddDays(baseLunes, 6);
+  if (semanaFin > mesFin) semanaFin = mesFin;
+
+  const titulo = document.getElementById("tituloSemanaVendedor");
+  if (titulo) titulo.textContent = `Semana ${avFmtCorta(semanaInicio)} al ${avFmtCorta(semanaFin)}`;
+
+  const btnPrev = document.getElementById("btnSemanaAnteriorVendedor");
+  const btnNext = document.getElementById("btnSemanaSiguienteVendedor");
+
+  // Permite llegar a la primera semana parcial del mes (ej.: 01/04).
+  if (btnPrev) btnPrev.disabled = semanaInicio <= mesInicio;
+  if (btnNext) btnNext.disabled = semanaFin >= mesFin;
+
+  const porDia = new Map();
+  for (let d = new Date(semanaInicio); d <= semanaFin; d = avAddDays(d, 1)) {
+    if (!avEsDiaHabil(d)) continue;
+    porDia.set(formatoFechaLocal(d), { tope: 0, sobre: 0, bajo: 0, plan: 0, pv: 0 });
+  }
+
+  (ventasMesVendedorActual || []).forEach((v) => {
+    const fecha = String(v.fecha_venta || "").slice(0, 10);
+    const row = porDia.get(fecha);
+    if (!row) return;
+
+    const monto = Number(v.monto || 0);
+    switch (normalizarTipoVenta(v.tipo_venta)) {
+      case "TOPE": row.tope += monto; break;
+      case "SOBRE": row.sobre += monto; break;
+      case "BAJO": row.bajo += monto; break;
+      case "PLAN": row.plan += monto; break;
+      case "PV": row.pv += monto; break;
+      default: break;
+    }
+  });
+
+  const tbody = document.querySelector("#tablaSemanaVendedor tbody");
+  if (!tbody) return;
+
+  const fmt = (v) => Number(v || 0).toLocaleString("de-DE");
+  const filas = Array.from(porDia.entries()).map(([fecha, r]) => {
+    const d = new Date(fecha + "T00:00:00");
+    return `<tr><td>${avNombreDia(d)} ${avFmtCorta(d)}</td><td>${fmt(r.tope)}</td><td>${fmt(r.sobre)}</td><td>${fmt(r.bajo)}</td><td>${fmt(r.plan)}</td><td>$ ${fmt(r.pv)}</td></tr>`;
+  });
+
+  tbody.innerHTML = filas.length
+    ? filas.join("")
+    : `<tr><td colspan="6" style="text-align:center;">Sin días hábiles para mostrar en esta semana.</td></tr>`;
+}
 
 // ================================
 // FILTROS DE FECHA (MES / AÑO / DÍA)
@@ -281,17 +510,20 @@ function inicializarFiltrosFecha() {
   if (selectDia) {
     selectDia.addEventListener("change", () => {
       sincronizarMesAnioConDia();
+      semanaBaseVendedor = selectDia.value ? avInicioSemanaLunes(new Date(selectDia.value + "T00:00:00")) : null;
       cargarVentas();
     });
   }
 
   selectMes.addEventListener("change", () => {
     sincronizarDiaConMesAnio();
+    semanaBaseVendedor = selectDia?.value ? avInicioSemanaLunes(new Date(selectDia.value + "T00:00:00")) : null;
     cargarVentas();
   });
 
   selectAnio.addEventListener("change", () => {
     sincronizarDiaConMesAnio();
+    semanaBaseVendedor = selectDia?.value ? avInicioSemanaLunes(new Date(selectDia.value + "T00:00:00")) : null;
     cargarVentas();
   });
 }
@@ -380,7 +612,7 @@ function aplicarOrdenYRender() {
 
   if (datosOrdenados.length === 0) {
     const row = document.createElement("tr");
-    row.innerHTML = `<td colspan="7" style="text-align:center;">Sin datos para el período seleccionado</td>`;
+    row.innerHTML = `<td colspan="${esPerfilVendedor() ? 6 : 7}" style="text-align:center;">Sin datos para el período seleccionado</td>`;
     tbodyVentas.appendChild(row);
     actualizarIndicadoresOrden();
     return;
@@ -394,20 +626,25 @@ function aplicarOrdenYRender() {
     rowDia.dataset.idVendedor = m.id_vendedor;
     rowDia.classList.add("fila-dia-ventas");
 
-	rowDia.innerHTML = `
-	  <td class="col-vendedor">
-		<button type="button" class="btn-toggle-detalle" data-id-vendedor="${m.id_vendedor}">+</button>
-		<span class="nombre-vendedor">${m.nombre}</span>
-	  </td>
+    const accionesHtml = esPerfilVendedor()
+      ? ""
+      : `
+      <td class="acciones">
+        <button type="button" class="btn-accion btn-agregar-venta" title="Agregar ventas del día">➕</button>
+        <button type="button" class="btn-accion btn-editar-ventas" title="Editar ventas del día">✏️</button>
+      </td>`;
+
+    rowDia.innerHTML = `
+      <td class="col-vendedor">
+        <button type="button" class="btn-toggle-detalle" data-id-vendedor="${m.id_vendedor}">+</button>
+        <span class="nombre-vendedor">${m.nombre}</span>
+      </td>
       <td class="celda-dia">${m.dia_tope || 0}</td>
       <td class="celda-dia">${m.dia_sobre || 0}</td>
       <td class="celda-dia">${m.dia_bajo || 0}</td>
       <td class="celda-dia">${m.dia_plan || 0}</td>
       <td class="celda-dia">$ ${formatMiles(m.dia_productoVoluntario || 0)}</td>
-      <td class="acciones">
-        <button type="button" class="btn-accion btn-agregar-venta" title="Agregar ventas del día">➕</button>
-        <button type="button" class="btn-accion btn-editar-ventas" title="Editar ventas del día">✏️</button>
-      </td>
+      ${accionesHtml}
     `;
     tbodyVentas.appendChild(rowDia);
 
@@ -426,12 +663,13 @@ function aplicarOrdenYRender() {
       <td>${m.bajo}</td>
       <td>${m.plan}</td>
       <td>$ ${formatMiles(m.productoVoluntario)}</td>
-      <td></td>
+      ${esPerfilVendedor() ? "" : "<td></td>"}
     `;
     tbodyVentas.appendChild(rowMes);
   });
 
   actualizarIndicadoresOrden();
+  aplicarVisibilidadAccionesPorPerfil();
 }
 
 // ================================
@@ -553,22 +791,38 @@ async function cargarVentas() {
 
       datosTabla = Object.values(metricasPorVendedor);
       aplicarOrdenYRender();
+      const rs = document.getElementById("resumenSemanaVendedor");
+      if (rs) rs.style.display = "none";
       return;
     }
 
     // VENDEDOR → su propio consolidado
+    if (!idVendedorActual) await obtenerContextoComercialVendedor();
+
+    if (!idVendedorActual) {
+      datosTabla = [];
+      ventasMesVendedorActual = [];
+      aplicarOrdenYRender();
+      avAsegurarResumenSemanalVendedorUI();
+      renderResumenSemanalVendedor();
+      return;
+    }
+
+    await cargarFeriadosMesVendedor(desde, hasta);
+
     const { data, error } = await supabase
       .from("ventas")
       .select(`id_venta, id_vendedor, fecha_venta, monto, tipo_venta`)
-      .eq("id_vendedor", usuarioActual.id)
+      .eq("id_vendedor", idVendedorActual)
       .gte("fecha_venta", desde)
       .lt("fecha_venta", hasta);
 
     if (error) throw error;
+    ventasMesVendedorActual = data || [];
 
     const m = {
-      id_vendedor: usuarioActual.id,
-      nombre: usuarioActual.email || "Vendedor",
+      id_vendedor: idVendedorActual,
+      nombre: nombreVendedorActual || "Vendedor",
       // MES
       tope: 0,
       sobre: 0,
@@ -616,6 +870,8 @@ async function cargarVentas() {
 
     datosTabla = [m];
     aplicarOrdenYRender();
+    avAsegurarResumenSemanalVendedorUI();
+    renderResumenSemanalVendedor();
   } catch (err) {
     console.error("Error al cargar ventas:", err);
     alert("Error al cargar ventas. Revisa consola.");
@@ -883,7 +1139,7 @@ if (formVenta) {
       return;
     }
 
-    const idVendedor = vendedorSeleccionadoId || usuarioActual.id;
+    const idVendedor = vendedorSeleccionadoId || idVendedorActual || usuarioActual.id;
 
     const registros = [];
 
@@ -1132,7 +1388,9 @@ btnVolver.addEventListener("click", (e) => {
 (async function init() {
   await obtenerUsuarioActual();
   await obtenerPerfil();
+  await obtenerContextoComercialVendedor();
   inicializarFiltrosFecha();
+  avAsegurarResumenSemanalVendedorUI();
   inicializarOrdenamiento();
   configurarRangoFechaVenta();
   inicializarBotonesCantidad();

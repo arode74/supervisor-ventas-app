@@ -277,6 +277,10 @@ const tablaModalMensual = document.getElementById("tablaModalTiposMensual");
 let usuarioActual = null;
 let rolActual = null;
 
+function esPerfilVendedor() {
+  return String(rolActual || "").trim().toLowerCase() === "vendedor";
+}
+
 // =========================
 // HELPERS
 // =========================
@@ -439,6 +443,7 @@ async function obtenerPerfilActual() {
       localStorage.setItem("perfil_actual", rolActual);
       sessionStorage.setItem("perfil_actual", rolActual);
     }
+    document.body?.classList?.toggle("perfil-vendedor", esPerfilVendedor());
   } catch (e) {}
 }
 
@@ -646,7 +651,7 @@ async function cargarTablaCompromisos() {
 
   const colMens = (columnasMensuales?.length || 0);
   const colSem  = (columnasSemanales?.length || 0);
-  const totalCols = 1 + colMens + colSem + 3 + 1; // vendedor + mensual + semanal + real(3) + acciones
+  const totalCols = 1 + colMens + colSem + 3 + (esPerfilVendedor() ? 0 : 1); // vendedor + mensual + semanal + real(3) + acciones solo no-vendedor
 
   const idEquipo = localStorage.getItem("idEquipoActivo");
   if (!idEquipo) {
@@ -928,6 +933,18 @@ function __construirHtmlDetalleCompromisos_base(idVendedor) {
       ? 'style="background:#e9ecef; border-color:#b8bfc6; color:#495057;"'
       : "";
 
+    const attrsSoloLectura = esPerfilVendedor() ? " disabled" : "";
+    const attrsObsSoloLectura = esPerfilVendedor() ? " readonly" : "";
+    const placeholderObs = esPerfilVendedor() ? "" : "Observación (máx. 1000)";
+    const botonesAccionDia = esPerfilVendedor()
+      ? ""
+      : (
+        '<button type="button" class="btn-mic-compromiso-dia" ' +
+          'data-target="' + inputComId + '" title="Dictar">🎙</button>' +
+        '<button type="button" class="btn-guardar-compromiso-dia" ' +
+          'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" title="Guardar">💾</button>'
+      );
+
     html +=
       "<tr>" +
       "<td>" + escapeHtml(desc) + "</td>" +
@@ -940,22 +957,17 @@ function __construirHtmlDetalleCompromisos_base(idVendedor) {
         '<input type="number" id="' + inputMontoId + '" class="input-compromiso-dia" ' +
           estiloFeriado +
           'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" ' +
-          'min="0" max="99" step="1" inputmode="numeric" value="' +
+          'min="0" max="99" step="1" inputmode="numeric"' + attrsSoloLectura + ' value="' +
           (Number(totalHoy) > 0 ? Number(totalHoy) : "") +
         '" />' +
         // comentario (1000)
         '<textarea id="' + inputComId + '" class="input-compromiso-comentario" ' +
           estiloFeriado +
           'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" ' +
-          'maxlength="1000" rows="1" placeholder="Observación (máx. 1000)">' +
+          'maxlength="1000" rows="1"' + attrsObsSoloLectura + ' placeholder="' + escapeHtml(placeholderObs) + '">' +
           escapeHtml(String(comentarioHoy || "")) +
         '</textarea>' +
-        // mic
-        '<button type="button" class="btn-mic-compromiso-dia" ' +
-          'data-target="' + inputComId + '" title="Dictar">🎙</button>' +
-        // guardar
-        '<button type="button" class="btn-guardar-compromiso-dia" ' +
-          'data-id-vendedor="' + idVendedor + '" data-id-tipo="' + tipo.id + '" title="Guardar">💾</button>' +
+        botonesAccionDia +
       "</div>" +
       "</td>" +
       "</tr>";
@@ -1052,7 +1064,9 @@ function reconstruirThead() {
   }
 
   html += `<th colspan="3" class="grp-real real-start real-end">Real</th>`;
-  html += `<th rowspan="2">Acciones</th>`;
+  if (!esPerfilVendedor()) {
+    html += `<th rowspan="2">Acciones</th>`;
+  }
   html += `</tr>`;
 
   // Fila columnas
@@ -1110,7 +1124,7 @@ function renderTabla() {
 
   const colMens = (columnasMensuales?.length || 0);
   const colSem  = (columnasSemanales?.length || 0);
-  const totalCols = 1 + colMens + colSem + 3 + 1; // vendedor + mensual + semanal + real(3) + acciones
+  const totalCols = 1 + colMens + colSem + 3 + (esPerfilVendedor() ? 0 : 1); // vendedor + mensual + semanal + real(3) + acciones solo no-vendedor
   if (!datosTabla || datosTabla.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align:center;">Sin datos</td></tr>`;
     return;
@@ -1171,14 +1185,16 @@ function renderTabla() {
     html += `<td class="col-real">${fmt(d.real_sobre)}</td>`;
     html += `<td class="col-real real-end">${fmt(d.real_tope)}</td>`;
 
-    html +=
-      '<td class="acciones">' +
-      '<button type="button" class="btn-compromisos" data-id-vendedor="' +
-      d.id_vendedor +
-      '" data-nombre="' +
-      escapeHtml(d.nombre || "") +
-      '">📅</button>' +
-      "</td>";
+    if (!esPerfilVendedor()) {
+      html +=
+        '<td class="acciones">' +
+        '<button type="button" class="btn-compromisos" data-id-vendedor="' +
+        d.id_vendedor +
+        '" data-nombre="' +
+        escapeHtml(d.nombre || "") +
+        '">📅</button>' +
+        "</td>";
+    }
 
     tr.innerHTML = html;
     aplicarMarcosEnFila(tr);

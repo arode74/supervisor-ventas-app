@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Vendedor – APP Ventas</title>
+
+  <script src="../env.js"></script>
+
+  <link rel="icon" type="image/svg" href="../assets/logo_app_ventas.svg" />
+  <link rel="stylesheet" href="../styles/institucional.css" />
+  <link rel="stylesheet" href="../styles/panel-base.css">
+  <link rel="stylesheet" href="../styles/panel-base-responsive.css">
+  <link rel="stylesheet" href="../styles/panel-modulos.css">
+
+  <style>
+    /* === AV: Vista Vendedor — sin velocímetro, sin TF y equipo como texto === */
+    .bloque-vendedor {
+      position: relative;
+    }
+
+    .texto-equipo-vendedor {
+      font-weight: 700;
+      color: inherit;
+      white-space: nowrap;
+    }
+
+    .equipo-vendedor-label {
+      margin-left: 12px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 640px) {
+      .linea-superior {
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .equipo-vendedor-label {
+        margin-left: 0;
+      }
+      .texto-equipo-vendedor {
+        white-space: normal;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+
+<body class="panel-container">
+  <!-- Encabezado -->
+  <header class="supbar">
+    <div class="supbar__wrap">
+      <div class="supbar__left">
+        <img src="../assets/logo_app_ventas.svg" class="supbar__logo" alt="Logo AFP Habitat" />
+      </div>
+      <h1 class="supbar__title">Sistema de Gestión de Ventas</h1>
+      <div class="supbar__right">
+        <button id="btnLogout" class="btn">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenido principal -->
+  <main class="supmain">
+    <!-- Bloque Vendedor -->
+    <section class="bloque-supervisor bloque-vendedor">
+      <div class="linea-superior">
+        <span id="textoBienvenida" class="texto-bienvenida">Bienvenido/a,</span>
+        <span class="texto-nombre" id="nombreVendedor"></span>
+        <span class="equipo-vendedor-label">Equipo:</span>
+        <span id="nombreEquipoVendedor" class="texto-equipo-vendedor">—</span>
+      </div>
+    </section>
+
+    <!-- Módulos del vendedor -->
+    <section id="panel-botones" class="cards">
+      <div class="card">
+        <button class="btn" id="btnVentas">Mis Ventas</button>
+      </div>
+      <div class="card">
+        <button class="btn" id="btnCompromisos">Mis Compromisos</button>
+      </div>
+    </section>
+
+    <!-- Contenedor dinámico -->
+    <section id="contenedor-modulos" class="modulo-dinamico" style="display:none;"></section>
+  </main>
+
+  <!-- Pie institucional -->
+  <footer class="footer">
+    AFP Habitat – Los Leones 5 | Sistema de Gestión de Ventas
+  </footer>
+
+  <!-- Gestor de modales: se carga UNA vez -->
+  <script type="module" src="../scripts/ui_modales.js"></script>
+
+  <!-- Lógica del vendedor -->
+  <script type="module" src="../scripts/vendedor.js"></script>
+</body>
+</html>

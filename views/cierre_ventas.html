@@ -14,7 +14,11 @@
 
   <!-- Ajustes específicos SOLO para cierre -->
   <style>
-    /* ===== Layout estándar del módulo (NO rompe supervisor) ===== */
+    /* ===========================================================
+       CIERRE VENTAS — Estilos mínimos del módulo
+       La grilla fina queda gobernada desde panel-modulos.css
+       =========================================================== */
+
     #modulo-cierre-ventas{
       width: 100%;
       max-width: 1100px !important;
@@ -27,158 +31,56 @@
       overscroll-behavior: contain;
     }
 
-    /* Contenedor principal en columna para dejar fija la parte superior */
     #modulo-cierre-ventas .tarjeta-principal{
       display: flex;
       flex-direction: column;
       gap: 12px;
-      overflow: hidden; /* clave: el scroll NO sale hacia arriba */
+      overflow: hidden;
     }
 
-    /* Scroll SOLO en lista (tabla) */
+    #modulo-cierre-ventas .contenedor-tabla-head,
     #modulo-cierre-ventas .contenedor-tabla{
-      flex: 1 1 auto;
-      max-height: 56vh;        /* ajustable */
-      overflow-y: auto;
-      overflow-x: hidden;
-      border-radius: 10px;
-      border: 1px solid rgba(0,0,0,0.08);
-      -webkit-overflow-scrolling: touch;
       width: 100%;
-      min-width: 100%;
-      display: block;
-      overscroll-behavior: contain;
-      position: relative;
-    }
-
-    /* Tabla ocupa el ancho completo */
-    #modulo-cierre-ventas #tablaCierre{
-      width: 100% !important;
-      border-collapse: collapse;
-      table-layout: fixed; /* clave: respeta colgroup */
-    }
-
-    /* Columnas (más anchas para 2-3 dígitos; PV ancho) */
-    #modulo-cierre-ventas #tablaCierre col.col-vendedor{ width: 32%; }
-    #modulo-cierre-ventas #tablaCierre col.col-tf{      width: 9%;  }
-    #modulo-cierre-ventas #tablaCierre col.col-g40{     width: 10%; }
-    #modulo-cierre-ventas #tablaCierre col.col-g70{     width: 9%;  }
-    #modulo-cierre-ventas #tablaCierre col.col-plan{    width: 9%;  }
-    #modulo-cierre-ventas #tablaCierre col.col-pv{      width: 31%; }
-
-    /* Encabezados SIEMPRE en una sola línea */
-    #modulo-cierre-ventas #tablaCierre thead th{
-      background: #cfe2f3;
-      white-space: nowrap;
-      overflow: visible;
-      text-overflow: clip;
-    }
-
-    /* Fila TOTAL (fija porque está en tabla head) */
-    #modulo-cierre-ventas #tablaCierreHead thead tr.fila-total td{
-      background: #e8f1fb;
-      font-weight: 700;
-    }
-/* Primera columna con ellipsis para no romper layout */
-    #modulo-cierre-ventas #tablaCierre td:first-child,
-    #modulo-cierre-ventas #tablaCierre th:first-child{
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* Asegura ellipsis aunque haya spans internos */
-    #modulo-cierre-ventas .cv-vendedor{
-      display: block;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 100%;
-    }
-
-    /* Inputs: ancho real para ver 2-3 dígitos */
-    #modulo-cierre-ventas input.input-cierre{
-      width: 92px !important;
-      min-width: 92px !important;
-      max-width: 92px !important;
-      height: 30px;
-      text-align: center !important;
-      padding: 4px 6px !important;
-      font-size: 14px !important;
-      box-sizing: border-box !important;
-      overscroll-behavior: contain;
-    }
-
-    /* PV ancho, acepta 999.999.999 */
-    #modulo-cierre-ventas input.input-cierre-pv{
-      width: 100% !important;
-      min-width: 240px !important;
-      height: 30px;
-      text-align: right;
-      padding: 4px 10px;
-      font-size: 14px !important;
-      box-sizing: border-box !important;
-      overscroll-behavior: contain;
-    }
-
-    /* Alineación numérica en TOTAL */
-    #modulo-cierre-ventas .celda-total{
-      text-align: center !important;
-    }
-    #modulo-cierre-ventas .celda-total-pv{
-      text-align: right;
-      padding-right: 10px;
-    }
-  
-    /* === AV: Ellipsis vendedor (asegura que no se salga del campo) === */
-    #modulo-cierre-ventas #tablaCierre td.col-vendedor,
-    #modulo-cierre-ventas #tablaCierre td:first-child{
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-  
-    /* === AV: Header fijo separado del scroll === */
-    #modulo-cierre-ventas .contenedor-tabla-head{
-      width: 100%;
-      min-width: 100%;
-      border-radius: 10px 10px 0 0;
-      border: 1px solid rgba(0,0,0,0.08);
-      border-bottom: none;
-      overflow: hidden;
-    }
-    #modulo-cierre-ventas .contenedor-tabla{
-      border-top: none;
-      border-radius: 0 0 10px 10px;
-    }
-    #modulo-cierre-ventas table.tabla-cierre{
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-  
-    /* === AV: Alineación exacta head vs body (compensa ancho de scrollbar) === */
-    #modulo-cierre-ventas{
-      --av-sbw: 0px;
-    }
-    #modulo-cierre-ventas .contenedor-tabla-head{
-      padding-right: var(--av-sbw);
       box-sizing: border-box;
     }
-    #modulo-cierre-ventas .contenedor-tabla{
-      scrollbar-gutter: stable; /* reserva espacio del scrollbar */
-    }
 
-  
-    /* === AV: Sincronización de anchos entre tabla head y tabla body === */
-    #modulo-cierre-ventas .contenedor-tabla-head{ width: 100%; }
-    #modulo-cierre-ventas .contenedor-tabla{ width: 100%; }
-    #modulo-cierre-ventas #tablaCierreHead, 
-    #modulo-cierre-ventas #tablaCierre{
+    #modulo-cierre-ventas table.tabla-cierre{
       width: 100%;
       table-layout: fixed;
+      border-collapse: collapse;
+      margin: 0;
+      box-shadow: none;
+    }
+
+    /* Blindaje local: vendedor no usa .nombre-vendedor para evitar conflicto con panel-base.css */
+    #modulo-cierre-ventas #tablaCierre tbody td.cv-celda-vendedor{
+      display: table-cell !important;
+      text-align: left !important;
+      vertical-align: middle !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      background-image: none !important;
+      box-shadow: none !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody td.cv-celda-vendedor .cv-vendedor{
+      display: block !important;
+      width: 100% !important;
+      background: transparent !important;
+      background-image: none !important;
+      box-shadow: none !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody tr:nth-child(odd) td{
+      background-color: #ffffff !important;
+    }
+
+    #modulo-cierre-ventas #tablaCierre tbody tr:nth-child(even) td{
+      background-color: #f3f7fb !important;
     }
 
   </style>
@@ -234,6 +136,7 @@
       <table id="tablaCierreHead" class="tabla-cierre">
         <colgroup>
             <col class="col-vendedor">
+            <col class="col-contrato">
             <col class="col-tf">
             <col class="col-g40">
             <col class="col-g70">
@@ -243,6 +146,7 @@
         <thead>
             <tr>
               <th id="thVendedor" style="cursor:pointer; user-select:none;">Vendedor <span id="triVendedor">▲</span></th>
+              <th>Contrato</th>
               <th>TF</th>
               <th id="thVentas" style="cursor:pointer; user-select:none;">&gt;40 <span id="triVentas">▼</span></th>
               <th>&gt;70</th>
@@ -252,6 +156,7 @@
 
             <tr class="fila-total">
               <td>TOTAL</td>
+              <td class="celda-total"></td>
               <td class="celda-total"><span id="totTF">0</span></td>
               <td class="celda-total"><span id="totG40">0</span></td>
               <td class="celda-total"><span id="totG70">0</span></td>
@@ -267,6 +172,7 @@
       <table id="tablaCierre" class="tabla-cierre">
         <colgroup>
             <col class="col-vendedor">
+            <col class="col-contrato">
             <col class="col-tf">
             <col class="col-g40">
             <col class="col-g70">
@@ -274,7 +180,7 @@
             <col class="col-pv">
           </colgroup>
         <tbody>
-            <tr><td colspan="6" style="text-align:center;">Cargando…</td></tr>
+            <tr><td colspan="7" style="text-align:center;">Cargando…</td></tr>
           </tbody>
       </table>
     </div>
