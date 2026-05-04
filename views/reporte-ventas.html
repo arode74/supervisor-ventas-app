@@ -78,6 +78,34 @@
       cursor:pointer;
     }
     #btnExcelVentas svg{ width:18px; height:18px; }
+
+    .rv-filter-box{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      padding:5px 8px;
+      border:1px solid rgba(0,0,0,0.18);
+      border-radius:10px;
+      background:rgba(255,255,255,0.72);
+      min-height:28px;
+    }
+    .rv-filter-title{
+      font-weight:800;
+      font-size:11px;
+      margin-right:2px;
+      white-space:nowrap;
+    }
+    .rv-check{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      font-size:11px;
+      white-space:nowrap;
+      cursor:pointer;
+      user-select:none;
+    }
+    .rv-check input{ margin:0; }
   </style>
 </head>
 
@@ -97,6 +125,23 @@
           <select id="selectDiaVentas"></select>
         </div>
         <div id="labelRangoVentas">—</div>
+
+        <fieldset class="rv-filter-box" aria-label="Segmento vendedor">
+          <legend class="rv-filter-title">Segmento vendedor</legend>
+          <label class="rv-check" for="chkRvNuevo">
+            <input id="chkRvNuevo" type="checkbox" />
+            Nuevo
+          </label>
+          <label class="rv-check" for="chkRvAntiguo">
+            <input id="chkRvAntiguo" type="checkbox" />
+            Antiguo
+          </label>
+        </fieldset>
+
+        <fieldset class="rv-filter-box" aria-label="Tipos de contratos">
+          <legend class="rv-filter-title">Tipos de contratos</legend>
+          <div id="rvFiltrosContratos" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;"></div>
+        </fieldset>
       </div>
 
       <div class="rv-right">

@@ -1037,6 +1037,300 @@ function esPV(tipo) {
   return String(tipo || "").trim().toUpperCase() === "PV";
 }
 
+
+// ======================= Filtros del modal: Nuevo/Antiguo + Contratos =======================
+const RVS_MODAL_FILTER_STATE = {
+  nuevo: false,
+  antiguo: false,
+  contratos: new Set(),
+};
+
+function normKey(txt) {
+  return String(txt || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function contratoLabel(c) {
+  return String(c?.descripcion || c?.nombre_contrato || c?.nombre || `Contrato ${c?.id_contrato ?? ""}`).trim();
+}
+
+async function fetchContratosActivosRVS() {
+  try {
+    const { data, error } = await supabase
+      .from("contratos")
+      .select("id_contrato, nombre_contrato, descripcion, vigente")
+      .eq("vigente", true)
+      .order("id_contrato", { ascending: true });
+
+    if (error || !Array.isArray(data)) return [];
+    return data.map((c) => ({
+      id_contrato: c.id_contrato,
+      nombre_contrato: c.nombre_contrato,
+      descripcion: c.descripcion,
+      vigente: c.vigente,
+    }));
+  } catch (_) {
+    return [];
+  }
+}
+
+async function fetchFiltroMetaEquipoRVS(idEquipo, refISO) {
+  const out = { byId: new Map(), byName: new Map(), contratos: [] };
+  if (!idEquipo) return out;
+
+  try {
+    const { data: tramos, error: eTr } = await supabase
+      .from("equipo_vendedor")
+      .select("id_vendedor, id_equipo, fecha_inicio, fecha_fin, estado")
+      .eq("id_equipo", idEquipo);
+
+    if (eTr) return out;
+
+    const vendorIds = Array.from(new Set((tramos || [])
+      .filter((t) => t?.id_vendedor)
+      .filter((t) => t?.estado !== false)
+      .filter((t) => vigente(t.fecha_inicio, t.fecha_fin, refISO))
+      .map((t) => t.id_vendedor)));
+
+    if (!vendorIds.length) return out;
+
+    const [{ data: vendedores, error: eV }, { data: vc, error: eC }, contratosActivos] = await Promise.all([
+      supabase.from("vendedores").select("id_vendedor, nombre, nuevo").in("id_vendedor", vendorIds),
+      supabase.from("vendedor_contrato").select("id_vendedor, id_contrato, fecha_inicio, fecha_fin").in("id_vendedor", vendorIds),
+      fetchContratosActivosRVS(),
+    ]);
+
+    out.contratos = contratosActivos || [];
+    if (eV) return out;
+
+    const contratosPorVendedor = new Map();
+    if (!eC && Array.isArray(vc)) {
+      for (const r of vc) {
+        if (!r?.id_vendedor || r?.id_contrato == null) continue;
+        if (!vigente(r.fecha_inicio, r.fecha_fin, refISO)) continue;
+        if (!contratosPorVendedor.has(r.id_vendedor)) contratosPorVendedor.set(r.id_vendedor, new Set());
+        contratosPorVendedor.get(r.id_vendedor).add(String(r.id_contrato));
+      }
+    }
+
+    for (const v of (vendedores || [])) {
+      const meta = {
+        id_vendedor: v.id_vendedor,
+        nombre: v.nombre || "",
+        nuevo: v.nuevo === true,
+        contratos: contratosPorVendedor.get(v.id_vendedor) || new Set(),
+      };
+      out.byId.set(String(v.id_vendedor), meta);
+      out.byName.set(normKey(v.nombre), meta);
+    }
+  } catch (_) {}
+
+  return out;
+}
+
+function attachFiltroMetaRVS(rows, meta) {
+  return (rows || []).map((r) => {
+    const id = r.id_vendedor ?? r.vendedor_id ?? r.id ?? null;
+    const nombre = r.vendedor ?? r.nombre ?? r.nombre_vendedor ?? r.ejecutivo ?? "";
+    const m = (id != null ? meta.byId.get(String(id)) : null) || meta.byName.get(normKey(nombre)) || null;
+    return {
+      ...r,
+      __filtro: m || { nuevo: false, contratos: new Set(), nombre },
+    };
+  });
+}
+
+function pasaFiltrosModalRVS(row) {
+  const meta = row?.__filtro || {};
+  const esNuevo = meta.nuevo === true;
+  const chkNuevo = RVS_MODAL_FILTER_STATE.nuevo === true;
+  const chkAntiguo = RVS_MODAL_FILTER_STATE.antiguo === true;
+
+  if (chkNuevo !== chkAntiguo) {
+    if (chkNuevo && !esNuevo) return false;
+    if (chkAntiguo && esNuevo) return false;
+  }
+
+  const seleccionados = Array.from(RVS_MODAL_FILTER_STATE.contratos || []);
+  if (seleccionados.length) {
+    const contratosVendedor = meta.contratos || new Set();
+    const tieneContrato = seleccionados.some((id) => contratosVendedor.has(String(id)));
+    if (!tieneContrato) return false;
+  }
+
+  return true;
+}
+
+function buildFiltrosModalHtmlRVS(contratos) {
+  const contratosHtml = (contratos || []).map((c) => {
+    const id = String(c.id_contrato);
+    return `
+      <label class="rvs-modal-check">
+        <input type="checkbox" class="rvs-modal-contrato" value="${escapeHtml(id)}">
+        <span>${escapeHtml(contratoLabel(c))}</span>
+      </label>
+    `;
+  }).join("") || `<span style="opacity:.75;">Sin contratos activos</span>`;
+
+  return `
+    <div class="rvs-modal-filtros">
+      <fieldset class="rvs-modal-fieldset">
+        <legend>Segmento vendedor</legend>
+        <label class="rvs-modal-check"><input type="checkbox" id="rvsFiltroNuevo"> <span>Nuevo</span></label>
+        <label class="rvs-modal-check"><input type="checkbox" id="rvsFiltroAntiguo"> <span>Antiguo</span></label>
+      </fieldset>
+      <fieldset class="rvs-modal-fieldset rvs-modal-fieldset-contratos">
+        <legend>Tipos de contrato</legend>
+        ${contratosHtml}
+      </fieldset>
+    </div>
+  `;
+}
+
+function bindFiltrosModalRVS(onChange) {
+  const chkNuevo = document.getElementById("rvsFiltroNuevo");
+  const chkAntiguo = document.getElementById("rvsFiltroAntiguo");
+  const chksContrato = Array.from(document.querySelectorAll(".rvs-modal-contrato"));
+
+  if (chkNuevo) chkNuevo.checked = RVS_MODAL_FILTER_STATE.nuevo;
+  if (chkAntiguo) chkAntiguo.checked = RVS_MODAL_FILTER_STATE.antiguo;
+  chksContrato.forEach((el) => { el.checked = RVS_MODAL_FILTER_STATE.contratos.has(String(el.value)); });
+
+  const handler = () => {
+    RVS_MODAL_FILTER_STATE.nuevo = chkNuevo?.checked === true;
+    RVS_MODAL_FILTER_STATE.antiguo = chkAntiguo?.checked === true;
+    RVS_MODAL_FILTER_STATE.contratos = new Set(chksContrato.filter((el) => el.checked).map((el) => String(el.value)));
+    onChange?.();
+  };
+
+  chkNuevo?.addEventListener("change", handler);
+  chkAntiguo?.addEventListener("change", handler);
+  chksContrato.forEach((el) => el.addEventListener("change", handler));
+}
+
+function renderTablaDetallePivotRVS(det) {
+  const num = (v) => Number(v || 0) || 0;
+  const visibles = (det || []).filter(pasaFiltrosModalRVS);
+
+  const rowsHtml = visibles.map((r) => {
+    const wTope = num(r.tope);
+    const wSobre = num(r.sobre);
+    const wBajo = num(r.bajo);
+    const wPlan = num(r.plan);
+    const wTotal = wTope + wSobre + wBajo + wPlan;
+
+    const mTope = num(r.mes_tope);
+    const mSobre = num(r.mes_sobre);
+    const mBajo = num(r.mes_bajo);
+    const mPlan = num(r.mes_plan);
+    const mTotal = mTope + mSobre + mBajo + mPlan;
+
+    const nombreStyle = r?.__filtro?.nuevo === true ? "color:#b00020; font-weight:800;" : "";
+
+    return `
+      <tr>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:left; ${nombreStyle}">${escapeHtml(r.vendedor || r.nombre || "")}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wTope)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wSobre)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wBajo)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wPlan)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap; font-weight:700;">${formatCLP(wTotal)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mTope)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mSobre)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mBajo)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mPlan)}</td>
+        <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap; font-weight:700;">${formatCLP(mTotal)}</td>
+      </tr>
+    `;
+  }).join("");
+
+  const tot = visibles.reduce((acc, r) => {
+    acc.wTope += num(r.tope); acc.wSobre += num(r.sobre); acc.wBajo += num(r.bajo); acc.wPlan += num(r.plan);
+    acc.mTope += num(r.mes_tope); acc.mSobre += num(r.mes_sobre); acc.mBajo += num(r.mes_bajo); acc.mPlan += num(r.mes_plan);
+    return acc;
+  }, { wTope:0, wSobre:0, wBajo:0, wPlan:0, mTope:0, mSobre:0, mBajo:0, mPlan:0 });
+
+  const wTotal = tot.wTope + tot.wSobre + tot.wBajo + tot.wPlan;
+  const mTotal = tot.mTope + tot.mSobre + tot.mBajo + tot.mPlan;
+
+  return `
+    <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; margin-bottom:10px;">
+      <div style="font-weight:700;">Totales filtrados (sin PV)</div>
+      <div style="display:flex; gap:14px; font-weight:800; white-space:nowrap;">
+        <div>Semana: ${formatCLP(wTotal)}</div>
+        <div>Mes: ${formatCLP(mTotal)}</div>
+      </div>
+    </div>
+    <div style="overflow:auto;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th rowspan="2" style="padding:6px 8px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.18);">AAPP</th>
+            <th colspan="5" style="padding:6px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.18);">Semana</th>
+            <th colspan="5" style="padding:6px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.18);">Mes</th>
+          </tr>
+          <tr>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Tope</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Sobre</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Bajo</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Plan</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Total</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Tope</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Sobre</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Bajo</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Plan</th>
+            <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Total</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml || `<tr><td colspan="11" style="padding:10px; opacity:0.8;">Sin datos para los filtros seleccionados</td></tr>`}</tbody>
+        <tfoot>
+          <tr>
+            <td style="padding:8px; font-weight:800; text-align:left; border-top:1px solid rgba(0,0,0,0.18);">Total</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wTope)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wSobre)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wBajo)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wPlan)}</td>
+            <td style="padding:8px; font-weight:900; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(wTotal)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mTope)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mSobre)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mBajo)}</td>
+            <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mPlan)}</td>
+            <td style="padding:8px; font-weight:900; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(mTotal)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+}
+
+async function abrirDetallePivotConFiltrosRVS({ tituloEquipo, idEquipo, pDia, det }) {
+  RVS_MODAL_FILTER_STATE.nuevo = false;
+  RVS_MODAL_FILTER_STATE.antiguo = false;
+  RVS_MODAL_FILTER_STATE.contratos = new Set();
+
+  const meta = await fetchFiltroMetaEquipoRVS(idEquipo, pDia);
+  const detConMeta = attachFiltroMetaRVS(det, meta);
+
+  const html = `
+    ${buildFiltrosModalHtmlRVS(meta.contratos)}
+    <div id="rvs_modal_tabla_detalle"></div>
+  `;
+  abrirModalRVS(`Detalle por vendedor — ${tituloEquipo}`, html);
+
+  const render = () => {
+    const target = document.getElementById("rvs_modal_tabla_detalle");
+    if (!target) return;
+    target.innerHTML = renderTablaDetallePivotRVS(detConMeta);
+  };
+
+  bindFiltrosModalRVS(render);
+  render();
+}
+
 // Modal liviano (crea si no existe)
 function asegurarModalRVS() {
   let modal = document.getElementById("rvs_modal_detalle");
@@ -1397,102 +1691,12 @@ function renderResumenPorEquipo(dsR) {
         );
 
         if (isPivot) {
-          const num = (v) => Number(v || 0) || 0;
-
-          const rowsHtml = det.map((r) => {
-            const wTope = num(r.tope);
-            const wSobre = num(r.sobre);
-            const wBajo = num(r.bajo);
-            const wPlan = num(r.plan);
-            const wTotal = wTope + wSobre + wBajo + wPlan;
-
-            const mTope = num(r.mes_tope);
-            const mSobre = num(r.mes_sobre);
-            const mBajo = num(r.mes_bajo);
-            const mPlan = num(r.mes_plan);
-            const mTotal = mTope + mSobre + mBajo + mPlan;
-
-            return `
-              <tr>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:left;">${escapeHtml(r.vendedor || r.nombre || "")}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wTope)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wSobre)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wBajo)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(wPlan)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap; font-weight:700;">${formatCLP(wTotal)}</td>
-
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mTope)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mSobre)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mBajo)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap;">${formatCLP(mPlan)}</td>
-                <td style="padding:6px 8px; border-bottom:1px solid rgba(0,0,0,0.08); text-align:right; white-space:nowrap; font-weight:700;">${formatCLP(mTotal)}</td>
-              </tr>
-            `;
-          }).join("");
-
-          const tot = det.reduce((acc, r) => {
-            acc.wTope += num(r.tope); acc.wSobre += num(r.sobre); acc.wBajo += num(r.bajo); acc.wPlan += num(r.plan);
-            acc.mTope += num(r.mes_tope); acc.mSobre += num(r.mes_sobre); acc.mBajo += num(r.mes_bajo); acc.mPlan += num(r.mes_plan);
-            return acc;
-          }, { wTope:0, wSobre:0, wBajo:0, wPlan:0, mTope:0, mSobre:0, mBajo:0, mPlan:0 });
-
-          const wTotal = tot.wTope + tot.wSobre + tot.wBajo + tot.wPlan;
-          const mTotal = tot.mTope + tot.mSobre + tot.mBajo + tot.mPlan;
-
-          const html = `
-            <div style="display:flex; justify-content:space-between; gap:12px; align-items:baseline; margin-bottom:10px;">
-              <div style="font-weight:700;">Totales (sin PV)</div>
-              <div style="display:flex; gap:14px; font-weight:800; white-space:nowrap;">
-                <div>Semana: ${formatCLP(wTotal)}</div>
-                <div>Mes: ${formatCLP(mTotal)}</div>
-              </div>
-            </div>
-            <div style="overflow:auto;">
-              <table style="width:100%; border-collapse:collapse;">
-                <thead>
-                  <tr>
-                    <th rowspan="2" style="padding:6px 8px; text-align:left; border-bottom:1px solid rgba(0,0,0,0.18);">AAPP</th>
-                    <th colspan="5" style="padding:6px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.18);">Semana</th>
-                    <th colspan="5" style="padding:6px 8px; text-align:center; border-bottom:1px solid rgba(0,0,0,0.18);">Mes</th>
-                  </tr>
-                  <tr>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Tope</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Sobre</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Bajo</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Plan</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Total</th>
-
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Tope</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Sobre</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Bajo</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Plan</th>
-                    <th style="padding:6px 8px; text-align:right; border-bottom:1px solid rgba(0,0,0,0.18);">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rowsHtml || `<tr><td colspan="11" style="padding:10px; opacity:0.8;">Sin datos</td></tr>`}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td style="padding:8px; font-weight:800; text-align:left; border-top:1px solid rgba(0,0,0,0.18);">Total</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wTope)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wSobre)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wBajo)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.wPlan)}</td>
-                    <td style="padding:8px; font-weight:900; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(wTotal)}</td>
-
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mTope)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mSobre)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mBajo)}</td>
-                    <td style="padding:8px; font-weight:800; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(tot.mPlan)}</td>
-                    <td style="padding:8px; font-weight:900; text-align:right; border-top:1px solid rgba(0,0,0,0.18);">${formatCLP(mTotal)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          `;
-
-          abrirModalRVS(`Detalle por vendedor — ${tituloEquipo}`, html);
+          await abrirDetallePivotConFiltrosRVS({
+            tituloEquipo,
+            idEquipo: r.id_equipo,
+            pDia: p_dia,
+            det,
+          });
         } else {
           // Formato legacy: Totales excluyen PV (solo en suma; las filas PV se muestran, pero no suman)
           const rowsHtml = det.map(x => `

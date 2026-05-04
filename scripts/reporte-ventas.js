@@ -94,8 +94,12 @@ const elCarga = $("estadoCargaVentas");
 const btnVolver = $("btnVolverReporteVentas");
 const btnExcel = $("btnExcelVentas");
 const elOrden = $("selectOrdenVentas");
+const chkNuevo = $("chkRvNuevo");
+const chkAntiguo = $("chkRvAntiguo");
+const elFiltrosContratos = $("rvFiltrosContratos");
 
 let DATASET = null; // para export (supervisor: 1 equipo; zonal: multi-equipos)
+let CONTRATOS_ACTIVOS = [];
 
 // ======================= UI helpers =======================
 function estado(msg, esError = false) {
@@ -309,6 +313,146 @@ function esNuevoPorIngreso(fechaIngresoISO, fechaEmisionDate) {
 }
 
 
+
+// ======================= Filtros: segmento vendedor / contratos =======================
+function normalizarBool(v) {
+  return v === true || v === "true" || v === 1 || v === "1";
+}
+
+function getSegmentoFiltro() {
+  const nuevo = chkNuevo?.checked === true;
+  const antiguo = chkAntiguo?.checked === true;
+
+  // Ninguno o ambos marcados = todos.
+  if ((!nuevo && !antiguo) || (nuevo && antiguo)) return "todos";
+  if (nuevo) return "nuevo";
+  if (antiguo) return "antiguo";
+  return "todos";
+}
+
+function getContratoIdsSeleccionados() {
+  if (!elFiltrosContratos) return [];
+  return Array.from(elFiltrosContratos.querySelectorAll('input[type="checkbox"][data-id-contrato]:checked'))
+    .map((x) => Number(x.dataset.idContrato))
+    .filter((x) => Number.isFinite(x));
+}
+
+function recalcularTotales(rows) {
+  const tot = { realesTF: 0, reales40: 0, reales70: 0, plan: 0, pv: 0, tope: 0, sobre: 0, bajo: 0 };
+  for (const r of rows || []) {
+    tot.realesTF = clampMonto(tot.realesTF + (r.realesTF || 0));
+    tot.reales40 = clampMonto(tot.reales40 + (r.reales40 || 0));
+    tot.reales70 = clampMonto(tot.reales70 + (r.reales70 || 0));
+    tot.plan = clampMonto(tot.plan + (r.plan || 0));
+    tot.tope = clampMonto(tot.tope + (r.tope || 0));
+    tot.sobre = clampMonto(tot.sobre + (r.sobre || 0));
+    tot.bajo = clampMonto(tot.bajo + (r.bajo || 0));
+    tot.pv += Math.trunc(r.pv || 0);
+  }
+  return tot;
+}
+
+function aplicarFiltrosRows(rows) {
+  const segmento = getSegmentoFiltro();
+  const contratoIds = getContratoIdsSeleccionados();
+
+  return (rows || []).filter((r) => {
+    if (segmento === "nuevo" && r.isNuevo !== true) return false;
+    if (segmento === "antiguo" && r.isNuevo === true) return false;
+
+    if (contratoIds.length) {
+      const ids = Array.isArray(r.idContratosVigentes) ? r.idContratosVigentes : [];
+      if (!ids.some((id) => contratoIds.includes(Number(id)))) return false;
+    }
+
+    return true;
+  });
+}
+
+function ordenarConSeparacionNuevo(rows) {
+  const modoOrden = getOrdenModo();
+  const normales = (rows || []).filter(r => !r.isNuevo);
+  const nuevos = (rows || []).filter(r => r.isNuevo);
+  return [...ordenarRows(normales, modoOrden), ...ordenarRows(nuevos, modoOrden)];
+}
+
+async function fetchContratosActivos() {
+  const { data, error } = await supabase
+    .from("contratos")
+    .select("id_contrato, descripcion, nombre_contrato, vigente")
+    .eq("vigente", true)
+    .order("id_contrato", { ascending: true });
+
+  if (error) throw new Error(`Error contratos: ${error.message}`);
+  return (data || []).map((c) => ({
+    id_contrato: Number(c.id_contrato),
+    label: c.descripcion || c.nombre_contrato || `Contrato ${c.id_contrato}`,
+  }));
+}
+
+function renderContratosActivos() {
+  if (!elFiltrosContratos) return;
+  elFiltrosContratos.innerHTML = "";
+
+  if (!CONTRATOS_ACTIVOS.length) {
+    const empty = document.createElement("span");
+    empty.textContent = "Sin contratos activos";
+    empty.style.opacity = "0.7";
+    elFiltrosContratos.appendChild(empty);
+    return;
+  }
+
+  for (const c of CONTRATOS_ACTIVOS) {
+    const id = `chkRvContrato_${c.id_contrato}`;
+    const label = document.createElement("label");
+    label.className = "rv-check";
+    label.setAttribute("for", id);
+
+    const input = document.createElement("input");
+    input.id = id;
+    input.type = "checkbox";
+    input.dataset.idContrato = String(c.id_contrato);
+    input.addEventListener("change", refrescar);
+
+    const txt = document.createElement("span");
+    txt.textContent = c.label;
+
+    label.appendChild(input);
+    label.appendChild(txt);
+    elFiltrosContratos.appendChild(label);
+  }
+}
+
+async function ensureContratosActivos() {
+  if (!elFiltrosContratos) return;
+  if (!CONTRATOS_ACTIVOS.length) {
+    CONTRATOS_ACTIVOS = await fetchContratosActivos();
+    renderContratosActivos();
+  }
+}
+
+async function fetchContratosVigentesPorVendedor(vendorIds, desdeISO, hastaISO) {
+  const map = new Map();
+  for (const id of vendorIds || []) map.set(id, []);
+  if (!vendorIds?.length) return map;
+
+  const { data, error } = await supabase
+    .from("vendedor_contrato")
+    .select("id_vendedor, id_contrato, fecha_inicio, fecha_fin")
+    .in("id_vendedor", vendorIds);
+
+  if (error) throw new Error(`Error vendedor_contrato: ${error.message}`);
+
+  for (const r of data || []) {
+    if (!r?.id_vendedor || r.id_contrato == null) continue;
+    if (!overlaps(r.fecha_inicio, r.fecha_fin, desdeISO, hastaISO)) continue;
+    if (!map.has(r.id_vendedor)) map.set(r.id_vendedor, []);
+    map.get(r.id_vendedor).push(Number(r.id_contrato));
+  }
+
+  return map;
+}
+
 // ======================= Fetch base =======================
 async function fetchEquipoNombre(equipoId) {
   const { data, error } = await supabase
@@ -356,12 +500,12 @@ async function fetchVendedoresPorIds(vendorIds) {
   if (!vendorIds.length) return [];
   const { data, error } = await supabase
     .from("vendedores")
-    .select("id_vendedor, nombre, fecha_ingreso")
+    .select("id_vendedor, nombre, fecha_ingreso, nuevo")
     .in("id_vendedor", vendorIds);
 
   if (error) throw new Error(`Error vendedores: ${error.message}`);
 
-  return (data || []).map((v) => ({ id: v.id_vendedor, nombre: v.nombre || "", fecha_ingreso: v.fecha_ingreso }));
+  return (data || []).map((v) => ({ id: v.id_vendedor, nombre: v.nombre || "", fecha_ingreso: v.fecha_ingreso, nuevo: normalizarBool(v.nuevo) }));
 }
 
 async function fetchVentas(vendorIds, desdeISO, hastaISO) {
@@ -500,18 +644,23 @@ async function cargarDatasetEquipo({ equipoId, monthStartISO, monthEndISO, fecha
   const vendedores = await fetchVendedoresPorIds(vendorList);
   vendedores.sort((a, b) => collator.compare(a.nombre || "", b.nombre || "")); // VENDEDOR ASC
 
-  const ventas = await fetchVentas(vendorList, monthStartISO, monthEndISO);
+  const [ventas, contratosPorVendedor] = await Promise.all([
+    fetchVentas(vendorList, monthStartISO, monthEndISO),
+    fetchContratosVigentesPorVendedor(vendorList, monthStartISO, monthEndISO),
+  ]);
   const acc = buildAgg(ventas, tramosPorVendedor);
 
   const rows = [];
-  const tot = { realesTF: 0, reales40: 0, reales70: 0, plan: 0, pv: 0, tope: 0, sobre: 0, bajo: 0 };
 
   for (const v of vendedores) {
     const m = computeRow(acc[v.id] || null);
     rows.push({
+      id_vendedor: v.id,
       aapp: v.nombre || "",
       fecha_ingreso: v.fecha_ingreso,
-      isNuevo: esNuevoPorIngreso(v.fecha_ingreso, fechaEmision),
+      nuevo: v.nuevo === true,
+      isNuevo: v.nuevo === true,
+      idContratosVigentes: contratosPorVendedor.get(v.id) || [],
       realesTF: m.realesTF,
       reales40: m.reales40,
       reales70: m.reales70,
@@ -521,21 +670,11 @@ async function cargarDatasetEquipo({ equipoId, monthStartISO, monthEndISO, fecha
       sobre: m.sobre,
       bajo: m.bajo,
     });
-
-    tot.realesTF = clampMonto(tot.realesTF + m.realesTF);
-    tot.reales40 = clampMonto(tot.reales40 + m.reales40);
-    tot.reales70 = clampMonto(tot.reales70 + m.reales70);
-    tot.plan = clampMonto(tot.plan + m.plan);
-    tot.tope = clampMonto(tot.tope + m.tope);
-    tot.sobre = clampMonto(tot.sobre + m.sobre);
-    tot.bajo = clampMonto(tot.bajo + m.bajo);
-    tot.pv += m.pv;
   }
 
-  const modoOrden = getOrdenModo();
-  const normales = rows.filter(r => !r.isNuevo);
-  const nuevos = rows.filter(r => r.isNuevo);
-  const rowsOrdenadas = [...ordenarRows(normales, modoOrden), ...ordenarRows(nuevos, modoOrden)];
+  const rowsFiltradas = aplicarFiltrosRows(rows);
+  const rowsOrdenadas = ordenarConSeparacionNuevo(rowsFiltradas);
+  const tot = recalcularTotales(rowsOrdenadas);
   return { equipoId, equipoNombre, monthStartISO, monthEndISO, rows: rowsOrdenadas, tot };
 }
 
@@ -571,10 +710,13 @@ async function cargarDatasetZonalBatch(equipos, monthStartISO, monthEndISO, fech
 
   const vendorList = Array.from(vendorsGlobal);
   const vendedoresAll = await fetchVendedoresPorIds(vendorList);
-  const vendedorById = new Map(vendedoresAll.map(v => [v.id, { nombre: v.nombre || "", fecha_ingreso: v.fecha_ingreso }]));
+  const vendedorById = new Map(vendedoresAll.map(v => [v.id, { nombre: v.nombre || "", fecha_ingreso: v.fecha_ingreso, nuevo: v.nuevo === true }]));
 
-  // Ventas de todos los vendedores (1 llamada)
-  const ventasAll = await fetchVentas(vendorList, monthStartISO, monthEndISO);
+  // Ventas y contratos de todos los vendedores (1 llamada por fuente)
+  const [ventasAll, contratosGlobal] = await Promise.all([
+    fetchVentas(vendorList, monthStartISO, monthEndISO),
+    fetchContratosVigentesPorVendedor(vendorList, monthStartISO, monthEndISO),
+  ]);
 
   // Pre-group ventas por vendedor para armar equipos sin re-scan
   const ventasByVendor = new Map();
@@ -591,7 +733,7 @@ async function cargarDatasetZonalBatch(equipos, monthStartISO, monthEndISO, fech
     const tramosPorVendedor = ctx.tramosPorVendedor || new Map();
 
     // Vendedores del equipo (incluye sin ventas)
-    const vendedoresEq = vendorIdsEq.map(id => ({ id, nombre: (vendedorById.get(id)?.nombre) || "", fecha_ingreso: vendedorById.get(id)?.fecha_ingreso }));
+    const vendedoresEq = vendorIdsEq.map(id => ({ id, nombre: (vendedorById.get(id)?.nombre) || "", fecha_ingreso: vendedorById.get(id)?.fecha_ingreso, nuevo: vendedorById.get(id)?.nuevo === true }));
     vendedoresEq.sort((a, b) => collator.compare(a.nombre || "", b.nombre || ""));
 
     // Ventas del equipo
@@ -618,9 +760,12 @@ async function cargarDatasetZonalBatch(equipos, monthStartISO, monthEndISO, fech
       const realesTF = tope + sobre + bajo;
 
       rows.push({
+        id_vendedor: v.id,
         aapp: v.nombre || "",
         fecha_ingreso: v.fecha_ingreso,
-        isNuevo: esNuevoPorIngreso(v.fecha_ingreso, fechaEmision),
+        nuevo: v.nuevo === true,
+        isNuevo: v.nuevo === true,
+        idContratosVigentes: contratosGlobal.get(v.id) || [],
         equipo: equipoMeta.get(eq.id_equipo) || eq.nombre_equipo || "(sin nombre)",
         realesTF: clampMonto(realesTF),
         reales40: clampMonto(reales40),
@@ -641,17 +786,15 @@ async function cargarDatasetZonalBatch(equipos, monthStartISO, monthEndISO, fech
       tot.sobre = clampMonto(tot.sobre + sobre);
       tot.bajo = clampMonto(tot.bajo + bajo);
     }
-    const modoOrden = getOrdenModo();
-  const normales = rows.filter(r => !r.isNuevo);
-  const nuevos = rows.filter(r => r.isNuevo);
-  const rowsOrdenadas = [...ordenarRows(normales, modoOrden), ...ordenarRows(nuevos, modoOrden)];
-
+    const rowsFiltradas = aplicarFiltrosRows(rows);
+    const rowsOrdenadas = ordenarConSeparacionNuevo(rowsFiltradas);
+    const totFiltrado = recalcularTotales(rowsOrdenadas);
 
     teams.push({
       equipoId: eq.id_equipo,
       equipoNombre: equipoMeta.get(eq.id_equipo) || eq.nombre_equipo || "(sin nombre)",
       rows: rowsOrdenadas,
-      tot,
+      tot: totFiltrado,
     });
   }
 
@@ -736,7 +879,7 @@ rowsRender.forEach((r, idx) => {
     const trSep = document.createElement("tr");
     const tdSep = document.createElement("td");
     tdSep.colSpan = cols.length;
-    tdSep.textContent = "NUEVOS (según fecha de ingreso)";
+    tdSep.textContent = "NUEVOS";
     tdSep.style.border = "1px solid rgba(0,0,0,0.12)";
     tdSep.style.padding = "6px 8px";
     tdSep.style.textAlign = "left";
@@ -1181,7 +1324,7 @@ function applyMetaStyles(ws, titleLinesLen, metaRows) {
       }
 
       if (nuevos.length) {
-        rows.push(["NUEVOS (según fecha de ingreso)", "", "", "", "", "", "", "", "", ""]);
+        rows.push(["NUEVOS", "", "", "", "", "", "", "", "", ""]);
         metaRows.push({ separator: true });
 
         for (const r of nuevos) {
@@ -1226,7 +1369,7 @@ for (const r of normales) {
 }
 
 if (nuevos.length) {
-  rows.push(["NUEVOS (según fecha de ingreso)", "", "", "", "", "", "", "", "", ""]);
+  rows.push(["NUEVOS", "", "", "", "", "", "", "", "", ""]);
   metaRows.push({ separator: true });
 
   for (const r of nuevos) {
@@ -1263,6 +1406,8 @@ async function refrescar() {
     if (!userId) throw new Error("Sesión inválida.");
 
     const perfil = await getPerfilActual(userId);
+
+    await ensureContratosActivos();
 
     const selectedDay = parseSelectedDay(elDia?.value || toISODate(new Date()));
     const { first: monthStart, last: monthEnd } = monthBounds(selectedDay);
@@ -1348,6 +1493,8 @@ await asegurarXLSX();
 });
 
 elDia?.addEventListener("change", refrescar);
+chkNuevo?.addEventListener("change", refrescar);
+chkAntiguo?.addEventListener("change", refrescar);
 
 
 elOrden?.addEventListener("change", () => {
@@ -1359,9 +1506,8 @@ elOrden?.addEventListener("change", () => {
     if (DATASET.mode === "zonal" && Array.isArray(DATASET.teams)) {
       DATASET.teams = DATASET.teams.map(t => {
         const rows = Array.isArray(t.rows) ? t.rows : [];
-        const normales = rows.filter(r => !r.isNuevo);
-        const nuevos = rows.filter(r => r.isNuevo);
-        return { ...t, rows: [...ordenarRows(normales, modo), ...ordenarRows(nuevos, modo)] };
+        const rowsOrdenadas = ordenarConSeparacionNuevo(rows);
+        return { ...t, rows: rowsOrdenadas, tot: recalcularTotales(rowsOrdenadas) };
       });
       renderZonal(DATASET);
       return;
@@ -1369,9 +1515,8 @@ elOrden?.addEventListener("change", () => {
 
     if (DATASET.mode === "supervisor" && Array.isArray(DATASET.rows)) {
       const rows = Array.isArray(DATASET.rows) ? DATASET.rows : [];
-      const normales = rows.filter(r => !r.isNuevo);
-      const nuevos = rows.filter(r => r.isNuevo);
-      DATASET.rows = [...ordenarRows(normales, modo), ...ordenarRows(nuevos, modo)];
+      DATASET.rows = ordenarConSeparacionNuevo(rows);
+      DATASET.tot = recalcularTotales(DATASET.rows);
       renderSupervisor(DATASET);
       return;
     }

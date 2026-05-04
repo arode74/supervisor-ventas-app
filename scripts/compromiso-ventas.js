@@ -32,8 +32,13 @@ const elCarga = $("estadoCarga") || $("statusCarga") || $("lblEstado");
 const btnVolver = $("btnVolverReporteCV") || document.querySelector("[data-volver-reportes]");
 const btnExcel = $("btnExcel") || $("btnExcelReporte") || document.querySelector("[data-export-excel]");
 
+const chkNuevoVendedor = $("chkNuevoVendedorCV");
+const chkAntiguoVendedor = $("chkAntiguoVendedorCV");
+const elFiltrosContratos = $("filtrosContratosCV");
+
 let DATASET = null; // modo supervisor
 const DATASET_BY_TEAM = new Map(); // modo zonal: equipoId -> dataset
+let CONTRATOS_ACTIVOS = [];
 
 // ======================= UI helpers =======================
 function estado(msg, esError = false) {
@@ -277,6 +282,138 @@ function getEquipoIdActual() {
   return null;
 }
 
+
+// ======================= Filtros: nuevo / antiguo / contratos =======================
+function getSegmentoSeleccionado() {
+  const nuevo = chkNuevoVendedor?.checked === true;
+  const antiguo = chkAntiguoVendedor?.checked === true;
+  return { nuevo, antiguo };
+}
+
+function getContratosSeleccionados() {
+  if (!elFiltrosContratos) return [];
+  return Array.from(elFiltrosContratos.querySelectorAll('input[type="checkbox"][data-id-contrato]:checked'))
+    .map((el) => String(el.dataset.idContrato || ""))
+    .filter(Boolean);
+}
+
+function contratoLabel(c) {
+  return String(c?.descripcion || c?.nombre_contrato || `Contrato ${c?.id_contrato ?? ""}`).trim();
+}
+
+function renderFiltrosContratos(contratos) {
+  if (!elFiltrosContratos) return;
+
+  const seleccionadosPrevios = new Set(getContratosSeleccionados());
+  elFiltrosContratos.innerHTML = "";
+
+  const lista = Array.isArray(contratos) ? contratos : [];
+  if (!lista.length) {
+    const empty = document.createElement("span");
+    empty.textContent = "Sin contratos activos";
+    empty.style.fontSize = "12px";
+    empty.style.opacity = "0.7";
+    elFiltrosContratos.appendChild(empty);
+    return;
+  }
+
+  for (const c of lista) {
+    const id = String(c.id_contrato);
+    const label = document.createElement("label");
+    label.style.display = "flex";
+    label.style.alignItems = "center";
+    label.style.gap = "5px";
+    label.style.fontSize = "12px";
+    label.style.cursor = "pointer";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.dataset.idContrato = id;
+    input.checked = seleccionadosPrevios.has(id);
+    input.addEventListener("change", refrescarConFiltros);
+
+    const span = document.createElement("span");
+    span.textContent = contratoLabel(c);
+
+    label.appendChild(input);
+    label.appendChild(span);
+    elFiltrosContratos.appendChild(label);
+  }
+}
+
+async function fetchContratosActivos() {
+  try {
+    const { data, error } = await supabase
+      .from("contratos")
+      .select("id_contrato, descripcion, nombre_contrato, vigente")
+      .eq("vigente", true)
+      .order("id_contrato", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn("No se pudieron cargar contratos activos", e);
+    return [];
+  }
+}
+
+async function asegurarContratosActivos() {
+  CONTRATOS_ACTIVOS = await fetchContratosActivos();
+  renderFiltrosContratos(CONTRATOS_ACTIVOS);
+}
+
+async function fetchContratosVigentesVendedores(vendorIds, refISO) {
+  const map = new Map();
+  if (!Array.isArray(vendorIds) || !vendorIds.length) return map;
+
+  const { data, error } = await supabase
+    .from("vendedor_contrato")
+    .select("id_vendedor, id_contrato, fecha_inicio, fecha_fin")
+    .in("id_vendedor", vendorIds);
+
+  if (error) throw new Error(`Error vendedor_contrato: ${error.message}`);
+
+  for (const r of data || []) {
+    const fi = r.fecha_inicio ? String(r.fecha_inicio).slice(0, 10) : "0000-01-01";
+    const ff = r.fecha_fin ? String(r.fecha_fin).slice(0, 10) : "9999-12-31";
+    if (!(fi <= refISO && refISO <= ff)) continue;
+
+    const vid = r.id_vendedor;
+    if (!map.has(vid)) map.set(vid, new Set());
+    map.get(vid).add(String(r.id_contrato));
+  }
+
+  return map;
+}
+
+function vendedorCumpleFiltros(vendedor, ds) {
+  const seg = getSegmentoSeleccionado();
+
+  // Sin segmento marcado o ambos marcados => no filtra por segmento.
+  if (seg.nuevo !== seg.antiguo) {
+    if (seg.nuevo && vendedor.nuevo !== true) return false;
+    if (seg.antiguo && vendedor.nuevo === true) return false;
+  }
+
+  const contratosSeleccionados = getContratosSeleccionados();
+  if (contratosSeleccionados.length) {
+    const contratosVend = ds?.contratosPorVendedor?.get?.(vendedor.id) || new Set();
+    const tieneContratoSeleccionado = contratosSeleccionados.some((id) => contratosVend.has(String(id)));
+    if (!tieneContratoSeleccionado) return false;
+  }
+
+  return true;
+}
+
+function vendedoresFiltrados(ds) {
+  return (ds?.vendedores || []).filter((v) => vendedorCumpleFiltros(v, ds));
+}
+
+function refrescarConFiltros() {
+  // Recarga liviana y segura: conserva comportamiento para supervisor/zonal y evita estados parciales en paneles expandidos.
+  refrescar();
+}
+
 // ======================= Fetch base (supervisor / ventas) =======================
 async function fetchTiposCompromisos({ perfil, userId, equipoId }) {
   // Reglas mínimas pedidas:
@@ -367,13 +504,13 @@ async function fetchVendedoresPorIds(vendorIds) {
   if (!vendorIds.length) return [];
   const { data, error } = await supabase
     .from("vendedores")
-    .select("id_vendedor, nombre")
+    .select("id_vendedor, nombre, nuevo")
     .in("id_vendedor", vendorIds);
 
   if (error) throw new Error(`Error vendedores: ${error.message}`);
 
   return (data || [])
-    .map((v) => ({ id: v.id_vendedor, nombre: v.nombre || "" }));
+    .map((v) => ({ id: v.id_vendedor, nombre: v.nombre || "", nuevo: v.nuevo === true }));
 }
 
 async function fetchGestion(equipoId, supervisorId, lunesISO, viernesISO) {
@@ -707,8 +844,10 @@ function buildAcumuladoGrid(acc) {
 function renderVendedoresEnContenedor(ds, containerEl) {
   containerEl.innerHTML = "";
 
-  if (!ds.vendedores.length) {
-    containerEl.innerHTML = `<div style="padding:10px 0;">Sin vendedores vigentes para el equipo/semana.</div>`;
+  const vendedoresBase = vendedoresFiltrados(ds);
+
+  if (!vendedoresBase.length) {
+    containerEl.innerHTML = `<div style="padding:10px 0;">Sin vendedores para los filtros seleccionados.</div>`;
     return;
   }
 
@@ -753,7 +892,8 @@ function renderVendedoresEnContenedor(ds, containerEl) {
   bar.appendChild(sel);
   containerEl.appendChild(bar);
 
-  const vendedoresOrdenados = sortVendedores(ds, ds.__sortMode);
+  const dsFiltrado = { ...ds, vendedores: vendedoresBase };
+  const vendedoresOrdenados = sortVendedores(dsFiltrado, ds.__sortMode);
 
   for (const vend of vendedoresOrdenados) {
     const bloque = document.createElement("div");
@@ -1163,11 +1303,12 @@ async function cargarDatasetEquipo({ equipoId, perfil, userId, ctx }) {
   const { vendorIds, tramosPorVendedor } = tramosVigentesEnRango(tramos, weekMondayISO, weekSundayISO);
   const vendorList = Array.from(vendorIds);
 
-  const [vendedores, ventasSemana, ventasMes, feriadosMap] = await Promise.all([
+  const [vendedores, ventasSemana, ventasMes, feriadosMap, contratosPorVendedor] = await Promise.all([
     fetchVendedoresPorIds(vendorList),
     fetchVentas(vendorList, weekMondayISO, weekSundayISO),
     fetchVentas(vendorList, mesInicioISO, mesFinISO),
     fetchFeriados(weekMondayISO, weekSundayISO),
+    fetchContratosVigentesVendedores(vendorList, toISODate(ctx.selectedDay)),
   ]);
 
   // Compromisos / tipos
@@ -1192,6 +1333,7 @@ async function cargarDatasetEquipo({ equipoId, perfil, userId, ctx }) {
     equipoId,
     ctx,
     vendedores,
+    contratosPorVendedor,
     tipos,
     feriadosMap,
     gestionMap: buildGestionMap(compromisosSemana),
@@ -1518,6 +1660,8 @@ async function refrescar() {
     const ctx = parseInputToContext(elDia?.value || defaultDateInputValue());
     setRangoLabel(ctx);
 
+    await asegurarContratosActivos();
+
     // Limpieza de caches
     DATASET = null;
     DATASET_BY_TEAM.clear();
@@ -1577,6 +1721,8 @@ btnExcel?.addEventListener("click", async () => {
 });
 
 elDia?.addEventListener("change", refrescar);
+chkNuevoVendedor?.addEventListener("change", refrescarConFiltros);
+chkAntiguoVendedor?.addEventListener("change", refrescarConFiltros);
 
 (function bindOrdenEquiposSelector() {
   const sel =

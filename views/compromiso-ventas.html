@@ -15,6 +15,41 @@
       <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
         <input id="selectDia" type="date" />
         <span id="labelSemana" style="opacity:.85;"></span>
+
+        <fieldset
+          id="filtroSegmentoVendedorCV"
+          style="
+            display:flex; align-items:center; gap:10px;
+            margin:0; padding:6px 10px;
+            border:1px solid rgba(0,0,0,.18);
+            border-radius:10px;
+            min-height:34px;
+          "
+        >
+          <legend style="padding:0 4px; font-size:11px; font-weight:700; opacity:.8;">Segmento vendedor</legend>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;">
+            <input id="chkNuevoVendedorCV" type="checkbox" />
+            Nuevo
+          </label>
+          <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;">
+            <input id="chkAntiguoVendedorCV" type="checkbox" />
+            Antiguo
+          </label>
+        </fieldset>
+
+        <fieldset
+          id="filtroContratosCV"
+          style="
+            display:flex; align-items:center; gap:10px;
+            margin:0; padding:6px 10px;
+            border:1px solid rgba(0,0,0,.18);
+            border-radius:10px;
+            min-height:34px;
+          "
+        >
+          <legend style="padding:0 4px; font-size:11px; font-weight:700; opacity:.8;">Tipos de contratos</legend>
+          <span id="filtrosContratosCV" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"></span>
+        </fieldset>
       </div>
     </div>
 
